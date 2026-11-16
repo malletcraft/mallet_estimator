@@ -307,7 +307,80 @@ object SurveyGuide {
      *  rejection) keeps what was dragged, as a lift does and as sp.js's pointercancel does (`up` -> `gr.end(moved)`). */
     fun revertOnCancel(secondFinger: Boolean, moved: Boolean) = secondFinger && moved
 
-    /** The floating trash keeps its disc this far (dp) clear of the selected item's end handles: the handle's 5.5 dp
-     *  and a 2 dp margin, so the disc never covers a handle -- and the press on a handle is the end's (hit order). */
-    const val HANDLE_CLEAR_DP = END_R_DP + 2.0
+    // ------------------------------------------------------------ the whole item moved by its body (port 63 slice F1)
+
+    /*
+     * A TAPE, A LINE AND AN AREA MOVE BY THEIR BODY. Amit, 16 Nov 2026, with build 0.3.337 on his phone: "tape mark
+     * does not move unless its end points are moved. difficult for moving it from one point to other." Until now only
+     * an end moved: carrying a tape from one wall edge to the other meant dragging one end, then the other, and
+     * setting its length twice. So, with the item PICKED, a drag that starts on its body -- its line, or a tape's band;
+     * an area's outline -- and outside its ends' grab radius moves the WHOLE item: every point by the same delta.
+     *
+     * It follows a picked MARK's own rule for everything else: with Select on, where things may be moved at all
+     * (never in 3 · Measure); a locked one is picked and does not move, and a drag says why ([lockedEnd]); one the
+     * phase holds read-only says the phase's line; a long still press opens its menu; a second finger lets it go where
+     * it is. Like an end it waits for the finger to leave the dead zone ([EndGate]), so the tap that only picks it
+     * never nudges it. Its reading -- a Line's length, an area's perimeter -- is not touched: moving does not change
+     * what was measured, and a tape's figure, which is its own length, comes out the same.
+     *
+     * ONLY THE PICKED ONE: a press on a Tape or a Line that is NOT picked picks it and moves nothing, as before -- a
+     * tape can lie right across the wall, and a finger that went down on it to slide the photo must not carry it off.
+     */
+
+    /** What a press on the picked Tape's, Line's or area's BODY is. */
+    sealed class BodyPress {
+        /** It is grabbed whole: a drag moves every point of it together ([bodyMove]). */
+        object Grab : BodyPress()
+        /** It is locked: still picked, nothing moves, and a drag says [lockedEnd] of [code]. */
+        class Locked(val code: String) : BodyPress()
+    }
+
+    /**
+     * A PRESS AT ([x], [y]) canvas px ON THE BODY OF [sel] -- the Tape, Line or area picked on this face, whose points
+     * on screen are [scr] -- or null: the press goes on down the hit order. [edit]: this step moves things (a mark's
+     * body moves here); only with Select on ([tool]), as its end handles are only drawn then; never while a Line area
+     * is being tapped ([areaOpen]). An END KEEPS ITS OWN PRESS: within [endPx] of one of its points (14 dp,
+     * [END_HIT_DP]) this answers null, and [endPress] moves that end alone. The body is what a tap picks the item by
+     * ([SurveyMeas.pick]): within [bodyPx] (12 dp, [SurveyMeas.PICK_DP]) of its line -- of a tape's band, [widenPx]
+     * its half-width on screen -- and, for an area, of its outline: the marks inside an area stay within reach.
+     */
+    fun bodyPress(edit: Boolean, tool: String, sel: SurveyPrep.Meas?, areaOpen: Boolean, scr: List<DoubleArray>,
+                  x: Double, y: Double, endPx: Double, bodyPx: Double, widenPx: Double = 0.0): BodyPress? {
+        if (!edit || tool != SurveyPrepPalette.SEL) return null
+        if (areaOpen || sel == null || !SurveyMeas.known(sel.kind) || scr.size != sel.pts.size || scr.size < 2) return null
+        if (endAt(scr, x, y, endPx) != null) return null
+        if (SurveyMeas.pick(listOf(sel to scr), x, y, bodyPx) { widenPx } == null) return null
+        return if (SurveyPrep.isLocked(sel)) BodyPress.Locked(sel.code) else BodyPress.Grab
+    }
+
+    /**
+     * HOW FAR THE WHOLE ITEM GOES for a drag of ([dx], [dy]) mm from where its points [start] were, on an [a] x [b]
+     * face: ONE delta for every point, to 0.1 mm. THE MOVE STOPS AT THE EDGE: the delta is cut where the first point
+     * would leave the face, so no point is ever clamped alone and the shape never changes. An item that already
+     * reaches past an edge (a tape plotted on the boundary line: [SurveyPrep.onFace] allows 25 mm) is never pulled
+     * back by a move and never pushed further out: it can only go the other way. No move at all is always allowed.
+     */
+    fun bodyDelta(start: List<DoubleArray>, dx: Double, dy: Double, a: Double, b: Double): DoubleArray {
+        if (start.isEmpty() || !dx.isFinite() || !dy.isFinite()) return doubleArrayOf(0.0, 0.0)
+        val lx = min(0.0, -start.minOf { it[0] }); val hx = max(0.0, a - start.maxOf { it[0] })
+        val ly = min(0.0, -start.minOf { it[1] }); val hy = max(0.0, b - start.maxOf { it[1] })
+        fun cut(d: Double, lo: Double, hi: Double) = (Math.round(d.coerceIn(lo, hi) * 10) / 10.0).coerceIn(lo, hi)
+        return doubleArrayOf(cut(dx, lx, hx), cut(dy, ly, hy))
+    }
+
+    /**
+     * THE WHOLE ITEM MOVED: every point of [m] is where it was when the drag began ([start], copies) plus the one
+     * delta [bodyDelta] allows. A LOCKED item does not move (false, nothing changed), nor one whose points are no
+     * longer the ones the drag began with. Its code, its kind, its lock and its reading are not touched.
+     */
+    fun bodyMove(m: SurveyPrep.Meas, start: List<DoubleArray>, dx: Double, dy: Double, a: Double, b: Double): Boolean {
+        if (SurveyPrep.isLocked(m) || start.isEmpty() || start.size != m.pts.size) return false
+        val d = bodyDelta(start, dx, dy, a, b)
+        for (i in start.indices) m.pts[i] = doubleArrayOf(tidy(start[i][0] + d[0]), tidy(start[i][1] + d[1]))
+        return true
+    }
+
+    /** [v] without the last-bit noise an addition leaves (100.0 + 0.3), and nothing else: a point that was not on
+     *  the 0.1 mm grid keeps its own place on the item, so the shape is exactly what it was. */
+    private fun tidy(v: Double): Double { val t = Math.round(v * 10) / 10.0; return if (abs(t - v) < 1e-9) t else v }
 }

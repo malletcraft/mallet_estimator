@@ -454,6 +454,26 @@ internal object SurveyPrepDraw {
     }
 
     /**
+     * THE GOLD FRAME ROUND THE MARK BEING MEASURED (MarkDims.ACTIVE_COLOUR): [MarkDims.ACTIVE_GAP_DP] outside its box --
+     * a point: a ring that far outside its dot -- gold over a dark casing, so it reads on a bright photo and a dark
+     * one alike. A Note asks nothing and is never measured.
+     */
+    private fun measuring(c: Canvas, e: SurveyPrep.Mark, sq: SurveyPrep.Square, m: (Double, Double) -> FloatArray, dp: Float) {
+        if (MarkLife.isNote(e)) return
+        val gap = MarkDims.ACTIVE_GAP_DP.toFloat() * dp
+        val case = stroke(argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA), MarkDims.ACTIVE_FRAME_CASE_DP.toFloat() * dp)
+        val gold = stroke(argb(MarkDims.ACTIVE_COLOUR), MarkDims.ACTIVE_FRAME_DP.toFloat() * dp)
+        if (SurveyPrep.isPoint(e.t)) {
+            val d = spotOf(e, sq, m, dp); val r = d[2] + gap + MarkDims.ACTIVE_FRAME_DP.toFloat() * dp / 2f
+            c.drawCircle(d[0], d[1], r, case); c.drawCircle(d[0], d[1], r, gold)
+            return
+        }
+        val p = m(sq.x(e.x0), sq.y(e.y1)); val q = m(sq.x(e.x1), sq.y(e.y0))
+        val l = min(p[0], q[0]) - gap; val t = min(p[1], q[1]) - gap; val r = max(p[0], q[0]) + gap; val b = max(p[1], q[1]) + gap
+        c.drawRect(l, t, r, b, case); c.drawRect(l, t, r, b, gold)
+    }
+
+    /**
      * [audience] decides WHICH marks are drawn and what of them (SheetMarks.marks): the office's screen every mark with
      * its state; anyone else's picture the room as surveyed. It has no default -- every call site names who it draws for.
      */
@@ -487,8 +507,13 @@ internal object SurveyPrepDraw {
                 addRect(0f, 0f, o.width, o.height, Path.Direction.CW)
                 addRect(hole[0] - pad, hole[1] - pad, hole[2] + pad, hole[3] + pad, Path.Direction.CW)
             }
-            c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, 0x33) })
+            c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, MarkDims.DIM_ALPHA) })
         }
+        // THE MARK BEING MEASURED IS FRAMED IN GOLD (Amit, 16 Nov 2026: "i cant see which mark is being measured as its
+        // no highlighted on foto"; MarkDims.ACTIVE_COLOUR) -- under the marks, so its own outline, code and tabs are
+        // drawn over the frame, which stands just outside its box. The editing photo only: never a saved picture.
+        if (o.mode == "main") o.active?.let { a -> o.prep.ownerOf(a)?.id }?.let { id -> els.firstOrNull { it.id == id } }
+            ?.let { e -> measuring(c, e, sq, m, o.dp) }
         for (e in els.sortedBy { if (sm != null && it === sm) 1 else 0 }) {
             val col = SurveyPrep.typeOf(s, e.t).colour
             val p = m(sq.x(e.x0), sq.y(e.y1)); val q = m(sq.x(e.x1), sq.y(e.y0)); val sel = o.selId == e.id
@@ -690,7 +715,11 @@ internal object SurveyPrepDraw {
         val closed = kind == SurveyMeas.AREA; val isLine = kind == SurveyMeas.LINE
         val col = if (draft && off) OUT_COLOUR else LINE_C
         val scr = pts.map(toS)
-        val p = stroke(argb(col), (if (sel) 3.5f else 2.4f) * dp).apply { strokeCap = Paint.Cap.ROUND }
+        // THE LINE OR AREA BEING MEASURED is gold over a dark casing, as a mark's dimension is (MarkDims.ACTIVE_COLOUR)
+        val meas = !draft && figure != null && o != null && figure == o.active
+        val ink = if (meas) MarkDims.ACTIVE_COLOUR else col
+        val case = if (meas) stroke(argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA), 7f * dp).apply { strokeCap = Paint.Cap.ROUND } else null
+        val p = stroke(argb(ink), (if (meas) 4f else if (sel) 3.5f else 2.4f) * dp).apply { strokeCap = Paint.Cap.ROUND }
         if (draft) p.pathEffect = DashPathEffect(floatArrayOf(7f * dp, 5f * dp), 0f)
         if (closed && !draft && scr.size >= 3) {
             val fill = Path().apply { moveTo(scr[0][0], scr[0][1]); for (i in 1 until scr.size) lineTo(scr[i][0], scr[i][1]); close() }
@@ -699,9 +728,10 @@ internal object SurveyPrepDraw {
         val n = if (closed) scr.size else scr.size - 1
         for (i in 0 until n) {
             val a = scr[i]; val b = scr[(i + 1) % scr.size]
+            if (case != null) c.drawLine(a[0], a[1], b[0], b[1], case)
             c.drawLine(a[0], a[1], b[0], b[1], p)
             if (isLine && hypot(b[0] - a[0], b[1] - a[1]) >= 3 * SurveyMeas.HEAD_LEN_DP.toFloat() * dp) {
-                head(c, a, b, col, dp); head(c, b, a, col, dp)
+                head(c, a, b, ink, dp); head(c, b, a, ink, dp)
             }
         }
         // an area's corners, and the corners tapped so far, as white dots ringed in the Line's blue; the picked Line's
@@ -921,8 +951,14 @@ internal object SurveyPrepDraw {
         o.tags?.addAll(out.tags)
         val ln = stroke(argb(MarkDims.LINE_COLOUR, MarkDims.LINE_ALPHA), (DimLayout.LINE_U * du).toFloat())
         val tip = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(MarkDims.LINE_COLOUR, MarkDims.LINE_ALPHA) }
+        // THE DIMENSION BEING MEASURED: its line and arrowheads in gold over a dark casing, three times as heavy as any
+        // other (MarkDims.ACTIVE_COLOUR) -- so which side of the mark the laser is asked for is seen at a glance
+        val lnCase = stroke(argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA), (DimLayout.LINE_U * du * MarkDims.ACTIVE_LINE_CASE_X).toFloat())
+        val tipCase = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA) }
+        val lnOn = stroke(argb(MarkDims.ACTIVE_COLOUR), (DimLayout.LINE_U * du * MarkDims.ACTIVE_LINE_X).toFloat())
+        val tipOn = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(MarkDims.ACTIVE_COLOUR) }
         fun pass(ps: List<DimLayout.Plate>) {
-            for (p in ps) dimLine(c, p, ln, tip, du)
+            for (p in ps) if (p.fig.active) { dimLine(c, p, lnCase, tipCase, du); dimLine(c, p, lnOn, tipOn, du) } else dimLine(c, p, ln, tip, du)
             for (p in ps) if (p.dot) dot(c, p, dp) else plate(c, p, ::pen, dp, times)
         }
         // the picked mark's figures last and at full strength; the others' with their marks, at 75 % while one is picked
@@ -994,7 +1030,7 @@ internal object SurveyPrepDraw {
         val r = (DimLayout.RADIUS_DP * dp).toFloat()
         c.drawRoundRect(box, r, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(st.fill, st.fillAlpha) })
         st.outline?.let { ring ->
-            c.drawRoundRect(box, r, r, stroke(argb(ring), ((if (f.active) 2.0 else 1.0) * dp).toFloat()).apply {
+            c.drawRoundRect(box, r, r, stroke(argb(ring), ((if (f.active) 1.5 else 1.0) * dp).toFloat()).apply {
                 if (st.dashed) pathEffect = DashPathEffect(floatArrayOf((3 * dp).toFloat(), (2 * dp).toFloat()), 0f) })
         }
         val ink = pen(f.fs, st.bold).apply { color = argb(st.ink) }
@@ -1002,7 +1038,7 @@ internal object SurveyPrepDraw {
         c.drawText(f.text, x, y, ink)
         if (f.check) {
             val past = ink.measureText(f.text)
-            c.drawText(MarkDims.CHECK_GLYPH, x + past, y, ink.apply { color = argb(MarkDims.CHECK_COLOUR) })
+            c.drawText(MarkDims.CHECK_GLYPH, x + past, y, ink.apply { color = argb(MarkDims.checkInk(f.active)) })
         }
         if (p.turned) c.restore()
         // the compact plate's " × ", once, after its first half
@@ -1015,6 +1051,12 @@ internal object SurveyPrepDraw {
     /** A figure with no room for its plate: a 6 dp dot on its line -- solid once measured, hollow until then. */
     private fun dot(c: Canvas, p: DimLayout.Plate, dp: Double) {
         val b = p.box; val cx = ((b.l + b.r) / 2).toFloat(); val cy = ((b.t + b.b) / 2).toFloat(); val r = (b.w / 2).toFloat()
+        // the one being measured, should it ever have no room for its plate: a gold dot in a dark ring
+        if (p.fig.active) {
+            c.drawCircle(cx, cy, r + (1.5 * dp).toFloat(), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA) })
+            c.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(MarkDims.ACTIVE_COLOUR) })
+            return
+        }
         if (p.measured) c.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
         else {
             c.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, 0x88) })

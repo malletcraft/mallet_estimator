@@ -100,43 +100,47 @@ class LockTest {
         val p = room()
         val s1 = mark(p, "s1")
         assertEquals("FS1 Switch plate", SurveyPrepEdit.menuHeader(Tx.EN, "front", s1))
-        assertEquals(listOf("Delete", "Duplicate", "Lock", "Lock all Switch plate", "Cancel"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.second })
-        assertEquals(listOf("del", "dup", "lock", "lockall", "cancel"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.first })
+        assertEquals(listOf("Duplicate", "Lock", "Lock all Switch plate", "Cancel", "Delete"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.second })
+        assertEquals(listOf("dup", "lock", "lockall", "cancel", "del"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.first })
         val g = SurveyPrepEdit.lockGroup(p, "front", s1)
         assertEquals("Switch plate", g.name); assertEquals(2, g.n); assertFalse(g.all)
         SurveyPrepEdit.lockAll(p, "front", "S", true)
         assertEquals("🔒 FS1 Switch plate", SurveyPrepEdit.menuHeader(Tx.EN, "front", s1))
-        assertEquals(listOf("Delete", "Duplicate", "Unlock", "Unlock all Switch plate", "Cancel"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.second })
+        assertEquals(listOf("Duplicate", "Unlock", "Unlock all Switch plate", "Cancel", "Delete"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.second })
         // the floor's S is a Step: its group is named so
         val st = p.addMarkAt("floor", "S", 1300.0, 1600.0, W, L, "g1")
-        assertEquals("Lock all Step", SurveyPrepEdit.menuItems(Tx.EN, p, "floor", st)[3].second)
-        // ct52 1033: "Delete|Duplicate|Lock|Lock all Door|Cancel"
-        assertEquals("Delete|Duplicate|Lock|Lock all Door|Cancel", SurveyPrepEdit.menuItems(Tx.EN, p, "front", mark(p, "d1")).joinToString("|") { it.second })
+        assertEquals("Lock all Step", SurveyPrepEdit.menuItems(Tx.EN, p, "floor", st).single { it.first == SurveyPrepEdit.LOCK_ALL }.second)
+        // ct52 1033 had "Delete|Duplicate|Lock|Lock all Door|Cancel"; since port 63 slice F1 the delete row is the LAST
+        // (Amit, 16 Nov 2026: "same for delete button for any item" -- the menu opens under the finger; DeleteGuard.last)
+        assertEquals("Duplicate|Lock|Lock all Door|Cancel|Delete", SurveyPrepEdit.menuItems(Tx.EN, p, "front", mark(p, "d1")).joinToString("|") { it.second })
     }
 
     @Test fun `the menu's shape row -- Four corners after Duplicate, only where the caller asks for it (port 63 slice Q1)`() {
+        // THE ROW'S PLACE WAS RE-TAKEN AT THE MERGE OF SLICE F1 (16 Nov 2026): Q1 wrote this test on a menu that began
+        // `Delete | Duplicate`; F1 made Delete the LAST row. The row stands after Duplicate and before Lock -- Q1's own
+        // rule -- and never after Delete (SurveyPrepEdit.menuItemsOf; QuadMeetsF1Test holds the meeting point at every stage)
         val p = room(); val en = Tx.EN
-        fun rows(id: String, st: Int?, shape: Boolean, picked: String? = null) = SurveyPrepEdit.menuItemsOf(en, p, id, st, picked, shape)
+        fun rows(id: String, st: Int?, shape: Boolean, picked: String? = null) = SurveyPrepEdit.menuItemsOf(en, p, id, st, picked, shape = shape)
         fun text(id: String, st: Int?, shape: Boolean, picked: String? = null) = rows(id, st, shape, picked).joinToString("|") { it.second }
         // NOT ON SCREEN YET: the screen's one call passes no `shape`, and gets the five rows it always got -- at every stage
         for (st in listOf<Int?>(0, 1, 2, 3, 4, 5, null)) for (id in listOf("d1", "s1", "e1"))
             assertEquals(SurveyPrepEdit.menuItemsOf(en, p, id, st, null), rows(id, st, false), "$id at $st")
-        assertEquals("Delete|Duplicate|Lock|Lock all Door|Cancel", SurveyPrepEdit.menuItemsOf(en, p, "d1", 0, null).joinToString("|") { it.second })
-        assertEquals("Delete|Duplicate|Lock|Lock all Door|Cancel", SurveyPrepEdit.menuItemsOf(en, p, "d1").joinToString("|") { it.second })
-        // ASKED FOR, at Survey: one row more, after Duplicate
-        assertEquals("Delete|Duplicate|Four corners|Lock|Lock all Door|Cancel", text("d1", 0, true))
-        assertEquals(listOf("del", "dup", "free", "lock", "lockall", "cancel"), rows("d1", 0, true).map { it.first })
+        assertEquals("Duplicate|Lock|Lock all Door|Cancel|Delete", SurveyPrepEdit.menuItemsOf(en, p, "d1", 0, null).joinToString("|") { it.second })
+        assertEquals("Duplicate|Lock|Lock all Door|Cancel|Delete", SurveyPrepEdit.menuItemsOf(en, p, "d1").joinToString("|") { it.second })
+        // ASKED FOR, at Survey: one row more, after Duplicate -- and Delete is still the last
+        assertEquals("Duplicate|Four corners|Lock|Lock all Door|Cancel|Delete", text("d1", 0, true))
+        assertEquals(listOf("dup", "free", "lock", "lockall", "cancel", "del"), rows("d1", 0, true).map { it.first })
         assertEquals("free", SurveyPrepEdit.SHAPE_FREE); assertEquals("box", SurveyPrepEdit.SHAPE_BOX)
         assertEquals(text("d1", 0, true), text("d1", null, true), "while the stage is unread: Survey's rules")
         // on a mark that carries a quad the row reads Rectangle, and is the other act
         val d = mark(p, "d1")
         assertTrue(Quad.set(d, listOf(doubleArrayOf(d.x0, d.y0), doubleArrayOf(d.x1, d.y0), doubleArrayOf(d.x1, d.y1 - 300), doubleArrayOf(d.x0, d.y1))))
-        assertEquals("Delete|Duplicate|Rectangle|Lock|Lock all Door|Cancel", text("d1", 0, true))
-        assertEquals("box", rows("d1", 0, true)[2].first)
+        assertEquals("Duplicate|Rectangle|Lock|Lock all Door|Cancel|Delete", text("d1", 0, true))
+        assertEquals("box", rows("d1", 0, true)[1].first)
         assertEquals(SurveyPrepEdit.SHAPE_BOX to "Rectangle", SurveyPrepEdit.shapeRow(en, d)); assertEquals(SurveyPrepEdit.SHAPE_FREE to "Four corners", SurveyPrepEdit.shapeRow(en, mark(p, "d2")))
         // a point and a Note may have no quad: no row, asked for or not
         assertNull(SurveyPrepEdit.shapeRow(en, mark(p, "e1")))
-        assertEquals("Delete|Duplicate|Lock|Lock all Electric point|Cancel", text("e1", 0, true))
+        assertEquals("Duplicate|Lock|Lock all Electric point|Cancel|Delete", text("e1", 0, true))
         val note = SurveyPrep.Mark("n1", MarkTypes.NOTE, "FNOTE1", 900.0, 950.0, 900.0, 950.0).also { p.surface("front").marks.add(it) }
         assertNull(SurveyPrepEdit.shapeRow(en, note)); assertTrue(rows("n1", 0, true).none { it.first == SurveyPrepEdit.SHAPE_FREE || it.first == SurveyPrepEdit.SHAPE_BOX })
         // a Tape, a Line, a chain and the reference have none either
@@ -145,16 +149,17 @@ class LockTest {
         assertEquals(SurveyPrepEdit.menuItemsOf(en, p, SurveyRef.id("front"), 0, null), rows(SurveyRef.id("front"), 0, true))
         // ON A LOCKED MARK the row is drawn -- the act answers the lock's own words, as Delete does
         SurveyPrepEdit.setLocked(p, "d2", true)
-        assertEquals("Delete|Duplicate|Four corners|Unlock|Lock all Door|Cancel", text("d2", 0, true))
+        assertEquals("Duplicate|Four corners|Unlock|Lock all Door|Cancel|Delete", text("d2", 0, true))
         // HIDDEN WHERE THE PHASE HOLDS THE MARK READ-ONLY, like Lock all: a surveyed mark after Survey is its head and Cancel
         for (st in listOf(1, 2, 3, 4, 5)) { assertEquals("Cancel", text("s1", st, true), "$st"); assertEquals(SurveyPrepEdit.menuItemsOf(en, p, "s1", st, null), rows("s1", st, true)) }
-        // a mark born in the phase is reshaped there: the row stands after whichever of Delete and Duplicate the phase left
+        // a mark born in the phase is reshaped there. The phase hides its Duplicate (a copy would be a surveyed mark), so
+        // the row is the menu's FIRST, before Lock -- and its Drop stays the last row, where F1 put it
         val at = java.time.Instant.parse("2026-11-16T05:00:00Z")
         PhaseTools.place(p, "front", "CRP", 1300.0, 1500.0, W, H, "u1", PhaseTools.WISH_LIST, null, at) { }!!
         assertTrue(PhaseTools.editable(p, "u1", 1)); assertFalse(PhaseTools.copyOk(p, "u1", 1, null))
         val wish = rows("u1", 1, true).map { it.first }
-        assertEquals(SurveyPrepEdit.menuItemsOf(en, p, "u1", 1, null).map { it.first }.let { five -> five.takeWhile { it == SurveyPrepEdit.DELETE } + "free" + five.dropWhile { it == SurveyPrepEdit.DELETE } }, wish)
-        assertEquals("free", wish[wish.indexOf("lock") - 1], "before Lock"); assertFalse("dup" in wish)
+        assertEquals(listOf("free") + SurveyPrepEdit.menuItemsOf(en, p, "u1", 1, null).map { it.first }, wish)
+        assertEquals("free", wish[wish.indexOf("lock") - 1], "before Lock"); assertFalse("dup" in wish); assertEquals("del", wish.last(), "the delete row is last")
         // Estimation offers no delete and no copy -- and no edit, so no row
         assertTrue(rows("u1", 3, true).none { it.first == "free" })
         // ... and with NEITHER left it stands first, before Lock: a vendor's door at Client approved is still the phase's
@@ -164,8 +169,9 @@ class LockTest {
         assertTrue(PhaseTools.editable(p, "v1", 5)); assertTrue("del" !in five && "dup" !in five, five.toString())
         assertEquals(listOf("free") + five, rows("v1", 5, true).map { it.first }); assertEquals("lock", five.first())
         // Marathi: the two rows are English for now (the journey is verified in English first), the rest the menu's own
-        assertEquals(listOf("हटवा", "प्रत बनवा", "Four corners"), SurveyPrepEdit.menuItemsOf(Tx.MR, p, "d2", 0, null, true).take(3).map { it.second })
-        assertEquals("Rectangle", SurveyPrepEdit.menuItemsOf(Tx.MR, p, "d1", 0, null, true)[2].second)
+        val mr = SurveyPrepEdit.menuItemsOf(Tx.MR, p, "d2", 0, null, shape = true).map { it.second }
+        assertEquals(listOf("प्रत बनवा", "Four corners"), mr.take(2)); assertEquals("हटवा", mr.last())
+        assertEquals("Rectangle", SurveyPrepEdit.menuItemsOf(Tx.MR, p, "d1", 0, null, shape = true)[1].second)
     }
 
     @Test fun `the lines' lock is the surface's own, and says so`() {
@@ -217,7 +223,7 @@ class LockTest {
         assertTrue(p.deleteMark("w0")); assertNull(p.actual["${w0.code}.w"])
     }
 
-    @Test fun `the delete control's word, its label and the menu's first row follow the mark -- Drop past Existing, Restore on a Dropped one`() {
+    @Test fun `the delete control's word, its label and the menu's delete row follow the mark -- Drop past Existing, Restore on a Dropped one`() {
         val p = room()
         p.addMeas("front", SurveyMeas.LINE, listOf(doubleArrayOf(100.0, 200.0), doubleArrayOf(900.0, 200.0)), "m1")
         val k = p.addChain("front", "x", listOf(doubleArrayOf(0.0, 500.0), doubleArrayOf(900.0, 500.0)), listOf(null, null), "k1")
@@ -226,20 +232,26 @@ class LockTest {
         assertEquals("Delete / Delete FD1 Door | हटवा / FD1 दरवाजा हटवा", row("d1"))
         assertEquals("Delete / Delete F-M1 marked length", row("m1").substringBefore(" | "))
         assertEquals("Delete / Delete ${k.code} chain", row("k1").substringBefore(" | "))
-        assertEquals(listOf("Delete", "Duplicate", "Lock", "Lock all Door", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.second })
+        assertEquals(listOf("Duplicate", "Lock", "Lock all Door", "Cancel", "Delete"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.second })
         // a wish: Drop
         life(p, "d1", "life" to "wish", "act" to "replace")
         assertEquals("Drop / Drop FD1 Door | वगळा / वगळा FD1 दरवाजा", row("d1"))
-        assertEquals(listOf("Drop", "Duplicate", "Lock", "Lock all Door", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.second })
-        assertEquals(listOf("del", "dup", "lock", "lockall", "cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.first }, "the row is still the delete row: the screen decides what a tap does")
+        assertEquals(listOf("Duplicate", "Lock", "Lock all Door", "Cancel", "Drop"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.second })
+        assertEquals(listOf("dup", "lock", "lockall", "cancel", "del"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.first }, "the row is still the delete row: the screen decides what a tap does")
         // a Dropped mark: Restore
         life(p, "d1", "life" to "drop", "why" to "not needed")
         assertEquals("Restore / Restore FD1 Door | परत आणा / परत आणा FD1 दरवाजा", row("d1"))
-        assertEquals("Restore|Duplicate|Lock|Lock all Door|Cancel", SurveyPrepEdit.menuItems(Tx.EN, p, "front", mark(p, "d1")).joinToString("|") { it.second })
-        assertEquals("परत आणा", SurveyPrepEdit.menuItems(Tx.MR, p, "front", mark(p, "d1"))[0].second)
-        // the other marks of the surface, a Line's and a chain's menus are untouched
-        assertEquals("Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d2")[0].second); assertEquals("Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m1")[0].second)
-        assertEquals("Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "k1")[0].second)
+        assertEquals("Duplicate|Lock|Lock all Door|Cancel|Restore", SurveyPrepEdit.menuItems(Tx.EN, p, "front", mark(p, "d1")).joinToString("|") { it.second })
+        assertEquals("परत आणा", SurveyPrepEdit.menuItems(Tx.MR, p, "front", mark(p, "d1")).last().second)
+        // the other marks of the surface, a Line's and a chain's menus are untouched: their delete row, the last, reads Delete
+        assertEquals("Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d2").last().second); assertEquals("Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m1").last().second)
+        assertEquals("Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "k1").last().second)
+        // and in every menu the delete row IS the last, whatever it reads (port 63 slice F1)
+        for (id in listOf("d1", "d2", "m1", "k1")) {
+            val rows = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id).map { it.first }
+            assertEquals(SurveyPrepEdit.DELETE, rows.last(), id); assertEquals(1, rows.count { it == SurveyPrepEdit.DELETE }, id)
+            assertEquals(SurveyPrepEdit.DUPLICATE, rows.first(), "$id: the row under the finger is one that loses nothing")
+        }
         // an id that is nothing: the word is Delete, and there is no label
         assertEquals("Delete", SurveyPrepEdit.deleteWord(Tx.EN, p, "nope")); assertNull(SurveyPrepEdit.deleteLabel(Tx.EN, p, "nope"))
     }

@@ -12,7 +12,8 @@ import kotlin.math.max
  * accidentally. In fact each mark type should also be locked." So (sp.js 229-252, 823-850, 1683-1690):
  *  - a mark and a surface's four lines can be LOCKED: nothing moves, nothing is deleted, a clear keeps it and
  *    Start over keeps it; its readings stay usable and are kept with it;
- *  - a long press on a mark offers Delete · Duplicate · Lock/Unlock · Lock all <type> · Cancel;
+ *  - a long press on a mark offers Duplicate · Lock/Unlock · Lock all <type> · Cancel -- and Delete, LAST and apart
+ *    (port 63 slice F1, 16 Nov 2026: the menu opens under the finger, and Delete was its first row);
  *  - Duplicate is a copy 100 mm away (back the other way at an edge) with the NEXT code and no readings;
  *  - ⋮ clears this surface or the whole room after a second tap -- every UNLOCKED item and its readings;
  *  - Start over keeps a locked surface's lines, every locked item and its readings; the rest starts fresh.
@@ -310,17 +311,20 @@ object SurveyPrepEdit {
         SurveyRef.byId(p, id)?.let { (s, r) -> SurveyRef.menuHeader(tx, s, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuHeader(tx, s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(tx, m) }
             ?: p.chainById(id)?.let { (_, c) -> menuHeader(tx, c) }
 
-    /** The menu on a mark, in order, as (action, text): Delete · Duplicate · Lock|Unlock · Lock all X|Unlock all X · Cancel
-     *  (ct52: "Delete|Duplicate|Lock|Lock all Door|Cancel"). Its first row reads the mark's own delete word -- Drop
-     *  past Existing, Restore on a Dropped mark (port 62 slice L2; index61c2.html 6713) -- and is still [DELETE]. */
+    /** The menu on a mark, in order, as (action, text): Duplicate · Lock|Unlock · Lock all X|Unlock all X · Cancel ·
+     *  Delete ("Duplicate|Lock|Lock all Door|Cancel|Delete"). DELETE IS THE LAST ROW (port 63 slice F1; [DeleteGuard]):
+     *  the prototype's menu began with it (ct52: "Delete|Duplicate|Lock|Lock all Door|Cancel"), right under the finger
+     *  that opened the menu. It reads the mark's own delete word -- Drop past Existing, Restore on a Dropped mark (port
+     *  62 slice L2; index61c2.html 6713) -- and is still [DELETE]. */
     fun menuItems(tx: Tx, p: SurveyPrep.Prep, s: String, e: SurveyPrep.Mark): List<Pair<String, String>> =
         menu(tx, lockGroup(p, s, e), SurveyPrep.isLocked(e), MarkLife.deleteLabel(tx, e))
 
-    /** ... on a Tape ("Lock all tapes") or a Line ("Lock all Line marks"): ct52 T, "Delete|Duplicate|Lock|Lock all tapes|Cancel". */
+    /** ... on a Tape ("Lock all tapes") or a Line ("Lock all Line marks"): "Duplicate|Lock|Lock all tapes|Cancel|Delete". */
     fun menuItems(tx: Tx, p: SurveyPrep.Prep, s: String, m: SurveyPrep.Meas): List<Pair<String, String>> =
         menu(tx, lockGroup(p, s, m), SurveyPrep.isLocked(m))
 
-    /** ... on a chain: "Delete|Duplicate|Lock|Lock all chains|Cancel" (ct52 N, v52 slice 11). */
+    /** ... on a chain: "Duplicate|Lock|Lock all chains|Cancel|Delete" (v52 slice 11) -- its Duplicate row is then
+     *  hidden while the chain tool is off ([menuItemsOf] with the stage; [PhaseTools.copyOk]). */
     fun menuItems(tx: Tx, p: SurveyPrep.Prep, s: String, c: SurveyPrep.Chain): List<Pair<String, String>> =
         menu(tx, lockGroup(p, s, c), SurveyPrep.isLocked(c))
 
@@ -345,13 +349,19 @@ object SurveyPrepEdit {
      * capture's chip on "as Existing" ([picked], which has no default). The prototype draws the row on a mark born in
      * the phase at the Wish list, Vendor review, Revisions and Client approved as well; there the copy of a thing that
      * is not in the room would leave the office as a surveyed one (DESIGN-port62 Q-list 8).
+     *
+     * AND NO DUPLICATE ON A CHAIN WHILE [chains] IS OFF (port 63 slice F1; [Features.CHAINS], through
+     * [PhaseTools.copyOk]): a copy of a chain is a new chain, and none can be made. The switch is the DEFAULT of the
+     * last parameter but one; [shape] (port 63 slice Q1, off by default) is the last, and each is named where it is given.
      */
-    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, shape: Boolean = false): List<Pair<String, String>> {
+    fun menuItemsOf(
+        tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false,
+    ): List<Pair<String, String>> {
         val cut = menuItemsOf(tx, p, id).filter { (k, _) ->
             when (k) {
                 DELETE -> PhaseTools.delOk(p, id, stage)
                 LOCK -> PhaseTools.lockOk(p, id, stage)
-                DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked)
+                DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains)
                 LOCK_ALL -> PhaseTools.editable(p, id, stage)
                 else -> true
             }
@@ -360,11 +370,18 @@ object SurveyPrepEdit {
         // SCREEN: the screen draws whatever list this returns and its pick ends `else -> ctx = null`, so the row joins
         // the list in the same commit as its two acts (slice Q2), never as a row that only closes the menu. On a mark
         // that may have four corners, and hidden where the phase holds it read-only, like Lock all; on a LOCKED mark it
-        // is drawn, and the act answers the lock's own words, as Delete does. It stands after Duplicate -- after
-        // whichever of Delete and Duplicate the phase left, before Lock
+        // is drawn, and the act answers the lock's own words, as Delete does.
+        //
+        // WHERE IT STANDS, NOW THAT DELETE IS THE LAST ROW (the merge of slice F1 into Q1, 16 Nov 2026): AFTER DUPLICATE
+        // AND BEFORE LOCK, which is Q1's own rule (DESIGN-quad §3.1: "after Duplicate ... before Lock") -- and, where the
+        // phase hid Duplicate, the menu's FIRST row, still before Lock. NEVER after Delete: Q1 was written on a menu that
+        // began `Delete | Duplicate` and put the row "after whichever of the two is left"; F1 moved Delete to the end
+        // ([DeleteGuard.last]: the delete row is the last row, with dead menu above it), and a row after it would stand
+        // under the one control F1 set apart. A first row that is the shape row is what F1 wants there: "Four corners"
+        // changes nothing in the record and "Rectangle" is one ↶ step, as Duplicate is
         val row = if (shape && PhaseTools.editable(p, id, stage)) p.markById(id)?.let { (_, e) -> shapeRow(tx, e) } else null
         if (row == null) return cut
-        val at = cut.indexOfLast { it.first == DELETE || it.first == DUPLICATE } + 1
+        val at = cut.indexOfFirst { it.first == DUPLICATE } + 1
         return cut.subList(0, at) + row + cut.subList(at, cut.size)
     }
 
@@ -381,10 +398,12 @@ object SurveyPrepEdit {
     }
 
     /** "Lock" / "Unlock" and "Lock all" / "Unlock all" are chosen in code, so each is its own whole key (the card's group 2).
-     *  [delete]: the first row's word -- Delete, or a mark's own. */
+     *  [delete]: the delete row's word -- Delete, or a mark's own. THE DELETE ROW IS LAST ([DeleteGuard.last], port 63
+     *  slice F1): the menu opens with its head under the finger, so its first row is the one a hurried second tap
+     *  lands on -- that row is Duplicate now, which ↶ takes back and which loses nothing. */
     private fun menu(tx: Tx, g: Group, locked: Boolean, delete: String = tx.common_delete) =
-        listOf(DELETE to delete, DUPLICATE to tx.common_duplicate, LOCK to if (locked) tx.common_unlock else tx.common_lock,
-            LOCK_ALL to (if (g.all) tx.sp_unlock_all_x(groupName(tx, g)) else tx.sp_lock_all_x(groupName(tx, g))), CANCEL to tx.common_cancel)
+        DeleteGuard.last(listOf(DELETE to delete, DUPLICATE to tx.common_duplicate, LOCK to if (locked) tx.common_unlock else tx.common_lock,
+            LOCK_ALL to (if (g.all) tx.sp_unlock_all_x(groupName(tx, g)) else tx.sp_lock_all_x(groupName(tx, g))), CANCEL to tx.common_cancel)) { it.first == DELETE }
 
     // ------------------------------------------------------------ Duplicate
 

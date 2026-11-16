@@ -260,6 +260,32 @@ object MarkDims {
     const val CHECK_COLOUR = 0xffc46b
 
     /**
+     * THE ONE BEING MEASURED IS GOLD, AND CANNOT BE MISSED (Amit, 16 Nov 2026, on 0.3.337: "highlight of mark which we
+     * aer measuring is not correct . i cant see which mark is being measured as its no highlighted on foto"). Until
+     * then the mark's own outline was a little heavier, the rest of the photo 20 % darker, and the figure's plate a
+     * dark brown with a thin gold ring -- nothing an eye finds on a bright photo. Now: the mark is FRAMED in gold
+     * ([ACTIVE_COLOUR]) over a dark casing ([ACTIVE_CASE] at [ACTIVE_CASE_ALPHA]), its dimension's line is drawn the
+     * same way, three times as heavy as any other, and its plate is SOLID gold with dark bold text ([ACTIVE_INK]).
+     * The casing is what makes gold read on white: a line that is only light vanishes on a blown-out window.
+     */
+    const val ACTIVE_COLOUR = 0xe0b040
+    const val ACTIVE_INK = 0x14160f
+    const val ACTIVE_CASE = 0x000000
+    const val ACTIVE_CASE_ALPHA = 0xcc
+    /** The gold frame stands this many dp outside the mark it frames, and is this heavy over a casing this heavy. */
+    const val ACTIVE_GAP_DP = 3.0
+    const val ACTIVE_FRAME_DP = 3.5
+    const val ACTIVE_FRAME_CASE_DP = 6.5
+    /** The active dimension's line: this many times [DimLayout.LINE_U], over a casing this many times. */
+    const val ACTIVE_LINE_X = 3.0
+    const val ACTIVE_LINE_CASE_X = 5.5
+    /** How dark the rest of the photo goes while one mark is picked (alpha of black; it was 0x33, 20 %). */
+    const val DIM_ALPHA = 0x59
+
+    /** The `!` on a plate: amber, but on the gold plate the plate's own dark ink -- amber on gold cannot be read. */
+    fun checkInk(active: Boolean): Int = if (active) ACTIVE_INK else CHECK_COLOUR
+
+    /**
      * How a plate is painted: its text's colour [ink] and whether it is [bold]; its [fill] at [fillAlpha]; its
      * [outline] colour (null: none) and whether that outline is [dashed].
      */
@@ -268,11 +294,12 @@ object MarkDims {
     /**
      * A PLATE'S STYLE, by what its figure is (DESIGN-port63 §1.1): a reading white and bold on solid black; an
      * estimate grey on half-black inside a dashed grey outline; a `?` amber inside a dashed amber outline; and the one
-     * being measured now ([active]) on the gold plate with the gold ring, its text in its state's own colour.
+     * being measured now ([active]) SOLID GOLD with dark bold text inside a white edge, whatever its state -- its `≈`
+     * or `?` still says what it is (Amit, 16 Nov 2026: it could not be seen; see [ACTIVE_COLOUR]).
      */
     fun style(state: State, active: Boolean): Style {
         val ink = when (state) { State.MEASURED -> 0xffffff; State.ESTIMATE -> 0xcfd3cb; State.UNKNOWN -> CHECK_COLOUR }
-        if (active) return Style(ink, state == State.MEASURED, 0x4a3d0c, 0xff, 0xe0b040, false)
+        if (active) return Style(ACTIVE_INK, true, ACTIVE_COLOUR, 0xff, 0xffffff, false)
         return when (state) {
             State.MEASURED -> Style(ink, true, 0x000000, 0xdd, null, false)
             State.ESTIMATE -> Style(ink, false, 0x000000, 0x88, ink, true)

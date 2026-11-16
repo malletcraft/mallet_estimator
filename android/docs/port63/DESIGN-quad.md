@@ -309,13 +309,18 @@ reading under its mark "because it is still a measurement somebody took" (`app/s
 
 **The long-press menu gains one row**, on a mark that may have `quad`, after Duplicate:
 
-`Delete | Duplicate | Four corners | Lock | Lock all … | Cancel`
+`Duplicate | Four corners | Lock | Lock all … | Cancel | Delete`
+
+*(Corrected at the merge with slice F1, 16 Nov 2026 — §10. This line read `Delete | Duplicate | Four corners | Lock |
+Lock all … | Cancel`: Q1 was written on the menu of `7c49835`, which began with Delete. F1 made Delete the LAST row.)*
 
 - On a rectangle the row is `sp.shape.four_corners`, "Four corners" (action `SurveyPrepEdit.SHAPE_FREE = "free"`).
 - On a four-corner mark it is `sp.shape.rectangle`, "Rectangle" (action `SurveyPrepEdit.SHAPE_BOX = "box"`).
 - The row is hidden where the phase holds the mark read-only (`PhaseTools.editable`), like Lock all. On a locked mark
   it is drawn and the act answers the lock's own words, as Delete does.
-- With Delete or Duplicate hidden by the phase, the row stands after whichever of the two is left, before Lock.
+- With Duplicate hidden by the phase, the row is the menu's FIRST row, before Lock. It is never after Delete, which
+  stays last. *(Corrected at the merge, §10: this read "after whichever of the two is left, before Lock", which on
+  F1's menu would have put the row after Delete.)*
 
 This is the cheapest control the screen has: `SpCtxMenu` draws any list, and a long press on a mark or on one of its
 handles already opens it. The corner tabs cannot do it by themselves, because `lt rt lb rb` are today's two-edge
@@ -686,7 +691,8 @@ as `q0…q3`); `SurveyPlanTest`, `SvgExportTest`; `MrPendingTest`.
 Tests that gain a case, their existing pins untouched: `LockTest` (its five-row pins stay, since `menuItems` and the
 three-argument `menuItemsOf` are not changed; one new case, at Survey with `shape = true`:
 `Delete|Duplicate|Four corners|Lock|Lock all Door|Cancel`, "Rectangle" on a mark with `quad`, no row on a point or a
-Note, and no row where the phase holds the mark read-only).
+Note, and no row where the phase holds the mark read-only). *(Since the merge with F1, §10, that case reads
+`Duplicate|Four corners|Lock|Lock all Door|Cancel|Delete`.)*
 
 Tests that move, each with its reason: `SheetMarksTest` (`KEPT`), `DuplicateTest` ("the box alone" becomes the box
 and its shape).
@@ -898,3 +904,55 @@ nothing has been seen on a phone. No text was added, so `i18n/` and `Tx` are as 
    nothing; over the whole wall the four-corner mark snaps exactly as the rectangle of its box; no side's reading key
    is a tag, and no tag passes S5's key grammar). This test is a pin of the decision: it passes on the reviewed code
    too, because the finding is about what the design left unsaid, not about what the code does.
+
+## 10. Merged with H1 and F1 (16 Nov 2026)
+
+Slice Q1 was built on `7c49835` while two slices were built beside it on `batch-next` and went to the phone (Play
+0.3.341): **H1** `8455c77` (the one being measured is gold) and **F1** `136b4c7` + `380c72d` (the chain tool off, D2
+alone at the bar's end, delete apart and last, a Tape / Line / area moved by its body) — DESIGN-port63 §11. This
+section is the merge of `030a2f7f5` into `port63-quad`: what git could not decide, what was decided where the two
+meet, and what Q2 inherits. `:pano` after the merge: **101 classes, 1,435 tests, 0 failures, 0 errors** (the totals of
+`pano/build/test-results/test`; batch-next alone 98 and 1,388, Q1 alone 97 and 1,392, the merge's own `QuadMeetsF1Test` 7).
+**`:app` is batch-next's own, unchanged by the merge, compiled only by CI, and nothing of the merge has been seen on a
+phone.** `Tx` was regenerated (no difference: batch-next added no key); `unkeyed.tsv` is empty; `mr-pending.tsv`
+keeps its 27 keys; no Marathi value changed.
+
+**The one textual conflict** was `SurveyPrepEdit.menuItemsOf`: F1 gave it `chains` and Q1 gave it `shape`, each as a
+sixth parameter with a default. It now has both — **`chains` sixth, `shape` seventh** — because batch-next's callers
+and tests pass `chains` by position and the phone runs them; Q1's one test names `shape =`.
+
+**Where the two meet — each decided by the two sides' own stated rules, each held by `QuadMeetsF1Test`** (every
+decision undone on purpose turned its test red):
+
+| Meeting point | F1 / H1 says | Q1 says | Decided |
+|---|---|---|---|
+| The menu's rows | the delete row is the LAST row, apart | the shape row stands after Duplicate, before Lock (§3.1) | `Duplicate · Four corners · Lock · Lock all … · Cancel · Delete`. Where the phase hid Duplicate the shape row is the FIRST row. Never after Delete: §3.1's "after whichever of the two is left" was written on a menu that began with Delete, and is corrected in place. A first row that is the shape row suits F1's reason for the order: "Four corners" changes nothing in the record and "Rectangle" is one ↶ step, as Duplicate is |
+| The press, 2 · Mark | the PICKED Tape's / Line's / area's body comes after the picked item's handles, a chain's point and a figure, BEFORE the marks | a free mark's four corners stand where the eight tabs do; its body counts only inside its shape (§3.4) | Both, in F1's order. A tape laid across a four-corner window is moved by its band and the window by the rest of its SHAPE; the empty corner of its bounding box is neither. One thing is picked at a time, so the body is never handed with a picked mark |
+| The floating trash | the disc is 16 dp from the picked item's OWN handles and off every figure; no place clear, no disc | a free mark's handles are its four corners (§3.1); the trash keeps the bounding box (§3.4) | The disc is placed beside the BOUNDING box and kept 16 dp from the four corners as they stand, not from eight tabs that are not drawn: `SurveyPrepTouch.keepOfMark(bb, spot, corners = null)`, and on the 360 `Pano360.trashOf(…, free = false)` through `tabsOf(e, free)`. Both default to what the screen passes today |
+| The 360 | `Step.BODY` after the chain points, before the marks | `tabsOf(e, free)` gives `q0…q3`; `markPoly` is the real shape (§3.6) | The same order as the photo: ends, tabs (the free corners), chain points, the picked tape's body, the marks by their real outline |
+| Gold | the figure being measured: a gold plate with dark bold text whatever its state, a gold line, and its `!` in the plate's dark ink | two new roles, `SIDE` and `DIAG`; the closing check's `!` on the sloping side (§2.4) | Gold asks nothing of the role. A side being measured is the gold one like any figure, has a line for the gold line to follow, and its closing `!` is drawn in the gold plate's ink |
+
+**`RectanglePinTest` after the merge.** Its dump was run on a plain checkout of `030a2f7f5` (a temporary worktree,
+removed afterwards) and on the merge: the two files are byte for byte the same. Seventeen sections are still held to
+`7c49835` — batch-next prints them exactly as `7c49835` did. **One was re-taken from batch-next, `flow`**: F1 put the
+menu's delete row last, and with that row put back first the section has `7c49835`'s digest again, so nothing else in
+it moved. **Three sections are new and held to `030a2f7f5`** — `gold`, `trash`, `body` — because the dump taken on
+`7c49835` never looked at what H1 and F1 built, and a merge could have lost either without this test noticing.
+
+**For Q2, beyond §9's list.**
+
+1. **THE SIX-ROW MENU DOES NOT FIT F1'S PLACEMENT IN LANDSCAPE.** `DeleteGuard.menuTop` keeps the delete row 16 dp
+   from the finger that opened the menu. With five rows (248 dp) that holds on every window of the Mi A3. With the
+   shape row the menu is 288 dp, and it holds only on a window 368 dp tall or more: on the landscape window (336 to
+   360 dp) a press low on the photo has the delete row under the finger again (0 dp at 336 and 348, 8 dp at 360).
+   Nothing draws six rows today. **The commit that turns `shape` on has to settle it** — a shorter menu in landscape,
+   or the row somewhere else — and `QuadMeetsF1Test` holds the figures so that commit cannot miss them.
+2. **The menu's one call** passes `shape = true` BY NAME: the sixth parameter is `chains`.
+3. **The trash:** `drawnMarks()`' corners go to `keepOfMark(bb, spot, corners)` as well, and `Sp360` passes its one
+   `free` to `trashOf` beside `tabsOf`.
+4. **H1's gold frame** round the mark being measured is drawn by `:app` from the mark's box
+   (`SurveyPrepDraw.measuring`). For a four-corner mark Q2 draws it round the shape, as §3.4 says of the outline and
+   the dim hole.
+5. **A four-corner mark's own body** is the mark's, moved by `moveMark` as always. F1's `bodyPress` / `bodyMove`
+   are a Tape's, a Line's and an area's and are not asked for a mark.
+

@@ -24,6 +24,27 @@ import kotlin.test.assertTrue
  * Lengths are written in hundredths of a millimetre or of a pixel, as whole numbers, so no figure depends on how a JVM
  * prints a double. TO RE-PIN after a change that is MEANT to alter a rectangle: run with the environment variable
  * MCFT_RECTPIN_OUT set to a file, read the new sections there, and say in the commit why each moved.
+ *
+ * WHICH COMMIT EACH SECTION IS HELD TO, SINCE THE MERGE OF batch-next (030a2f7f5: H1 8455c77, F1 136b4c7 + 380c72d) INTO
+ * port63-quad, 16 Nov 2026. Slice Q1 was built on 7c49835 while H1 and F1 were built beside it, and the phone runs H1
+ * and F1 (Play 0.3.341). At the merge this very file was copied into a plain checkout of 030a2f7f5 (a temporary
+ * worktree, removed afterwards) and run there with MCFT_RECTPIN_OUT: the dump it wrote and the dump of the merge are
+ * the SAME FILE, byte for byte (all 21 sections; sha256 a8742a81…bf6c4890). So:
+ *  - SEVENTEEN SECTIONS ARE STILL HELD TO 7c49835 -- ask, dims, the three plates, every, touch, moves, p360, the six
+ *    plans, sheet and file: 030a2f7f5 prints for each exactly what 7c49835 printed, so neither H1 nor F1 moved them.
+ *  - `flow` IS NOW HELD TO 030a2f7f5. One thing in it moved, and F1 moved it on purpose: THE MENU'S DELETE ROW IS THE
+ *    LAST ROW (Amit, 16 Nov 2026: "same for delete button for any item"; DeleteGuard.last) -- `menu 0`, `menu null` and
+ *    `menu3` read `Duplicate|Lock|Lock all Window|Cancel|Delete` where 7c49835 printed `Delete|Duplicate|…|Cancel`.
+ *    Checked at the merge: putting the delete row back first in those three lines gives 7c49835's digest again
+ *    (1bb9557a6b810aba), so nothing else in the section -- the walk's stops, the check, the copy -- moved.
+ *  - THREE SECTIONS ARE NEW AND HELD TO 030a2f7f5, the commit that built what they dump -- the dump taken on 7c49835
+ *    never looked at them, so H1 and F1 could have been lost in a merge without this test noticing: `gold` (H1: every
+ *    plate's style, the `!`'s ink, the frame's and the line's numbers), `trash` (F1: the floating disc beside each mark
+ *    of the example wall, bare and among its figures, and on the 360 its box and what it keeps clear of) and `body`
+ *    (F1: a picked tape across the window -- where its body answers and what the marks under it still do -- and the
+ *    360's order of a press). They too use only what that commit has: no `corners`, no `free`.
+ * A section that moves again and is NOT explained by a change meant to alter a rectangle is a bug in the code, not a pin
+ * to re-take.
  */
 class RectanglePinTest {
 
@@ -166,6 +187,58 @@ class RectanglePinTest {
         val c = SurveyPrepEdit.duplicate(rm, "m0", W, H, "copy")!!
         flow += "copy ${c.code} ${r(c.x0)} ${r(c.x1)} ${r(c.y0)} ${r(c.y1)} ${c.extra}"
         out["flow"] = flow
+        // ---- THE THREE SECTIONS BELOW WERE ADDED AT THE MERGE of batch-next (H1, F1) into Q1, and are held to commit
+        // 030a2f7f5 -- the commit that built what they dump, and what the phone runs. Like the rest they use only what
+        // THAT commit has (no `Quad`, no `free`, no `corners`), which is how the dump was taken on a plain checkout of it.
+        // 9. H1: the one being measured is gold -- every plate's style, the `!`'s ink, and the frame's and line's numbers
+        fun hex(v: Int?) = if (v == null) "-" else "%06x".format(java.util.Locale.ROOT, v)
+        out["gold"] = MarkDims.State.values().flatMap { st -> listOf(false, true).map { on -> val y = MarkDims.style(st, on)
+            "style $st $on ${hex(y.ink)} ${y.bold} ${hex(y.fill)} ${hex(y.fillAlpha)} ${hex(y.outline)} ${y.dashed}" } } +
+            listOf("check ${hex(MarkDims.checkInk(false))} ${hex(MarkDims.checkInk(true))}",
+                "active ${hex(MarkDims.ACTIVE_COLOUR)} ${hex(MarkDims.ACTIVE_INK)} ${hex(MarkDims.ACTIVE_CASE)} ${hex(MarkDims.ACTIVE_CASE_ALPHA)} ${r(MarkDims.ACTIVE_GAP_DP)} " +
+                    "${r(MarkDims.ACTIVE_FRAME_DP)} ${r(MarkDims.ACTIVE_FRAME_CASE_DP)} ${r(MarkDims.ACTIVE_LINE_X)} ${r(MarkDims.ACTIVE_LINE_CASE_X)} ${hex(MarkDims.DIM_ALPHA)}")
+        // 10. F1: the floating trash beside each mark of the example wall -- with no figure drawn, and with its own
+        // figures' plates as the picked mark has them -- and, on the 360, its box and what the disc keeps clear of
+        val trash = ArrayList<String>()
+        fun spot(sp: SurveyPrepTouch.Spot?) = if (sp == null) "none" else "${r(sp.left)} ${r(sp.top)} ${sp.how}"
+        for ((i, e) in ws.withIndex()) {
+            val d = drawn[i]; val bb = Box(d.x0, d.yT, d.x1, d.yB); val keep = SurveyPrepTouch.keepOfMark(bb, SurveyPrep.isSpot(e.t))
+            val ms = ws.map { m -> DimLayout.mark(read, "front", m, W, H, m.id == e.id, m.id == e.id && !SurveyPrep.isPoint(m.t), null, ::toPx, U, DP, ::textW, null) }
+            val figs = DimLayout.place(ms, DimLayout.Scope.PICKED, SIZE, SIZE, codes(ws), U, DP, textW(" × ", 10.0 * DP, false)).plates.map { it.tap }
+            trash += "disc ${e.code} bare ${spot(SurveyPrepTouch.trashSpot(bb, emptyList(), SIZE, SIZE, DP, keep))} | figures ${figs.size} ${spot(SurveyPrepTouch.trashSpot(bb, figs, SIZE, SIZE, DP, keep))}" +
+                " | keep " + pts(keep.points) + " ${keep.body.size} ${r(keep.bodyHalf)}"
+        }
+        val wide = Box(8.0, 8.0, SIZE - 8.0, SIZE - 8.0)
+        trash += "disc filling the photo ${spot(SurveyPrepTouch.trashSpot(wide, emptyList(), SIZE, SIZE, DP, SurveyPrepTouch.keepOfMark(wide, false)))}"
+        val tall = Box(300.0, 8.0, 420.0, SIZE - 8.0)
+        trash += "disc floor to ceiling ${spot(SurveyPrepTouch.trashSpot(tall, emptyList(), SIZE, SIZE, DP, SurveyPrepTouch.keepOfMark(tall, false)))}"
+        val frs = Pano360.frames(p360, L, W, H)
+        p360.surface("front").marks.addAll(ws)
+        for (e in ws) trash += "p360 ${e.code} " + (Pano360.trashOf(v, frs, p360, SurveyPrepPalette.SEL, e.id, DP)?.let { t ->
+            box(t.box) + " | " + pts(t.keep.points) + " ${t.keep.body.size} ${r(t.keep.bodyHalf)} | " + spot(SurveyPrepTouch.trashSpot(t.box, emptyList(), 680.0, 840.0, DP, t.keep)) } ?: "none")
+        trash += "p360 other tool " + (Pano360.trashOf(v, frs, p360, "W", "id-W1", DP) == null)
+        out["trash"] = trash
+        // 11. F1: a picked tape laid across the window -- where its body answers, and what the marks under it still do;
+        // and the 360's order of a press for every tool
+        val body = ArrayList<String>()
+        val tape = p360.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(1200.0, 1500.0), doubleArrayOf(2600.0, 1500.0)), "t1")
+        val scr = tape.pts.map { toPx(it[0], it[1]) }; val band = SurveyMeas.TAPE_MIN_HALF_DP * DP
+        for (x in 0..680 step 20) for (y in 0..680 step 20) {
+            val bp = SurveyGuide.bodyPress(true, SurveyPrepPalette.SEL, tape, false, scr, x.toDouble(), y.toDouble(), SurveyGuide.END_HIT_DP * DP, SurveyMeas.PICK_DP * DP, band)
+            when (val h = SurveyPrepTouch.hit(drawn, "t1", emptyList(), x.toDouble(), y.toDouble(), 16 * DP, DP, body = bp != null)) {
+                is SurveyPrepTouch.Hit.Body -> body += "$x $y THE-TAPE"
+                is SurveyPrepTouch.Hit.Mark -> body += "$x $y ${h.id} ${h.part}"
+                else -> {}
+            }
+        }
+        for (tool in listOf(SurveyPrepPalette.SEL, SurveyPrepPalette.TAPE, SurveyPrepPalette.LINE, SurveyPrepPalette.CHAIN, "W", "E")) for (drafting in listOf(false, true))
+            body += "order $tool $drafting " + Pano360.order(tool, drafting).joinToString(",")
+        val line = Pano360.measLine(v, "front", frs.getValue("front"), tape, DP)
+        val sc = Pano360.Scene(tape.pts.mapNotNull { Pano360.toS(v, "front", frs.getValue("front"), it[0], it[1]) }, emptyList(), emptyList(),
+            ws.mapNotNull { Pano360.markPoly(v, "front", frs.getValue("front"), it, DP) }, "t1", line)
+        for ((x, y) in listOf(450 to 380, 450 to 300, 312 to 380, 450 to 408, 450 to 440, 100 to 500, 640 to 700))
+            body += "pick $x $y " + Pano360.pick(Pano360.order(SurveyPrepPalette.SEL, false), sc, x.toDouble(), y.toDouble(), DP).let { pk -> if (pk is Pano360.Pick.Body) "Body" else pk.toString() }
+        out["body"] = body
         return out
     }
 
@@ -177,16 +250,22 @@ class RectanglePinTest {
         System.getenv("MCFT_RECTPIN_OUT")?.takeIf { it.isNotBlank() }?.let { path ->
             File(path).writeText(got.entries.joinToString("\n") { (k, v) -> "## $k ${v.size} ${digest(v)}\n" + v.joinToString("\n") } + "\n")
         }
-        // every section, by its line count and digest, as commit 7c49835 printed it
+        // every section, by its line count and digest, as the commit it is held to printed it (the class comment says which)
         assertEquals(PINNED.keys.toList(), got.keys.toList(), "the sections")
         val off = got.entries.filter { (k, v) -> PINNED.getValue(k) != "${v.size} ${digest(v)}" }.map { (k, v) -> "$k: ${v.size} ${digest(v)}, was ${PINNED.getValue(k)}" }
         assertTrue(off.isEmpty(), "a rectangle is no longer what it was before slice Q1 (set MCFT_RECTPIN_OUT to a file to read the dump):\n  " + off.joinToString("\n  "))
-        // ... and the three a person can read, line for line
+        // ... and the ones a person can read, line for line
         assertEquals(ASK, got.getValue("ask")); assertEquals(DIMS, got.getValue("dims")); assertEquals(P360, got.getValue("p360"))
+        assertEquals(MENU, got.getValue("flow").filter { it.startsWith("menu") }); assertEquals(GOLD, got.getValue("gold"))
+        assertEquals(TRASH, got.getValue("trash"))
+        // the picked tape's body answers on its band and nowhere else: 47 presses of the grid, every one within the band's reach
+        val body = got.getValue("body")
+        assertEquals(47, body.count { it.endsWith(" THE-TAPE") }); assertEquals(BODY_TAIL, body.takeLast(BODY_TAIL.size))
     }
 
     private companion object {
-        /** Section -> "<lines> <digest>", from the dump taken on commit 7c49835. */
+        /** Section -> "<lines> <digest>": the first seventeen from the dump taken on commit 7c49835 (and printed the same by
+         *  030a2f7f5); `flow`, `gold`, `trash` and `body` from the dump taken on a plain checkout of 030a2f7f5. */
         val PINNED: Map<String, String> = linkedMapOf(
             "ask" to "6 098b908ecc4c33ce",
             "dims" to "19 51bf777fdbc63d03",
@@ -205,7 +284,77 @@ class RectanglePinTest {
             "plan.left" to "122 89c420da14e7300f",
             "sheet" to "19 8b6e0a86c8a2facd",
             "file" to "1 9ad60fbb7c4e0524",
-            "flow" to "20 1bb9557a6b810aba")
+            // 030a2f7f5 (F1: the delete row is the menu's LAST; on 7c49835 this was 20 1bb9557a6b810aba)
+            "flow" to "20 76d0cced09e794f0",
+            // 030a2f7f5, new at the merge: H1's gold, F1's floating trash, F1's body press
+            "gold" to "8 45ad75e5428e72f6",
+            "trash" to "15 a184b356579cd63d",
+            "body" to "602 85bd7949b5c633e0")
+        /** The menu on the fixture room's window, as 030a2f7f5 prints it (port 63 slice F1): cut by the stage at 0, 1, 3, 5
+         *  and unread, then the whole menu twice. THE DELETE ROW IS LAST. */
+        val MENU: List<String> = listOf(
+            "menu 0 dup=Duplicate|lock=Lock|lockall=Lock all Window|cancel=Cancel|del=Delete",
+            "menu 1 cancel=Cancel",
+            "menu 3 cancel=Cancel",
+            "menu 5 cancel=Cancel",
+            "menu null dup=Duplicate|lock=Lock|lockall=Lock all Window|cancel=Cancel|del=Delete",
+            "menu3 Duplicate|Lock|Lock all Window|Cancel|Delete / Duplicate|Lock|Lock all Window|Cancel|Delete")
+        /** H1 (030a2f7f5): a plate's style by state and whether it is the one being measured -- ink, bold, fill, its alpha,
+         *  outline, dashed; the `!`'s ink off and on the gold plate; then the gold, its ink, the casing and its alpha, the
+         *  frame's gap, width and casing (hundredths of a dp), the line's two factors (hundredths), the photo's dimming. */
+        val GOLD: List<String> = listOf(
+            "style MEASURED false ffffff true 000000 0000dd - false",
+            "style MEASURED true 14160f true e0b040 0000ff ffffff false",
+            "style ESTIMATE false cfd3cb false 000000 000088 cfd3cb true",
+            "style ESTIMATE true 14160f true e0b040 0000ff ffffff false",
+            "style UNKNOWN false ffc46b false 000000 000088 ffc46b true",
+            "style UNKNOWN true 14160f true e0b040 0000ff ffffff false",
+            "check ffc46b 14160f",
+            "active e0b040 14160f 000000 0000cc 300 350 650 300 550 000059")
+
+        /** F1 (030a2f7f5): the floating trash on the phone's canvas (hundredths of a px: left, top, which place) beside each
+         *  mark of the example wall, with no figure and among its own figures' plates, and what it keeps clear of -- a box
+         *  mark's eight tabs, a point's centre; a mark that fills the photo and one from floor to ceiling; then on the 360
+         *  the item's box, its handles through the view, and the disc. */
+        val TRASH: List<String> = listOf(
+            "disc FD1 bare 28062 6057 above-right | figures 4 28062 6057 above-right | keep 3809,41328;26662,41328;15235,14657;15235,68000;3809,14657;26662,14657;3809,68000;26662,68000 0 0",
+            "disc FW1 bare 25679 6057 above-left | figures 5 25679 6057 above-left | keep 34279,29898;64750,29898;49515,14657;49515,45139;34279,14657;64750,14657;34279,45139;64750,45139 0 0",
+            "disc FS1 bare 34410 29172 above-right | figures 4 34410 21972 above-right | keep 27931,38915;33010,38915;30471,37772;30471,40058;27931,37772;33010,37772;27931,40058;33010,40058 0 0",
+            "disc FE1 bare 40123 51144 above-right | figures 2 40123 43944 above-right | keep 38088,60380 0 0",
+            "disc FE2 bare 52819 51144 above-right | figures 2 52819 43944 above-right | keep 50784,60380 0 0",
+            "disc FE3 bare 54245 51144 above-left | figures 2 60000 43944 above-right | keep 63480,60380 0 0",
+            "disc filling the photo 47200 800 above-right",
+            "disc floor to ceiling 45200 30400 right",
+            "p360 FD1 9640 25610 28079 68635 | 9640,47122;28079,47122;18859,25610;18859,68635;9640,25610;28079,25610;9640,68635;28079,68635 0 0 | 29479 17010 above-right",
+            "p360 FW1 34225 25610 58811 50195 | 34225,37902;58811,37902;46518,25610;46518,50195;34225,25610;58811,25610;34225,50195;58811,50195 0 0 | 25625 17010 above-left",
+            "p360 FS1 29103 44254 33201 46098 | 29103,45176;33201,45176;31152,44254;31152,46098;29103,44254;33201,44254;29103,46098;33201,46098 0 0 | 34601 35654 above-right",
+            "p360 FE1 36786 61976 37811 63000 | 37299,62488 0 0 | 39211 53376 above-right",
+            "p360 FE2 47030 61976 48055 63000 | 47543,62488 0 0 | 49455 53376 above-right",
+            "p360 FE3 57274 61976 58299 63000 | 57787,62488 0 0 | 59699 53376 above-right",
+            "p360 other tool true")
+        /** F1 (030a2f7f5): the 360's order of a press for Select, Tape, Line, Chain and two types, not drafting and
+         *  drafting; then seven presses with a tape picked across the window -- its band, the window above it, its end,
+         *  the band's reach, the window below it, the door, nothing. */
+        val BODY_TAIL: List<String> = listOf(
+            "order sel false END,TABS,NODES,BODY,MARK,LOOK",
+            "order sel true TABS,NODES,MARK,LOOK",
+            "order T false END,MEAS",
+            "order T true MEAS",
+            "order M false END,MEAS",
+            "order M true MEAS",
+            "order K false NODES,CHAIN",
+            "order K true NODES,CHAIN",
+            "order W false TABS,MARK,PLACE",
+            "order W true TABS,MARK,PLACE",
+            "order E false TABS,MARK,PLACE",
+            "order E true TABS,MARK,PLACE",
+            "pick 450 380 Body",
+            "pick 450 300 Mark(s=front, id=id-W1)",
+            "pick 312 380 End(i=0)",
+            "pick 450 408 Body",
+            "pick 450 440 Mark(s=front, id=id-W1)",
+            "pick 100 500 Mark(s=front, id=id-D1)",
+            "pick 640 700 Look")
         /** The example wall's checklist: key, words, the photo's estimate in hundredths of a mm. */
         val ASK: List<String> = listOf(
             "FD1 w width 90000 | h height 210000 | l from left corner 15000 | p reveal depth -",

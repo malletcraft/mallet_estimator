@@ -184,9 +184,19 @@ class MarkDimsTest {
         assertEquals(listOf(0xffffff, true, 0x000000, 0xdd, null, false), st(MarkDims.State.MEASURED, false))
         assertEquals(listOf(0xcfd3cb, false, 0x000000, 0x88, 0xcfd3cb, true), st(MarkDims.State.ESTIMATE, false))
         assertEquals(listOf(0xffc46b, false, 0x000000, 0x88, 0xffc46b, true), st(MarkDims.State.UNKNOWN, false))
-        // the one being measured now: the gold plate with the gold ring, as 0.3.332 draws it
-        assertEquals(listOf(0xcfd3cb, false, 0x4a3d0c, 0xff, 0xe0b040, false), st(MarkDims.State.ESTIMATE, true))
-        assertEquals(listOf(0xffffff, true, 0x4a3d0c, 0xff, 0xe0b040, false), st(MarkDims.State.MEASURED, true))
+        // the one being measured now: SOLID GOLD with dark bold text inside a white edge, whatever its state (Amit, 16 Nov
+        // 2026, on 0.3.337: "i cant see which mark is being measured as its no highlighted on foto" -- the dark brown
+        // plate with a thin gold ring could not be found on a bright photo)
+        for (s in MarkDims.State.values()) assertEquals(listOf(0x14160f, true, 0xe0b040, 0xff, 0xffffff, false), st(s, true), s.name)
+        assertEquals(0xe0b040, MarkDims.ACTIVE_COLOUR); assertEquals(0x14160f, MarkDims.ACTIVE_INK)
+        // gold alone vanishes on a blown-out window: the frame and the line stand on a dark casing, each wider than its gold
+        assertEquals(0x000000, MarkDims.ACTIVE_CASE); assertTrue(MarkDims.ACTIVE_CASE_ALPHA >= 0xcc)
+        assertTrue(MarkDims.ACTIVE_FRAME_CASE_DP > MarkDims.ACTIVE_FRAME_DP && MarkDims.ACTIVE_FRAME_DP >= 3.0)
+        assertTrue(MarkDims.ACTIVE_LINE_CASE_X > MarkDims.ACTIVE_LINE_X && MarkDims.ACTIVE_LINE_X >= 3.0)
+        // the rest of the photo goes darker than the 20 % it was, and stays seen through
+        assertTrue(MarkDims.DIM_ALPHA > 0x33 && MarkDims.DIM_ALPHA <= 0x80)
+        // amber on gold cannot be read: the `!` takes the gold plate's own ink
+        assertEquals(MarkDims.ACTIVE_INK, MarkDims.checkInk(true)); assertEquals(MarkDims.CHECK_COLOUR, MarkDims.checkInk(false))
         assertEquals(0xffffff, MarkDims.LINE_COLOUR); assertEquals(0xcc, MarkDims.LINE_ALPHA); assertEquals(0xffc46b, MarkDims.CHECK_COLOUR)
     }
 

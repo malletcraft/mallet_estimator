@@ -1,9 +1,11 @@
 package com.malletcrafts.interiorestimate.pano
 
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * WHAT A FINGER ON THE SURVEY-PREP PHOTO TAKES, AND WHERE THE MAGNIFIER GOES
@@ -121,6 +123,8 @@ object SurveyPrepTouch {
         class Tag(val code: String) : Hit()
         /** Point [i] of chain [id] (v52 slice 11): the chain is picked and the point moves along it. */
         class Node(val id: String, val i: Int) : Hit()
+        /** The PICKED Tape's, Line's or area's body (port 63 slice F1): it moves whole ([SurveyGuide.bodyMove]). */
+        object Body : Hit()
     }
 
     /** A chain's points as drawn: its id and each point on the canvas, px (v52 slice 11). */
@@ -136,18 +140,30 @@ object SurveyPrepTouch {
      *  2. a CHAIN POINT within [nodeR] (16 dp) of the finger, the nearest (v52 slice 11, sp.js hit: after the picked
      *     mark's tabs -- ct52 X5, "a chain point on a door's left tab resizes the door" -- and before any tag or mark);
      *  3. a tag under the finger, the nearest centre;
-     *  4. the marks, topmost first: a spot within [spotReach] of its centre,
+     *  4. THE PICKED TAPE'S, LINE'S OR AREA'S BODY when the finger is on it ([body]: the caller asks
+     *     [SurveyGuide.bodyPress], which leaves its ends to the ends) -- port 63 slice F1; Amit, 16 Nov 2026: "tape
+     *     mark does not move unless its end points are moved. difficult for moving it from one point to other." It is
+     *     drawn over the marks and it is the thing picked, so it comes BEFORE them: a tape laid across a window is
+     *     moved by its band, and the window by the rest of itself. A figure and a chain's point under the same finger
+     *     keep the press, as they keep it from a mark;
+     *  5. the marks, topmost first: a spot within [spotReach] of its centre,
      *     moved whole, never resized; the picked box within [tol] of its edge
      *     (a tab there still resizes), any other box only inside it.
      * Null: nothing, and the finger slides the photo.
      *
      * A MARK WHOSE CORNERS ARE FREE ([Drawn.corners]; port 63 slice Q1): picked, its four corners stand where the eight
-     * tabs do in this order, each the part it drags (q0 … q3), a tag under the finger taking the touch only when its
-     * centre is nearer; and in step 4 its body counts only INSIDE ITS SHAPE -- so the empty corner of its bounding box
-     * no longer hides what is under it -- while a press on one of the picked one's corners still drags that corner.
+     * tabs do in this order (step 1), each the part it drags (q0 … q3), a tag under the finger taking the touch only when
+     * its centre is nearer; and among the marks (step 5) its body counts only INSIDE ITS SHAPE -- so the empty corner of
+     * its bounding box no longer hides what is under it -- while a press on one of the picked one's corners still drags
+     * that corner.
+     *
+     * WHERE THE TWO MEET (the merge of slices F1 and Q1): the picked Tape's body (step 4) comes before a four-corner
+     * mark as before any mark -- a tape laid across a sloping window is moved by its band, and the window by the rest
+     * of its SHAPE; the empty corner of its bounding box is neither. One thing is picked at a time, so [body] is never
+     * handed with a picked mark; were it, that mark's own handles would still come first (step 1), as an end does.
      */
     fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16,
-            nodes: List<Nodes> = emptyList(), nodeR: Double = tol): Hit? {
+            nodes: List<Nodes> = emptyList(), nodeR: Double = tol, body: Boolean = false): Hit? {
         val under = tags.filter { it.box.contains(x, y) }.minByOrNull { it.box.centreDist(x, y) }
         val sel = selId?.let { id -> marks.lastOrNull { it.id == id } }
         if (sel != null) {
@@ -162,6 +178,7 @@ object SurveyPrepTouch {
         }
         SurveyChain.nodeAt(nodes.map { it.id to it.pts }, x, y, nodeR)?.let { (id, i) -> return Hit.Node(id, i) }
         if (under != null) return Hit.Tag(under.code)
+        if (body) return Hit.Body
         for (m in marks.asReversed()) {
             val sp = m.spot
             if (sp != null) {
@@ -185,38 +202,117 @@ object SurveyPrepTouch {
 
     // ------------------------------------------------------------ the floating trash
 
+    /** The floating trash is a disc this many dp across. */
+    const val TRASH_DP = 36.0
+
     /**
-     * WHERE THE FLOATING TRASH GOES (v52, sp.js placeFTrash): a [size] (36 dp) disc beside the
-     * picked mark, whose box on screen is [bb]; [tags] are its figures' boxes as drawn, on a
-     * [w] x [h] photo, all canvas px; [dp] px per dp. Eight candidates, each kept 4 dp inside
-     * the photo and clear of the fit / zoom buttons in the top-right corner: above-right,
-     * above-left, below-right, below-left, then the same four one trash-height further out.
-     * The first that covers NO figure wins (v52 fix: a point's "from corner" tag sat where the
-     * trash went, so a tap meant for the figure deleted the point); none clear, the first.
-     * Null when the mark is off the photo: no trash.
+     * WHAT THE FLOATING TRASH KEEPS CLEAR OF BESIDES THE FIGURES (port 63 slice F1; [DeleteGuard]): the picked item's
+     * own handles, on screen, canvas px. [points]: a box mark's eight tabs, a spot's centre, a Tape's / Line's /
+     * area's ends, a chain's points. [body]: the straight pieces of a Tape's, a Line's, an area's or a chain's line --
+     * a press there moves or picks it -- each [bodyHalf] wide either side (a tape's band; 0 for a line).
+     */
+    class TrashKeep(val points: List<DoubleArray>, val body: List<Pair<DoubleArray, DoubleArray>> = emptyList(), val bodyHalf: Double = 0.0) {
+        companion object { val NONE = TrashKeep(emptyList()) }
+    }
+
+    /** What the disc keeps clear of beside a picked MARK drawn as the box [bb]: its eight tabs -- or, for a [spot] (a
+     *  point, a Note's pin), which has no tabs and is grabbed round its middle, its centre.
+     *
+     *  A MARK WHOSE CORNERS ARE FREE ([corners]: [Drawn.corners], canvas px, null for every other mark; the merge of
+     *  port 63 slices F1 and Q1): its FOUR CORNERS, which are the handles it shows where a rectangle shows eight tabs
+     *  ([Quad.free], the one rule) -- F1's rule is the picked item's OWN handles, and a tab that is not drawn takes no
+     *  press. [bb] stays its BOUNDING box, which is what the disc is placed beside (DESIGN-quad §3.4), so every corner
+     *  is inside it or on its edge and each of [trashSpot]'s places is tested against the corners as they stand. */
+    fun keepOfMark(bb: Box, spot: Boolean, corners: List<DoubleArray>? = null): TrashKeep =
+        if (spot) TrashKeep(listOf(doubleArrayOf((bb.l + bb.r) / 2, (bb.t + bb.b) / 2)))
+        else if (corners != null) TrashKeep(corners.take(Quad.PARTS.size))
+        else TrashKeep(TABS.map { tabAt(it, bb.l, bb.r, bb.t, bb.b) })
+
+    /** ... beside a picked Tape, Line, area or chain whose points on screen are [scr]: every point, and the pieces
+     *  between them ([closed]: an area, whose last corner joins its first), [half] wide either side (a tape's band). */
+    fun keepOfLine(scr: List<DoubleArray>, closed: Boolean, half: Double = 0.0): TrashKeep {
+        val n = if (closed) scr.size else scr.size - 1
+        return TrashKeep(scr, (0 until max(0, n)).map { scr[it] to scr[(it + 1) % scr.size] }, half)
+    }
+
+    /**
+     * WHERE THE FLOATING TRASH GOES (v52, sp.js placeFTrash; RE-RULED IN PORT 63 SLICE F1): a [TRASH_DP] (36 dp) disc
+     * beside the picked item, whose box on screen is [bb]; [tags] are its figures' boxes as drawn, on a [w] x [h]
+     * photo, all canvas px; [dp] px per dp.
+     *
+     * Amit, 16 Nov 2026, with build 0.3.337 on his phone: "navigation button and D2 aer very close where d2 get
+     * accidentally fired. same for delete button for any item." The disc sat 2 dp off the picked mark's corner -- its
+     * edge 10 dp from the corner tab, well inside that tab's 16 dp reach -- and took the press BEFORE the tab did; it
+     * stood 7.5 dp off a tape's end handle, and anywhere at all beside a figure. So a finger a little wide of a handle
+     * deleted the thing it meant to stretch.
+     *
+     * NOW THE DISC IS [clear] (16 dp, [DeleteGuard.CLEAR_DP]) FROM EVERYTHING ELSE THAT TAKES A PRESS: its edge that
+     * far from every point and every piece of [keep] -- the picked item's own handles ([TrashKeep]) -- and its square
+     * that far from every figure. Eight candidates at its corners, each kept 4 dp inside the photo and clear of the
+     * fit / zoom buttons in the top-right corner: above-right, above-left, below-right, below-left -- out of the box's
+     * corner along its diagonal, just far enough that the disc's edge is [clear] from the corner itself -- then the
+     * same four one trash-height further out.
+     *
+     * THEN SIX BESIDE IT (the F1 review, finding 3): right of the box and left of it, the disc's square [clear] (and a
+     * tape's band) off the box's side, at the middle of what the photo shows of the item, then a quarter and three
+     * quarters down it. An item AS TALL AS THE PHOTO -- a floor-to-ceiling wardrobe, a tape from floor to ceiling;
+     * in landscape the wall fills the photo's height, so every such item at fit zoom -- has no corner place: the
+     * photo's edge clamps all eight to the same two rows beside a corner tab or the band's end, and F1 as built gave
+     * it no disc. A place beside it is tried only where it FITS: one the photo's edge or the fit / zoom corner would
+     * move sideways is moved onto the item itself, between its tabs, and is not a candidate.
+     *
+     * The first of the fourteen that is [clear] from the handles AND from the figures wins; where the figures crowd
+     * round the item and none is, the first that is [clear] from the handles and COVERS no figure (v52's own rule
+     * for a figure: "a tap meant for the figure deleted the point").
+     *
+     * NULL -- NO DISC AT ALL -- when the item is off the photo, and WHEN NO CANDIDATE IS CLEAR OF ITS HANDLES AND OFF
+     * EVERY FIGURE: an item that fills the photo BOTH ways (wall to wall and floor to ceiling, or zoomed in), or one
+     * with a figure on every side. The prototype's rule was "none clear, the first": a disc on a handle or over a
+     * figure. The picked item's row under the photo and the long-press menu still delete it; a delete control
+     * standing where a slip lands on it is worse than none.
      */
     fun trashSpot(bb: Box, tags: List<Box>, w: Double, h: Double, dp: Double,
-                  keep: List<DoubleArray> = emptyList(), keepR: Double = 0.0): Spot? {
+                  keep: TrashKeep = TrashKeep.NONE, clear: Double = DeleteGuard.CLEAR_DP * dp): Spot? {
         if (bb.r < 0 || bb.l > w || bb.b < 0 || bb.t > h) return null
-        val size = 36 * dp
+        val size = TRASH_DP * dp; val rad = size / 2
+        // how far out of the box's corner the disc's square starts, in whole dp: its edge is then [clear] (and a
+        // tape's band) from the corner, where a mark's corner tab or a Tape's end is
+        val off = max(2.0, ceil(((clear + keep.bodyHalf + rad) / sqrt(2.0) - rad) / dp)) * dp
         fun at(l0: Double, t0: Double, how: String): Spot {
             var left = max(4 * dp, min(w - 40 * dp, l0)); val top = max(4 * dp, min(h - 40 * dp, t0))
             if (top < 100 * dp && left > w - 104 * dp) left = w - 104 * dp     // clear of fit / zoom
             return Spot(left, top, how)
         }
-        fun clear(sp: Spot) = tags.all { r -> sp.left + size <= r.l || sp.left >= r.r || sp.top + size <= r.t || sp.top >= r.b }
+        // off every figure: the disc's square, grown by [g], covers none (g 0: v52's fix, where a point's "from corner"
+        // tag sat where the trash went, so a tap meant for the figure deleted the point)
+        fun figures(sp: Spot, g: Double) = tags.all { r ->
+            sp.left + size + g <= r.l || sp.left - g >= r.r || sp.top + size + g <= r.t || sp.top - g >= r.b }
+        // clear of the picked item's own handles: the disc's edge [clear] from each point and each piece of its line
+        fun handles(sp: Spot): Boolean {
+            val cx = sp.left + rad; val cy = sp.top + rad
+            return keep.points.all { p -> hypot(cx - p[0], cy - p[1]) >= rad + clear } &&
+                keep.body.all { (p, q) -> SurveyMeas.segDist(cx, cy, p, q) >= rad + clear + keep.bodyHalf }
+        }
         val c = mutableListOf<Spot>()
         for (f in 0..1) {
-            val out = 36 * dp * f
-            c.add(at(bb.r + 2 * dp, bb.t - 38 * dp - out, "above-right"))
-            c.add(at(bb.l - 38 * dp, bb.t - 38 * dp - out, "above-left"))
-            c.add(at(bb.r + 2 * dp, bb.b + 2 * dp + out, "below-right"))
-            c.add(at(bb.l - 38 * dp, bb.b + 2 * dp + out, "below-left"))
+            val out = size * f
+            c.add(at(bb.r + off, bb.t - size - off - out, "above-right"))
+            c.add(at(bb.l - size - off, bb.t - size - off - out, "above-left"))
+            c.add(at(bb.r + off, bb.b + off + out, "below-right"))
+            c.add(at(bb.l - size - off, bb.b + off + out, "below-left"))
         }
-        // the selected Tape's, Line's or area's end handles ([keep], canvas px): the disc's edge stays [keepR] off each,
-        // even where the clamps above push it into a corner (v52 slice 10 review); clear of a handle beats clear of a tag
-        fun kept(sp: Spot) = keep.all { p -> hypot(sp.left + size / 2 - p[0], sp.top + size / 2 - p[1]) >= size / 2 + keepR }
-        return c.firstOrNull { clear(it) && kept(it) } ?: c.firstOrNull { kept(it) } ?: c[0]
+        // BESIDE IT: the disc's square [clear] (and a tape's band) off the box's side, in whole dp, at three heights of
+        // what the photo shows of the item -- and only where the place was not moved sideways, onto the item
+        val side = ceil((clear + keep.bodyHalf) / dp) * dp
+        val vt = max(bb.t, 0.0); val vb = min(bb.b, h)
+        for (f in doubleArrayOf(0.5, 0.25, 0.75)) {
+            val t0 = vt + (vb - vt) * f - rad
+            for ((l0, how) in listOf(bb.r + side to "right", bb.l - size - side to "left")) {
+                val sp = at(l0, t0, how)
+                if (sp.left == l0) c.add(sp)
+            }
+        }
+        return c.firstOrNull { handles(it) && figures(it, clear) } ?: c.firstOrNull { handles(it) && figures(it, 0.0) }
     }
 
     // ------------------------------------------------------------ the magnifier
