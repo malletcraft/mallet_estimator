@@ -13,6 +13,8 @@
 # keep), the check's sentence with no figure (sp.measure.check_reading) and sp.reference_shown_mark. 34 in all.
 # Port 63 slice I1b (23 Nov 2026) deleted ten whose last reader went (DESIGN-imagemeter §20.2): 24. The review of I1 added one,
 # the bar's line after ✓ Save on a NEW capture (sp.msg.saved_filed_on_back, §22): 25 in all.
+# Port 63 P2N (23 Nov 2026) deleted that one again: ✓ Save on a new capture FILES it on the press, so nothing says
+# "filed when you go back" any more (DESIGN-imagemeter §23.1). 24 in all.
 key	English
 measure.diagonal	diagonal, bottom-left to top-right
 measure.diagonal_plan	diagonal, back-left to front-right
@@ -34,7 +36,6 @@ sp.measure.face_done_x	{face} · all {total} measured ✓
 sp.measure.not_in_room	Not in the room — a mark placed after the survey has nothing to measure
 sp.measure.room_done_x	Room measured · all {total} ✓
 sp.measure.x_to_measure	{n} to measure
-sp.msg.saved_filed_on_back	Survey prep saved — the capture is filed when you go back
 sp.reference_shown_mark	Reference shown on 2 · Mark and 3 · 360
 sp.shape.drag_corners	Drag a corner. A side near upright or level snaps straight.
 sp.shape.four_corners	Four corners

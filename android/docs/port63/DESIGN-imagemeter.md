@@ -1312,7 +1312,8 @@ call sites were read against the dialog's new parameters. Nothing has been seen 
   screen stays on the same face, step and zoom, and the bar says "Survey prep saved — writing its pictures…", then
   "… · 6 pictures in the room folder" or why not, until the next change. On a NEW capture a press is the read-back save
   alone and the bar says the autosave's line; ← files the capture, as before, and then queues the upload the press
-  held back, once (`SaveStay.Flow.NEW`). Only ← leaves.
+  held back, once (`SaveStay.Flow.NEW`). Only ← leaves. **Since port 63 P2N (§23.1) a NEW capture's first press files
+  it, once, and stays, and it is a kept capture's screen from that answer on.**
 - **Estimation and Client approved.** 2 · Mark is the view: nothing is held, nothing is gold, figures are the READ ones
   only; the phase's refusals are as before.
 
@@ -1436,7 +1437,8 @@ switches the screen over to I1a's and I1c's rules together.
    five tries (`AsIsUpload.kt:388-393`, "waiting to be filed", then "capture gone"), and staying is exactly what would
    outlast them. **Built instead:** `SaveStay.Flow.NEW` — a press there is the read-back save alone; the keep stays on ←,
    and ← then queues the upload the press held back, once (`SaveStay.Leave.then`). Its room size and pictures are the
-   keep's own, as today.
+   keep's own, as today. **SUPERSEDED by port 63 P2N (§23.1):** the keep is split — one function both the
+   press and ← call, one at a time — so the press FILES the capture, once, and stays.
 3. **P4 on a chain's total:** `Σ` is kept (`Σ 3310`) — it is no code and no unit, and without it the total under the last
    point reads as the last segment's figure — and the word ` laser` after a laser total goes with the code: it cost the
    line its room. Chains are off (`Features.CHAINS = false`); this reaches only a room that already has one.
@@ -1560,7 +1562,8 @@ CI; nothing has been seen on a phone.
    whose `onSaved` needs the capture's `CaptureStore` row (its `panoPath`, `deviceId`, `room`, `stage`) that exists only
    once that coroutine has returned. Built blind (MainActivity is not even type-checked here), a wrong order files the
    capture twice or rewrites pictures for a row not yet inserted. It is the next S2 change to make for P2, with
-   MainActivity under a compiler.
+   MainActivity under a compiler. **BUILT SINCE, as port 63 P2N: §23.1.** The first ✓ Save files the capture on the
+   press, once, and stays; the line "…the capture is filed when you go back" and its key are gone.
 3. **A read figure with no free spot became a 6 dp dot — CONFIRMED (minor).** In `DimLayout.lay` only `Rank.ACTIVE` was
    forced onto a plate; a read figure on an unpicked mark (`Rank.MEASURED`) was the first to lose its number, and P3
    now hands the layout every read figure of every mark. **Fixed:** on the one step (`slant`) a READ figure is never a
@@ -1603,3 +1606,142 @@ One key added: `sp.msg.saved_filed_on_back` (English as its Marathi value, liste
 2. `SurveyPrepScreen.kt`, the editing photo's `SurveyPrepDraw.Marks(…, ring = ring, ask = MeasureFlow.canRead(quoteStage))`.
 3. `SurveyPrepDraw.kt`: the new last `Marks` field `ask: Boolean = true`, and
    `PhotoFigures.layout(…, o.live, o.ready, ask = o.ask)`.
+
+## 23. The builds after I1 (23 Nov 2026)
+
+Slice I1 shipped as Play 0.3.348 (`main` `494c882`, 14:37 IST, 23 Nov 2026). Each build after it is recorded here as it
+is made, one subsection each.
+
+### 23.1 P2N — ✓ Save on a brand-new capture files it on the press, and stays
+
+**Why.** Amit, 23 Nov 2026, on 0.3.345: "Click on save always take me out to room foto. its annoying." (P2, §21). I1
+answered it for a capture opened from its room. On a BRAND-NEW capture — survey prep straight after the shutter — the
+review of I1 (§22, finding 2) left it half done: ✓ Save was the read-back save alone, the bar said "Survey prep saved —
+the capture is filed when you go back", and the capture got its row, its six faces, its pictures and its upload only
+when he pressed ←. P2N is the other half. Branch `port63-i2`, over `494c882`. `:app` is compiled only by CI; nothing has
+been seen on a phone.
+
+**What the phone does now, on a new capture (all six surfaces bounded, as ✓ Save has always needed).**
+
+| He does | The phone does | He sees |
+|---|---|---|
+| The FIRST ✓ Save | the read-back save; then the capture is FILED, once — its six faces and survey pictures into the room folder (`FaceWriter.commit`) and its row (`store.insert`), with the prep and the size as they stood at the press; then the as-is upload is queued, if the save read back | survey prep STAYS, same face, step and zoom; the bar says "Survey prep saved — writing its pictures…", then "Survey prep saved · N pictures in the room folder" (N: the six faces and every survey picture); `Discard this 360` and the "New 360 — ← keeps it…" note leave the ⋮ menu |
+| ✓ Save again WHILE that filing is still running | the read-back save at once; the rest waits its turn behind the filing, and by then the capture is filed, so it is a kept capture's press: the size kept, the pictures rewritten from the prep as it stood at THIS press. Nothing is filed a second time | "…writing its pictures…" until the newest press is answered |
+| ✓ Save after the filing | exactly a kept capture's press (§20.1): the save, the upload, the size, the pictures rewritten | as on a capture opened from its room |
+| ← before any ✓ Save | what ← has always done on a new capture: it files it, once, with the prep as it stands; no upload is queued (none ever was without a Save) | the room, "Saving six faces…", then "N pictures saved to …" |
+| ← after a ✓ Save that filed | the size kept on its row, as ← does on a kept capture. Nothing is filed again, no picture is written, no upload repeated | the room, and the last Save's result line |
+| ← while a ✓ Save is still filing | ←'s own turn waits behind the filing and then keeps the size; the upload that press held back is queued by ← (the upload worker waits for the row, as it always has after ←), and the press's late answer queues no second one | the room, "Saving six faces…" until the filing is done |
+| The filing FAILS (the disk is full, say) | nothing was filed: the capture is still a new one. The next ✓ Save, or ←, files it — a failed filing is retried, never repeated | "Survey prep saved on this phone; pictures not written: <why>"; `Discard this 360` is offered again |
+
+**The order of effects is `:pano`'s (`SaveStay`); `:app` only asks and does.** Three places run a save, and each asks:
+
+| Where | Asks | Answer |
+|---|---|---|
+| The screen, at the press (`SurveyPrepScreen.saveNow`) | `SaveStay.effects(done, readBack, SaveStay.flow(saveMem))` | KEPT: `SAVE`, `UPLOAD` when it read back, `KEEP_SIZE`, `PICTURES` (unchanged). NEW: `SAVE`, `FILE` — the press is handed to the caller's keep, and NO upload is queued yet: there is no row to upload from. `flow` is asked at EVERY press, because it changes under the open screen, once |
+| The caller's keep, ONE AT A TIME, for a press and for ← alike (`MainActivity`'s `keepNew`, under `NewKeep.lock`) | `SaveStay.keep(filed = the row exists NOW, leaving)` | not filed: `FILE`. Filed, a press: `KEEP_SIZE`, `PICTURES`. Filed, ←: `KEEP_SIZE`. **This is the one place that decides to file, and it can only while there is no row** — so two presses, a press and a ←, or a ← during a filing can never file twice |
+| The screen, at the keep's answer (the `report` callback) | `SaveStay.answered(saveMem, seq, n, why)` | the bar shows the NEWEST press's answer alone; the capture is FILED from the first answer that carries pictures (a filing writes them; a rewrite needs its row), whichever press it answers, and never un-filed; the upload the last press held back is queued at the answer that files, once (`Answer.then`) |
+| ← (`SurveyPrepScreen.back`) | `SaveStay.leave(saveMem, dirty)`, then `SaveStay.left` | nothing of a save is repeated; an upload still held is queued by ←, once, and forgotten, so a late answer queues none |
+
+`SaveStay.Mem` gained what the screen must remember for this: `filed` (true from the start for a kept capture:
+`SaveStay.opened(filed)`), `keeps` (presses handed to the keep and not answered yet) and `held` (an upload is held
+back). `SaveStay.filing` reads them as `NOT_FILED` / `FILING` / `FILED`, and `SaveStay.mayDiscard` is `NOT_FILED` alone:
+`Discard this 360` deletes the 360 file, which a filed capture's row points at and a filing is reading. New, too:
+`Effect.FILE`, `toKeep`, `Answer`. Gone: `Pictures.ON_LEAVE`, `saved`'s `pictures` parameter, `leave`'s `flow` parameter.
+
+**What changed in `:app`.**
+
+- `SurveyPrepScreen.kt` — `SurveyPrepDialog` takes `filed: Boolean` (no default) and a non-null `onSaved`; `saveMem`
+  opens as `SaveStay.opened(filed)`; `saveNow` and `back` as the table above; the two `onDiscard` rows of the ⋮ menu are
+  drawn only while `SaveStay.mayDiscard(saveMem)`. The `val flow` that read `onSaved == null` is gone.
+- `MainActivity.kt` — the kept capture's call passes `filed = true` and is otherwise untouched. `NewCaptureSurvey` takes
+  `onSaved` and `onKeep(prep, size)` and passes `filed = false`; its `keepWith` is gone. At its call site the old `onKeep`
+  body became `keepNew(p, size, leaving, report)`: a plain `scope.launch` (the composition's scope, so the turns are
+  taken on the main thread in the order asked — a `Mutex` is first come, first served), `newKeep.lock.withLock`, then
+  `SaveStay.keep`, with the two slow steps (`FaceWriter.commit` + `store.insert`; `FaceWriter.rewriteSurvey`) inside
+  `withContext(Dispatchers.Default)`. The session takes the call's prep and size UNDER the lock, just before the faces
+  are written, so a later press cannot change it under a filing. `NewKeep` (the lock, and the row once filed) is
+  `remember`ed per pending capture. A press does not clear `pending`; ← does.
+
+**Decided here, where the brief was silent.**
+
+1. **A new capture is filed whatever the read-back save answered** — ← has always filed one whose prep did not read
+   back, and a press that filed nothing in that case would bring back "Save did nothing". Only the UPLOAD needs the
+   read-back, as everywhere.
+2. **One upload for however many presses were held back, and the LAST press decides it** (the rule I1 already had for
+   ←): it is queued once the row exists and carries the prep as last saved; if the last held press did not read back,
+   none is queued — the web never gets a prep this phone does not hold.
+3. **"Filed" is read from the answer itself** — pictures written means the row exists — so `report` kept its shape
+   (`(Int?, String?)`) and the kept capture's `onSaved` is byte for byte what shipped in 0.3.348.
+4. **A press made during the filing is not dropped and not merged: it is queued**, and becomes a kept capture's press.
+   Dropping it would lose the changes made between the two presses from the pictures.
+5. **A change made after the last ✓ Save, then ←:** it is kept on the phone and goes to the pictures and the web with
+   the next ✓ Save — exactly as on a capture opened from its room (`Leave.changedSince`). Said plainly, because before
+   P2N ← on a new capture always wrote the pictures from the prep as it stood: now it does so only when ← itself files.
+6. **`Discard this 360` goes from the menu the moment a press is filing**, and comes back only if that filing failed.
+7. **The room screen's "Saving six faces…" is shown only by a ← that has something to wait for** (the capture not filed
+   yet), and that ← clears only the line it set. A press shows nothing on the room screen: the bar says it.
+8. **The first press's count is the filing's own** (`FaceWriter.Result.faceCount`: the faces and the survey pictures),
+   in the kept capture's sentence; the room screen's result line stays "N pictures saved to …", as ← always said.
+9. **Not changed:** a filing is `FaceWriter.commit` and `store.insert` as one step, as it was. If the faces were written
+   and the insert then failed, the retry writes the faces again (the gallery then holds both sets). Before P2N a
+   filing could fail only under ←, after the dialog had closed, with no retry at all; a press that fails can now be
+   pressed again. The double set is not fixed here.
+10. **The filing now runs with survey prep still open.** A kept capture's ✓ Save already decodes the full 360 and
+   writes its survey pictures under the open screen (0.3.348), so the filing adds the six full-size faces, one at a
+   time, to that. On the Mi A3 the first ✓ Save of a new capture may take as long as ← used to; the bar says
+   "writing its pictures…" throughout. To be watched on the phone, not measured here.
+
+**Texts.** No key added. `sp.msg.saved_filed_on_back` lost its last reader and is deleted from both tables, from
+`mr-pending.tsv` (24 keys) and from the regenerated `Tx`; 1,931 keys; `unkeyed.tsv` stays empty; the ratchet lowered
+nothing. The bar reuses the kept capture's three lines.
+
+**Tests.** `SaveStayTest` (7 → 12): a `Phone` that runs the three places exactly as `:app` does, every effect written
+down as it runs — the first press on a new capture (and one that did not read back, and a filing that fails); a second
+and a third press during the filing; a press after the filing, equal effect for effect to a kept capture's; ← before
+any press; ← after a press — answered, still filing, failed, and failing under ←; the screen's memory (an older answer
+shows nothing and still files; a failed rewrite never un-files; `left`); and EVERY order of up to seven events (a press
+that reads back, one that does not, a change, one turn of the keep, ←) with 0, 1 or 2 failing filings — 292,968 runs:
+at most one filing, nothing after it files, no rewrite or kept size before the row, no upload queued at a press or an
+answer without a row, the last read-back press always uploaded once the capture is filed, every press answered.
+`MeasureScreenTest` (14 → 15) reads the two sources: the screen asks `flow` at every press and never `keep`;
+`FaceWriter.commit(` occurs once in the app, with `store.insert(row)` and `newKeep.row = row` inside the `FILE` branch,
+in that order, under `newKeep.lock.withLock`, launched by a plain `scope.launch`; `pending = null` only on leaving.
+`CaptureFilingTest`'s pin on the kept 360's row moved with the line (`work = ps.work,`). `:pano`: 108 test classes,
+1,531 tests, 0 failures, 0 errors (0.3.348: 108 and 1,525).
+
+**Type-checked here, and what that cannot prove.** kotlinc 2.0.21 from the Gradle cache, the real `:pano` classes and
+the hand-written stand-ins of §20 (`scratchpad/i2-typecheck/`): `SurveyPrepScreen.kt` whole, with its seven companions,
+has NO error (the 235 left are the same stub gaps in the five files this build did not touch, count for count); and
+`MainActivity.kt`'s changed blocks — the `pending` block with `keepNew`, `NewKeep`, `NewCaptureSurvey`, the kept
+capture's block and `keepRoomSize`, 241 lines cut VERBATIM by a script — compile clean in an extract beside the real
+`SurveyPrepScreen.kt`, so both calls of `SurveyPrepDialog` are checked against its real signature. Errors planted in
+each (a wrong name, swapped arguments, a missing `filed`, a lost null check) were all reported. Every name each added
+`:app` line uses was also checked by hand to be in scope where it is written: in `SurveyPrepDialog`, its parameters
+`filed`, `onSaved`, `onCancel`, `onDiscard` and its own `saveMem`, `dirty`, `done`, `prep`, `roomSize`, `webState`,
+`context`, `id`; in `AppScreenBody`, `pending`, `busy`, `lastResult`, `surveyTick`, `scope`, `store`, `context`, `tx`,
+`keepRoomSize`, `refreshQueue` (all declared at the function's top level, above the block) and the block's own `ps`,
+`newKeep`; `SaveStay` is a NEW import in `MainActivity.kt`. **Not proven:** that the stand-ins of `CaptureStore.Capture`,
+`FaceWriter` (`Session`, `commit`, `rewriteSurvey`, `Result`), `SyncWorker`, `SurveyPrepStore`, `QuoteStageSync` and
+`WishSync` have the real shapes (copied by reading); anything the Compose compiler plugin or Android lint adds; the
+rest of `MainActivity.kt`; and everything about timing on a real phone — that the composition's scope runs the turns
+on the main thread in order is read from Compose's contract, not run.
+
+**Where to look first if CI's `:app` compile is red.**
+
+1. `MainActivity.kt`, `import com.malletcrafts.interiorestimate.pano.SaveStay` (new), and in `keepNew` the last
+   statement of `newKeep.lock.withLock { … }`, an `if` with no `else`.
+2. `MainActivity.kt`, `NewCaptureSurvey(pending = ps, onDiscard = …, onSaved = …, onKeep = …)` against its new
+   parameters, and inside it `filed = false, onSaved = onSaved, onCancel = { p, size -> onKeep(p, size) }`.
+3. `SurveyPrepScreen.kt`, `onSaved(prep.copy(), roomSize.copyOf()) { n, why -> … }` (no `?.invoke` any more) and
+   `SaveStay.leave(saveMem, dirty)` (two arguments).
+
+**Three things for Amit to look at first, on the phone.**
+
+1. Shoot a new 360, set all six surfaces' lines, press ✓ Save: it stays, the bar ends on "Survey prep saved · N
+   pictures in the room folder", and the pictures are in the room folder while survey prep is still open.
+2. Add a mark, ✓ Save again, then ←: the room shows ONE tile for the capture, its folder ONE set of six faces, and the
+   survey pictures show the new mark.
+3. A new 360, lines set, ✓ Save and ← at once: one tile, one set of faces, and "Saving six faces…" until it is done.
+
+**Not built.** Saving a room from one surface (✓ Save still needs all six; port 63 J1); the saved pictures' "measured
+figures only" (M3); a rewrite of the pictures on ← when something changed since the last Save (decision 5).

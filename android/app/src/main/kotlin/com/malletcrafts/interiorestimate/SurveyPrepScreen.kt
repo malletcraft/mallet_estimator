@@ -257,13 +257,20 @@ internal fun SurveyPrepDialog(
      */
     projectLine: String?,
     /**
-     * ✓ SAVE ON A KEPT CAPTURE (port 63 slice I1b, P2): the prep and the room size it is squared to now (L, W, H mm --
-     * the size line may have changed it), for the caller to keep the size on the capture's row and rewrite the room
-     * folder's survey pictures. SURVEY PREP STAYS OPEN: nothing here leaves. The caller answers through [report] once,
-     * when the pictures are written -- their count, or (null, why) when they were not -- and the bar says it. NULL ON A
-     * NEW CAPTURE: its press is the read-back save alone, and its keep is ← ([onCancel]; SaveStay.Flow.NEW).
+     * WHETHER THE CAPTURE THIS PREP IS OF IS FILED WHEN SURVEY PREP OPENS (port 63 P2N): true for a kept capture, opened
+     * from its room -- it has its row and its pictures; false for a NEW one, straight after the shutter, which its first
+     * ✓ Save files (SaveStay.opened, SaveStay.flow). NO DEFAULT: a caller that forgot it would file nothing, or twice.
      */
-    onSaved: ((SurveyPrep.Prep, DoubleArray, (Int?, String?) -> Unit) -> Unit)?,
+    filed: Boolean,
+    /**
+     * ✓ SAVE (port 63 slice I1b, P2; P2N): the prep and the room size it is squared to now (L, W, H mm -- the size line
+     * may have changed it), handed to the caller's keep -- which keeps the size on the capture's row and rewrites the
+     * room folder's survey pictures, or, for a NEW capture nothing has filed yet, FILES it: its faces, its pictures and
+     * its row, once (SaveStay.keep decides, in the caller, one press at a time). SURVEY PREP STAYS OPEN: nothing here
+     * leaves. The caller answers through [report] once per call, when the pictures are written -- their count, or
+     * (null, why) when they were not -- and the bar says it (SaveStay.answered).
+     */
+    onSaved: (SurveyPrep.Prep, DoubleArray, (Int?, String?) -> Unit) -> Unit,
     /** ←, the only way out: the work is kept on the phone either way, and handed back as it stands, with its size. */
     onCancel: (SurveyPrep.Prep, DoubleArray) -> Unit,
     /** A NEW capture's way out: drop the 360 altogether. Null on a kept capture. */
@@ -354,7 +361,8 @@ internal fun SurveyPrepDialog(
     var savedMsg by remember { mutableStateOf<Msg>(SurveyPrepFile.savedText(opened)) }
     // ✓ SAVE SAVES AND STAYS (port 63 slice I1b, P2): what the last press saved, and where its pictures are -- the bar
     // says the save's own words until the next change (SaveStay.bar), and an older press's late answer is ignored
-    var saveMem by remember { mutableStateOf(SaveStay.OPENED) }
+    // ... and whether the capture is FILED (port 63 P2N): a NEW capture opens not filed, and its first ✓ Save files it
+    var saveMem by remember { mutableStateOf(SaveStay.opened(filed)) }
     var dirty by remember { mutableIntStateOf(0) }
     var armed by remember { mutableStateOf(false) }
     var armedDiscard by remember { mutableStateOf(false) }
@@ -1456,17 +1464,18 @@ internal fun SurveyPrepDialog(
     val openShape = face && mode == StepRoute.LINES && frameOf(tab) == null
     val boundedText = tx.sp_x_6_surfaces_bounded(done.toString())
 
-    // WHICH SURVEY PREP THIS IS (SaveStay.Flow): a kept capture's, whose ✓ Save keeps its room size and rewrites its
-    // pictures through onSaved, or a NEW capture's (no onSaved), which ← files -- and its upload waits for that
-    val flow = if (onSaved == null) SaveStay.Flow.NEW else SaveStay.Flow.KEPT
     /**
      * ← LEAVES, AND IS THE ONLY THING THAT DOES (port 63 slice I1b, P2): what was typed is written first, and what ← has
-     * always done is done -- onCancel. Nothing of a save is run again (SaveStay.leave: no repeats); on a NEW capture
-     * whose last Save read back, the upload that press held back is queued ONCE, after the keep has filed its row.
+     * always done is done -- onCancel, whose keep files a NEW capture no ✓ Save has filed and never one that is
+     * (SaveStay.keep, in the caller). Nothing of a save is run again (SaveStay.leave: no repeats); an upload a press
+     * held back because the capture was not filed yet, and no answer has queued since, is queued ONCE here, after the
+     * keep has been asked -- and SaveStay.left forgets it, so that press's answer, arriving after this screen has
+     * closed, queues no second one.
      */
     fun back() {
         commitPad(); menuOpen = false
-        val l = SaveStay.leave(saveMem, dirty, flow)
+        val l = SaveStay.leave(saveMem, dirty)
+        saveMem = SaveStay.left(saveMem)
         onCancel(prep.copy(), roomSize.copyOf())
         if (SaveStay.Effect.UPLOAD in l.then) AsIsUpload.enqueue(context, id)
     }
@@ -1476,7 +1485,12 @@ internal fun SurveyPrepDialog(
      * SaveStay.effects' order -- the read-back save; the as-is upload when it read back (a save that did not read back
      * queues nothing, so the web never gets a prep this phone does not hold); the room size and the room folder's
      * survey pictures through onSaved, whose answer the bar then says. Survey prep STAYS OPEN on the same face, step and
-     * zoom, nothing picked or gold changed; only ← leaves. A NEW capture's press is the read-back save alone.
+     * zoom, nothing picked or gold changed; only ← leaves.
+     * ON A NEW CAPTURE THE FIRST PRESS FILES IT, AND STAYS (port 63 P2N; SaveStay.flow -- asked at every press, because it
+     * changes under this open screen, once): the press is handed to the caller's keep, which files the capture exactly
+     * once however many presses are made meanwhile; no upload is queued at such a press (there is no row to upload
+     * from) -- SaveStay.answered queues it at the answer that says the capture is filed, and from then on this is a kept
+     * capture's screen and every press is a kept capture's.
      */
     fun saveNow() {
         menuOpen = false
@@ -1484,13 +1498,15 @@ internal fun SurveyPrepDialog(
         commitPad()
         val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
         if (ok) unsaved[0] = false
-        val fx = SaveStay.effects(done, ok, flow)
-        saveMem = SaveStay.saved(saveMem, dirty, ok, pictures = SaveStay.Effect.PICTURES in fx)
+        val fx = SaveStay.effects(done, ok, SaveStay.flow(saveMem))
+        saveMem = SaveStay.saved(saveMem, dirty, ok)
         val seq = saveMem.seq
         if (SaveStay.Effect.UPLOAD in fx) { AsIsUpload.enqueue(context, id); webState = AsIsUpload.status(context, id) }
-        if (SaveStay.Effect.KEEP_SIZE in fx || SaveStay.Effect.PICTURES in fx)
-            onSaved?.invoke(prep.copy(), roomSize.copyOf()) { n, why ->
-                saveMem = if (n != null) SaveStay.written(saveMem, seq, n) else SaveStay.notWritten(saveMem, seq, why.orEmpty())
+        if (SaveStay.toKeep(fx))
+            onSaved(prep.copy(), roomSize.copyOf()) { n, why ->
+                val a = SaveStay.answered(saveMem, seq, n, why)
+                saveMem = a.mem
+                if (SaveStay.Effect.UPLOAD in a.then) { AsIsUpload.enqueue(context, id); webState = AsIsUpload.status(context, id) }
             }
         rev++
     }
@@ -2053,7 +2069,9 @@ internal fun SurveyPrepDialog(
             }, fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
-        if (onDiscard != null) {
+        // A NEW CAPTURE'S NOTE AND ITS DISCARD, ONLY WHILE IT IS NOT FILED (port 63 P2N; SaveStay.mayDiscard): once its first
+        // ✓ Save has filed it -- or is filing it -- it is a kept capture, whose 360 file its row points at
+        if (onDiscard != null && SaveStay.mayDiscard(saveMem)) {
             Text(tx.sp_new_360_keeps_room,
                 color = SP_GOLD, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
@@ -2093,7 +2111,7 @@ internal fun SurveyPrepDialog(
                     textAlign = TextAlign.Center)
             }
         }
-        if (onDiscard != null) {
+        if (onDiscard != null && SaveStay.mayDiscard(saveMem)) {
             Spacer(Modifier.height(6.dp))
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                 .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else SP_LINE_BORDER, RoundedCornerShape(12.dp))

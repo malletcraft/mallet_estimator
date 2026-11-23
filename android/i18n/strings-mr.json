@@ -4552,10 +4552,6 @@
  "sp.msg.saved": {
   "mr": "सेव्ह ✓ "
  },
- "sp.msg.saved_filed_on_back": {
-  "mr": "Survey prep saved — the capture is filed when you go back",
-  "note": "port 63 I1 review: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
- },
  "sp.msg.saved_x_downloads": {
   "mr": "{file} Downloads मध्ये सेव्ह केली"
  },

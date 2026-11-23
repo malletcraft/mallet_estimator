@@ -289,26 +289,93 @@ class MeasureScreenTest {
         val c = code(sps)
         val save = body(c, "fun saveNow()")
         assertEquals(0, count(save, "onCancel("), "Save leaves"); assertEquals(0, count(save, "onDone"))
-        assertEquals(1, count(save, "val fx = SaveStay.effects(done, ok, flow)"))
+        assertEquals(1, count(save, "val fx = SaveStay.effects(done, ok, SaveStay.flow(saveMem))"))
         assertEquals(1, count(save, "if (SaveStay.Effect.UPLOAD in fx) { AsIsUpload.enqueue(context, id); webState = AsIsUpload.status(context, id) }"))
-        assertEquals(1, count(save, "onSaved?.invoke(prep.copy(), roomSize.copyOf()) { n, why ->"))
+        assertEquals(1, count(save, "onSaved(prep.copy(), roomSize.copyOf()) { n, why ->"))
         assertEquals(1, count(c, "onCancel(prep.copy(), roomSize.copyOf())"), "← is the one way out")
         assertEquals(1, count(body(c, "fun back()"), "onCancel(prep.copy(), roomSize.copyOf())"))
         assertEquals(1, count(body(c, "fun back()"), "if (SaveStay.Effect.UPLOAD in l.then) AsIsUpload.enqueue(context, id)"))
         assertEquals(1, count(c, "Text(SaveStay.bar(tx, saveMem, dirty, savedMsg),"), "the bar says it was saved")
         // MainActivity: the kept capture's save keeps survey prep open and serialises the picture rewrite
         val m = code(main)
-        assertEquals(1, count(m, "onSaved = { p, size, report ->"))
+        assertEquals(2, count(m, "onSaved = { p, size, report ->"), "the kept capture's, and (port 63 P2N) the new capture's")
         val kept = m.substringAfter("onSaved = { p, size, report ->").substringBefore("onCancel = { _, size -> surveyKept = null;")
+        assertEquals(0, count(kept, "keepNew("), "the first of the two is the kept capture's own")
         assertEquals(0, count(kept, "surveyKept = null"), "a save closes survey prep")
         assertEquals(1, count(kept, "keepRoomSize(row.deviceId, size)")); assertEquals(1, count(kept, "FaceWriter.rewriteSurvey("))
         assertEquals(1, count(kept, "surveyWrite.withLock {")); assertEquals(1, count(m, "val surveyWrite = remember { Mutex() }"))
-        assertEquals(1, count(m, "onSaved = null,"), "a new capture: the press is the read-back save, ← keeps it")
+        assertEquals(0, count(m, "onSaved = null"), "a new capture's press files it (port 63 P2N, below)")
         assertEquals(0, count(m, "onDone = { p, size ->"))
         // the pure half: each effect once, in order, and leaving is none of them
         assertEquals(listOf(SaveStay.Effect.SAVE, SaveStay.Effect.UPLOAD, SaveStay.Effect.KEEP_SIZE, SaveStay.Effect.PICTURES), SaveStay.effects(6, true))
-        assertEquals(listOf(SaveStay.Effect.SAVE), SaveStay.effects(6, true, SaveStay.Flow.NEW))
+        assertEquals(listOf(SaveStay.Effect.SAVE, SaveStay.Effect.FILE), SaveStay.effects(6, true, SaveStay.Flow.NEW))
         assertTrue(SaveStay.leave(SaveStay.saved(SaveStay.OPENED, 3, true), 3).repeats.isEmpty())
+    }
+
+    @Test fun `P2N a new capture's Save files it on the press and stays - one keep, one at a time, is the only place that files`() {
+        // Port 63 P2N (DESIGN-imagemeter section 23.1; the review of I1, finding 2): the rule is SaveStay's and is tested in
+        // SaveStayTest; these pins hold that the screen and MainActivity ASK it, each in one place, in the order it needs.
+        val c = code(sps)
+        // THE SCREEN. It opens knowing whether the capture is filed; the flow is asked at EVERY press (it changes under
+        // the open screen); the press goes to the caller's keep; the upload a press held back is queued by the answer
+        assertEquals(1, count(c, "mutableStateOf(SaveStay.opened(filed))")); assertEquals(0, count(c, "mutableStateOf(SaveStay.OPENED)"))
+        assertEquals(0, count(c, "onSaved == null")); assertEquals(0, count(c, "onSaved?."))
+        val save = body(c, "fun saveNow()")
+        assertEquals(1, count(save, "saveMem = SaveStay.saved(saveMem, dirty, ok)"))
+        assertEquals(1, count(save, "if (SaveStay.toKeep(fx))"))
+        assertEquals(1, count(save, "val a = SaveStay.answered(saveMem, seq, n, why)")); assertEquals(1, count(save, "saveMem = a.mem"))
+        assertEquals(1, count(save, "if (SaveStay.Effect.UPLOAD in a.then) { AsIsUpload.enqueue(context, id); webState = AsIsUpload.status(context, id) }"))
+        assertEquals(2, count(save, "AsIsUpload.enqueue("), "at the press on a filed capture, or at the answer that files -- nowhere else")
+        assertEquals(0, count(save, "FaceWriter")); assertEquals(0, count(save, "SaveStay.keep("), "the screen never decides to file")
+        // ←: what was held is taken ONCE and forgotten before the keep is asked, so a late answer queues no second upload
+        val back = body(c, "fun back()")
+        assertEquals(1, count(back, "val l = SaveStay.leave(saveMem, dirty)")); assertEquals(1, count(back, "saveMem = SaveStay.left(saveMem)"))
+        assertTrue(back.indexOf("val l = SaveStay.leave(") < back.indexOf("saveMem = SaveStay.left(") && back.indexOf("saveMem = SaveStay.left(") < back.indexOf("onCancel("))
+        assertTrue(back.indexOf("onCancel(") < back.indexOf("AsIsUpload.enqueue("))
+        // Discard this 360 (and the new-360 note) only while the capture is not filed and nothing is filing it
+        assertEquals(2, count(c, "if (onDiscard != null && SaveStay.mayDiscard(saveMem)) {")); assertEquals(0, count(c, "if (onDiscard != null) {"))
+        assertEquals(1, count(c, "onDiscard()"))
+
+        // MAINACTIVITY. Both callers say whether the capture is filed; the new capture's press and its ← both come to keepNew
+        val m = code(main)
+        assertEquals(1, count(m, "filed = true,")); assertEquals(1, count(m, "filed = false,"))
+        assertEquals(1, count(m, "onSaved = { p, size, report -> keepNew(p, size, leaving = false, report = report) },"))
+        assertEquals(1, count(m, "onKeep = { p, size -> keepNew(p, size, leaving = true, report = null) })"))
+        assertEquals(1, count(m, "onCancel = { p, size -> onKeep(p, size) },")); assertEquals(0, count(m, "fun keepWith("))
+        val keep = body(m, "fun keepNew(")
+        // one at a time, in the order asked: taken on the main thread (a plain scope.launch), the heavy work off it
+        assertEquals(1, count(keep, "scope.launch {")); assertEquals(0, count(keep, "scope.launch(Dispatchers"))
+        assertEquals(1, count(keep, "newKeep.lock.withLock {")); assertEquals(1, count(m, "val newKeep = remember(ps) { NewKeep() }"))
+        assertEquals(2, count(keep, "withContext(Dispatchers.Default) {"))
+        // what to do is asked UNDER the lock, of the row as it is THEN
+        assertEquals(1, count(keep, "val fx = SaveStay.keep(filed = newKeep.row != null, leaving = leaving)"))
+        val lock = body(keep, "newKeep.lock.withLock")
+        assertEquals(1, count(lock, "val fx = SaveStay.keep("))
+        // THE FILING: the six faces and the row, in the FILE branch and nowhere else in the app; the row remembered only on success
+        val file = body(lock, "if (SaveStay.Effect.FILE in fx)")
+        assertEquals(1, count(m, "FaceWriter.commit(")); assertEquals(1, count(file, "FaceWriter.commit(context, ps.session)"))
+        assertEquals(1, count(file, "store.insert(row)")); assertEquals(1, count(keep, "store.insert("))
+        assertEquals(1, count(keep, "newKeep.row = row")); assertEquals(1, count(file, "newKeep.row = row"))
+        assertEquals(1, count(m, "newKeep.row = "), "nothing else ever says the capture is filed")
+        assertTrue(file.indexOf("ps.session.survey = p; ps.session.surveySize = size; ps.session.heightMm = size[2]") in 0 until file.indexOf("FaceWriter.commit("),
+            "the session takes THIS call's prep and size under the lock, before the faces are written")
+        assertTrue(file.indexOf("FaceWriter.commit(") < file.indexOf("store.insert(row)") && file.indexOf("store.insert(row)") < file.indexOf("newKeep.row = row"))
+        // a filed capture: the size, and for a press the pictures -- a kept capture's rewrite, from its row
+        assertEquals(1, count(lock, "if (kept != null && SaveStay.Effect.KEEP_SIZE in fx) keepRoomSize(kept.deviceId, size)"))
+        val pics = body(lock, "if (kept != null && SaveStay.Effect.PICTURES in fx)")
+        assertEquals(1, count(pics, "FaceWriter.rewriteSurvey(context, File(kept.panoPath), kept.deviceId, kept.room,"))
+        assertEquals(2, count(m, "FaceWriter.rewriteSurvey("), "the kept capture's and this one")
+        assertTrue(lock.indexOf(file) < lock.indexOf("val kept = newKeep.row") && lock.indexOf("val kept = newKeep.row") < lock.indexOf("if (kept != null && SaveStay.Effect.KEEP_SIZE"))
+        // every call is answered inside its turn (so the answers come in the order of the presses): four reports, all under the lock
+        assertEquals(4, count(lock, "report?.invoke(")); assertEquals(4, count(keep, "report?.invoke("))
+        // A PRESS STAYS: the dialog is closed by ← alone
+        assertEquals(1, count(keep, "pending = null")); assertEquals(0, count(lock, "pending = null"))
+        assertEquals(1, count(keep, "if (leaving) pending = null")); assertTrue(keep.indexOf("if (leaving) pending = null") in 0 until keep.indexOf("scope.launch {"))
+        // the pure half, as the three places ask it
+        assertEquals(listOf(SaveStay.Effect.FILE), SaveStay.keep(filed = false, leaving = false)); assertEquals(listOf(SaveStay.Effect.FILE), SaveStay.keep(filed = false, leaving = true))
+        assertEquals(listOf(SaveStay.Effect.KEEP_SIZE, SaveStay.Effect.PICTURES), SaveStay.keep(filed = true, leaving = false))
+        assertEquals(listOf(SaveStay.Effect.KEEP_SIZE), SaveStay.keep(filed = true, leaving = true))
+        assertEquals(SaveStay.Flow.NEW, SaveStay.flow(SaveStay.opened(false))); assertEquals(SaveStay.Flow.KEPT, SaveStay.flow(SaveStay.opened(true)))
     }
 
     // ---- a reading is written in one place ----------------------------------------------------------------------

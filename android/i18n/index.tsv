@@ -1388,7 +1388,6 @@ sp.msg.not_saving_no_storage	sp_msg_not_saving_no_storage	static	-
 sp.msg.not_shared_x	sp_msg_not_shared_x	template	why: String
 sp.msg.reference_stays_hide_eye	sp_msg_reference_stays_hide_eye	static	-
 sp.msg.saved	sp_msg_saved	static	-
-sp.msg.saved_filed_on_back	sp_msg_saved_filed_on_back	static	-
 sp.msg.saved_x_downloads	sp_msg_saved_x_downloads	template	file: String
 sp.msg.started_over_x	sp_msg_started_over_x	template	v: String
 sp.msg.started_over_x_locked	sp_msg_started_over_x_locked	template	kept: String

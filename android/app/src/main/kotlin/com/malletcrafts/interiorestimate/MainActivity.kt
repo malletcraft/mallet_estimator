@@ -87,6 +87,7 @@ import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.RoomToken
+import com.malletcrafts.interiorestimate.pano.SaveStay
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.TourFlows
@@ -552,6 +553,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
             // foto. its annoying."): everything a save did here is still done, once a press -- but survey prep stays open
             // (surveyKept is NOT cleared: only ← clears it, onCancel below), and how the pictures went is told back to its
             // bar through [report] as well as to the room screen's result line.
+            // A KEPT CAPTURE IS FILED: it has its row and its pictures (port 63 P2N; SaveStay.opened)
+            filed = true,
             onSaved = { p, size, report ->
                 surveyTick++
                 // The room size as survey prep now has it (v51: its size line is editable) goes to the
@@ -2994,6 +2997,101 @@ private fun AppScreenBody(onLang: () -> Unit) {
     }
 
     pending?.let { ps ->
+        // THE KEEP OF A NEW CAPTURE: ✓ SAVE FILES IT ON THE PRESS AND STAYS; ← FILES IT IF NOTHING HAS (port 63 P2N; Amit,
+        // 23 Nov 2026: "Click on save always take me out to room foto. its annoying." -- and the review of I1, finding 2:
+        // on a brand-new capture ✓ Save still filed nothing until ←). A press and ← both come HERE, and run ONE AT A TIME
+        // in the order they were made (newKeep.lock, taken from the main thread: `scope` is the composition's, and a
+        // Mutex lets its waiters in first come, first served). What each does when its turn comes is SaveStay.keep's
+        // answer, asked THEN, under the lock, of whether the capture's row exists: FILE only while it does not -- the six
+        // faces and the survey pictures (FaceWriter.commit) and the row (store.insert), exactly once however many
+        // presses and ← overlap -- else the room size, and for a press the pictures rewritten, as on a kept capture.
+        // A press stays: `pending` is cleared by ← alone. Each press is answered once, through [report], before the next
+        // call is let in, so survey prep hears the answers in the order of its presses (SaveStay.answered).
+        val newKeep = remember(ps) { NewKeep() }
+        fun keepNew(p: SurveyPrep.Prep, size: DoubleArray, leaving: Boolean, report: ((Int?, String?) -> Unit)?) {
+            // A PRESS STAYS: only ← closes survey prep. ← with the capture still to file, or with a press still filing it,
+            // says so on the room screen until its own turn is done -- and clears only the line it set.
+            val waits = leaving && newKeep.row == null
+            if (leaving) pending = null
+            if (waits) busy = { tx -> tx.app_msg_saving_six_faces }
+            scope.launch {
+                newKeep.lock.withLock {
+                    val fx = SaveStay.keep(filed = newKeep.row != null, leaving = leaving)
+                    if (SaveStay.Effect.FILE in fx) {
+                        // The size the prep is at NOW (its size line may have changed it, v51) is what the faces are
+                        // written at, and what the capture's row is filed with -- set here, under the lock, so a later
+                        // press cannot change the session under a filing that is still reading it.
+                        ps.session.survey = p; ps.session.surveySize = size; ps.session.heightMm = size[2]
+                        val row = CaptureStore.Capture(
+                            deviceId = ps.deviceId, project = ps.projectName,
+                            projectTitle = ps.projectTitle,
+                            customerName = ps.customerName, room = ps.room,
+                            stage = "", captureDate = ps.captureDate,
+                            panoPath = ps.session.panoFile.path,
+                            createdAt = System.currentTimeMillis(), state = "LOCAL",
+                            serverName = null, error = null, kind = "360",
+                            fov = ps.fov,
+                            // Filed by WORK from the shutter (FW2), as the split carried it.
+                            work = ps.work,
+                            // The laser sizes survey prep squared to, when it ran;
+                            // else CaptureGeometry's, whose lengthIn is the
+                            // left→right span (see mmPlan) -- stored, length is
+                            // front→back.
+                            roomLengthIn = ps.session.surveySize?.let { it[0] / MM_PER_IN }
+                                ?: ps.plan?.widthIn ?: 0.0,
+                            roomWidthIn = ps.session.surveySize?.let { it[1] / MM_PER_IN }
+                                ?: ps.plan?.lengthIn ?: 0.0,
+                            roomHeightIn = ps.session.surveySize?.let { it[2] / MM_PER_IN }
+                                ?: ps.plan?.heightIn
+                                ?: (ps.session.heightMm?.div(MM_PER_IN) ?: 0.0))
+                        val outcome = withContext(Dispatchers.Default) {
+                            runCatching {
+                                val res = FaceWriter.commit(context, ps.session)
+                                store.insert(row)
+                                res
+                            }
+                        }
+                        outcome.onSuccess { res ->
+                            // FILED: from here on this capture has its row, and nothing files it again
+                            newKeep.row = row
+                            SyncWorker.syncNow(context)
+                            // read into vals first: the banner is drawn later, from these
+                            val count = res.faceCount.toString()
+                            val path = res.relativePath
+                            lastResult = { tx -> tx.app_msg_x_pictures_saved_x(v = count, v2 = path) }
+                            report?.invoke(res.faceCount, null)
+                        }.onFailure { e ->
+                            lastResult = { tx -> tx.app_msg_could_not_save_x(why = FaceNote.line(tx, e)) }
+                            report?.invoke(null, FaceNote.line(tx, e))
+                        }
+                    }
+                    val kept = newKeep.row
+                    // The room size as survey prep now has it goes to the capture's row, as a kept capture's does
+                    if (kept != null && SaveStay.Effect.KEEP_SIZE in fx) keepRoomSize(kept.deviceId, size)
+                    // ... and the room folder's survey pictures follow the lines as they now stand, REPLACING the filing's
+                    if (kept != null && SaveStay.Effect.PICTURES in fx) {
+                        lastResult = { tx -> tx.app_msg_survey_prep_saved_writing }
+                        val n = withContext(Dispatchers.Default) {
+                            runCatching {
+                                FaceWriter.rewriteSurvey(context, File(kept.panoPath), kept.deviceId, kept.room,
+                                    kept.captureDate, kept.stage,
+                                    Handover.relativePath(kept.customerName, kept.projectTitle, kept.room), p, size)
+                            }
+                        }
+                        n.onSuccess { c ->
+                            lastResult = { tx -> tx.app_msg_survey_prep_saved_x(c.toString()) }
+                            report?.invoke(c, null)
+                        }.onFailure { e ->
+                            lastResult = { tx -> tx.app_msg_survey_prep_saved_not_written_x(why = FaceNote.line(tx, e)) }
+                            report?.invoke(null, FaceNote.line(tx, e))
+                        }
+                    }
+                }
+                if (waits) busy = null
+                refreshQueue()
+                surveyTick++
+            }
+        }
         NewCaptureSurvey(
             pending = ps,
             onDiscard = {
@@ -3002,50 +3100,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 pending = null
                 lastResult = { tx -> tx.app_msg_discarded_nothing_was_saved }
             },
-            onKeep = {
-                val keep = ps
-                pending = null
-                busy = { tx -> tx.app_msg_saving_six_faces }
-                scope.launch(Dispatchers.Default) {
-                    val outcome = runCatching {
-                        val res = FaceWriter.commit(context, keep.session)
-                        store.insert(CaptureStore.Capture(
-                            deviceId = keep.deviceId, project = keep.projectName,
-                            projectTitle = keep.projectTitle,
-                            customerName = keep.customerName, room = keep.room,
-                            stage = "", captureDate = keep.captureDate,
-                            panoPath = keep.session.panoFile.path,
-                            createdAt = System.currentTimeMillis(), state = "LOCAL",
-                            serverName = null, error = null, kind = "360",
-                            fov = keep.fov,
-                            // Filed by WORK from the shutter (FW2), as the split carried it.
-                            work = keep.work,
-                            // The laser sizes survey prep squared to, when it ran;
-                            // else CaptureGeometry's, whose lengthIn is the
-                            // left→right span (see mmPlan) -- stored, length is
-                            // front→back.
-                            roomLengthIn = keep.session.surveySize?.let { it[0] / MM_PER_IN }
-                                ?: keep.plan?.widthIn ?: 0.0,
-                            roomWidthIn = keep.session.surveySize?.let { it[1] / MM_PER_IN }
-                                ?: keep.plan?.lengthIn ?: 0.0,
-                            roomHeightIn = keep.session.surveySize?.let { it[2] / MM_PER_IN }
-                                ?: keep.plan?.heightIn
-                                ?: (keep.session.heightMm?.div(MM_PER_IN) ?: 0.0)))
-                        res
-                    }
-                    withContext(Dispatchers.Main) {
-                        busy = null
-                        outcome.onSuccess {
-                            SyncWorker.syncNow(context)
-                            // read into vals first: the banner is drawn later, from these
-                            val count = it.faceCount.toString()
-                            val path = it.relativePath
-                            lastResult = { tx -> tx.app_msg_x_pictures_saved_x(v = count, v2 = path) }
-                        }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_save_x(why = FaceNote.line(tx, e)) } }
-                        refreshQueue()
-                    }
-                }
-            })
+            // ✓ Save: the keep's turn for this press, and survey prep stays open
+            onSaved = { p, size, report -> keepNew(p, size, leaving = false, report = report) },
+            // ←: the keep's turn for the leave, which files the capture only if no press has
+            onKeep = { p, size -> keepNew(p, size, leaving = true, report = null) })
     }
 
     // A new site -- nothing chosen, nothing captured -- opens straight on the room
@@ -4012,6 +4070,16 @@ data class PendingSplit(
 )
 
 /**
+ * A NEW capture's keep (port 63 P2N): ONE AT A TIME ([lock] -- a press of ✓ Save and ← both wait their turn on it), and
+ * the capture's [row] once it is FILED, null until then. [row] is written and read on the main thread, under [lock]:
+ * it is what `SaveStay.keep` is asked about, so that the six faces are written and the row inserted exactly once.
+ */
+private class NewKeep {
+    val lock = Mutex()
+    var row: CaptureStore.Capture? = null
+}
+
+/**
  * A new 360 goes STRAIGHT to survey prep (Amit, 2026-10-11: "why do i need
  * sliders now for Zoom and turn? ... foto should directly split correctly
  * showing all four corner of each wall and then this 1.line and 2.mark UI
@@ -4022,12 +4090,16 @@ data class PendingSplit(
  * when the capture form did not hand all three over they are asked for first.
  * Save and Back both KEEP the capture (its faces, the 360, and an elevation
  * for every surface already bounded); only "Discard this 360" drops it.
+ * SAVE KEEPS IT AND STAYS; BACK KEEPS IT IF NO SAVE HAS, AND LEAVES (port 63 P2N):
+ * both hand the prep and the size it was left at to the caller's keep, which
+ * files the capture exactly once ([onSaved] with its answer, [onKeep] without).
  */
 @Composable
 private fun NewCaptureSurvey(
     pending: PendingSplit,
     onDiscard: () -> Unit,
-    onKeep: () -> Unit,
+    onSaved: (SurveyPrep.Prep, DoubleArray, (Int?, String?) -> Unit) -> Unit,
+    onKeep: (SurveyPrep.Prep, DoubleArray) -> Unit,
 ) {
     val tx = LocalTx.current
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -4046,12 +4118,6 @@ private fun NewCaptureSurvey(
             onOk = { dims = it }, onDismiss = onDiscard)
         return
     }
-    // The size the prep was left at (its size line may have changed it, v51) is what the faces are written
-    // at, and what the capture's row is filed with.
-    fun keepWith(p: SurveyPrep.Prep, size: DoubleArray) {
-        session.survey = p; session.surveySize = size; session.heightMm = size[2]
-        onKeep()
-    }
     SurveyPrepDialog(
         deviceId = session.deviceId,
         previewPano = session.previewPano,
@@ -4067,10 +4133,12 @@ private fun NewCaptureSurvey(
         // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4)
         projectLine = QuoteStageSync.prepLine(context,
             WishSync.stageKey(context, pending.projectName, pending.customerName, pending.projectTitle), tx),
-        // ✓ SAVE ON A NEW CAPTURE IS THE READ-BACK SAVE ALONE AND STAYS (port 63 slice I1b, P2; SaveStay.Flow.NEW): the
-        // capture is filed -- once -- by ← alone, which then queues the upload a Save held back
-        onSaved = null,
-        onCancel = { p, size -> keepWith(p, size) },
+        // A NEW CAPTURE IS NOT FILED YET (port 63 P2N; SaveStay.opened): its first ✓ Save files it on the press, once, and
+        // STAYS -- from that answer on this screen is a kept capture's -- and ← files it only if no Save has. The prep and
+        // the size it was left at (its size line may have changed it, v51) go to the caller's keep either way.
+        filed = false,
+        onSaved = onSaved,
+        onCancel = { p, size -> onKeep(p, size) },
         onDiscard = onDiscard)
 }
 
