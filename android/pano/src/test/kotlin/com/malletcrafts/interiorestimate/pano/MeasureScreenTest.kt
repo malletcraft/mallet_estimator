@@ -250,7 +250,7 @@ class MeasureScreenTest {
         assertTrue(picked.any { it.look == PhotoFigures.Look.ASK && it.text == MarkDims.ASK_TEXT })
         assertEquals(1, count(code(sps), "live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,"))
         // ... and after Survey it asks nothing: the phase's own rule, never a `?` that cannot be acted on (the review of I1, finding 5)
-        assertEquals(1, count(code(sps), "ask = MeasureFlow.canRead(quoteStage)), mm, u)"))
+        assertEquals(1, count(code(sps), "ask = MeasureFlow.canRead(scene.stage)), mm, u)"))
     }
 
     @Test fun `a Line's label is the number alone - its code only on its row - and runs along a slanted Line`() {

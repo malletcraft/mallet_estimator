@@ -3334,7 +3334,7 @@ private fun SpPhoto(
                             tabs = mode == StepRoute.MARK && pick.held,
                             live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,
                             // after Survey nothing is read here, so the picked item asks nothing: no `?` (the review of I1, finding 5)
-                            ask = MeasureFlow.canRead(quoteStage)), mm, u)
+                            ask = MeasureFlow.canRead(scene.stage)), mm, u)
                     }
                 }
                 tags.clear()
