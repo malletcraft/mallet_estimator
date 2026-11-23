@@ -139,8 +139,12 @@ class SyncWorker(context: Context, params: WorkerParameters) :
     private fun s5Leg(store: CaptureStore) {
         val ctx = applicationContext
         // (a) The projects this person may see on S5, folded into the masters (S5Masters
-        // keeps the room and stage lists and every project already known). Null = stale kept.
-        S5Masters.fetch(ctx)?.let { store.saveMasters(it) }
+        // keeps the room and stage lists). Null = stale kept. THIS LEG RUNS ONLY WITH NO LIVE
+        // ERP PAIR (doWork: no pair stored, or its one probe refused), so S5's list is the list:
+        // a project of an old ERP bootstrap stays only while S5 lists it or a capture of it
+        // exists only on this phone (TreeKeep, port 63 slice F4a) -- erpLive is false here by
+        // the leg's own condition, not read from the flag doWork sets after it.
+        S5Masters.fetch(ctx, erpLive = false)?.let { store.saveMasters(it) }
 
         // (a2) THE ONE-OFF SITE-NAME SEED (port 62 slice A2; Amit, 11 Nov 2026: "Yes — S5 keeps the site name"). The
         // list just read says which projects S5 holds NO site name for -- every one uploaded before S5 kept them --

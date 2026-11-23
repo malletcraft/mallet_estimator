@@ -295,7 +295,9 @@ fun SearchOverlay(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         if (query.isBlank()) {
-            Head(tx.app_try)
+            // Nothing suggested, no "Try" over an empty list (port 63 slice F4a: the three suggestions
+            // were demo data, hard-coded, and went with the Demo Client's row).
+            if (recents.isNotEmpty()) Head(tx.app_try)
             LazyColumn {
                 items(recents) { t ->
                     Row(

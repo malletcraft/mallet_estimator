@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.Renames
+import com.malletcrafts.interiorestimate.pano.TreeKeep
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import org.json.JSONArray
 import org.json.JSONObject
@@ -288,8 +289,10 @@ object S5Masters {
      *
      * MERGED, NOT REPLACED: the masters also carry the room, stage, site and job-type lists
      * a bootstrap brought, which S5 does not serve; replacing the file would empty every
-     * picker. Only "projects" changes: an entry this phone already had (an ERP bootstrap's,
-     * with its site and stage) is kept as it is, and a project only S5 knows is added.
+     * picker. With a live ERP pair only "projects" changes: an entry this phone already had (an
+     * ERP bootstrap's, with its site and stage) is kept as it is, and a project only S5 knows is
+     * added. Without one the bootstrap's projects and site rows are first cut to what S5 lists
+     * (below).
      *
      * S5's `customer` is an ERP Customer id and stays exactly that -- it is what S5's
      * maySee compares and what the upload sends back -- while `customer_name`, which the
@@ -303,8 +306,23 @@ object S5Masters {
      * entry is no longer stamped with the name of this phone's own row (audit R4: that copy was
      * what the tree showed, and a rename did not update it); where S5 holds no name yet the tree
      * resolves it from that row itself (Catalogue.erpProjects).
+     *
+     * WITH NO LIVE ERP PAIR, S5'S LIST IS THE LIST (port 63 slice F4a, 23 Nov 2026; Amit, with build
+     * 0.3.350 on his phone: "get rid of any other clients"). "Bootstrap entries stay" was right while
+     * a bootstrap was replaced by the next one. On a phone whose pair is gone or refused there is no
+     * next one, so the clients, sites and projects of the day its key died stayed listed for ever,
+     * whatever was cancelled or deleted in ERP since: every read here kept them, and sign-out drops
+     * only the entries S5 added. So [erpLive] is asked of the caller, and without it each bootstrap
+     * project and each row of the bootstrap's `sites` stays only where :pano's rule keeps it
+     * (TreeKeep.keepsProject, TreeKeep.keepsSite: S5 lists the project, or a capture of it has not
+     * reached a server yet; a site row while a kept project links to it). The rooms, job types, site
+     * types and stages are still merged, not replaced, and the rows made on this phone (Catalogue's
+     * local rows) are not touched.
+     *
+     * @param erpLive whether this phone holds a live ERP pair ([erpLive]): false in the sync's S5 leg,
+     *                which runs only with no pair or a refused one
      */
-    fun fetch(context: Context): JSONObject? = try {
+    fun fetch(context: Context, erpLive: Boolean): JSONObject? = try {
         val auth = S5Auth.fresh(context) ?: throw IllegalStateException("not signed in")
         val o = JSONObject(AsIsUpload.send("GET", BuildConfig.WEB_URL.trimEnd('/') + "/api/asis", auth, null, null))
         // A 200 without the list is not "no projects": it would hide every one.
@@ -316,13 +334,39 @@ object S5Masters {
         val had = base.optJSONArray("projects") ?: JSONArray()
         val known = mutableSetOf<String>()
         val out = JSONArray()
+        // What TreeKeep asks: the ids S5 just listed, and every capture on this phone with whether a server holds it.
+        val listed = HashSet<String>()
+        for (i in 0 until arr.length()) {
+            val id = arr.optJSONObject(i)?.optString("project").orEmpty()
+            if (id.isNotBlank()) listed.add(id)
+        }
+        val caps = captures.map { TreeKeep.Cap(it.project, it.customerName, it.projectTitle, sent = it.state == "SYNCED") } // text:value the store's state, a wire value
+        val keptSites = HashSet<String>()
         for (i in 0 until had.length()) {
             val p = had.optJSONObject(i) ?: continue
             // An entry an earlier S5 read added is REPLACED by this read, so access S5 has since
-            // taken away -- or a previous person's list -- does not linger. Bootstrap entries stay.
+            // taken away -- or a previous person's list -- does not linger.
             if (p.optBoolean(FROM_S5)) continue
+            // A bootstrap entry stays where TreeKeep keeps it: always with a live pair; without one only while S5
+            // lists the project or a capture of it exists only on this phone. Client and title as the tree reads them.
+            val entry = TreeKeep.Entry(
+                project = p.optString("project"),
+                client = p.optString("customer_name").ifBlank { p.optString("customer") },
+                title = p.optString("title").ifBlank { p.optString("project") },
+                siteId = p.optString("site"))
+            if (!TreeKeep.keepsProject(entry, erpLive, listed, caps)) continue
             out.put(p)
-            known.add(p.optString("project"))
+            known.add(entry.project)
+            keptSites.add(entry.siteId)
+        }
+        // The bootstrap's site rows: a row no kept project links to would list its owner as a client with an empty site.
+        base.optJSONArray("sites")?.let { rows ->
+            val keep = JSONArray()
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i) ?: continue
+                if (TreeKeep.keepsSite(row.optString("name"), erpLive, keptSites)) keep.put(row)
+            }
+            base.put("sites", keep)
         }
         for (i in 0 until arr.length()) {
             val p = arr.optJSONObject(i) ?: continue
@@ -353,6 +397,14 @@ object S5Masters {
         Log.w(TAG, "projects not read from S5: " + (e.message?.take(160) ?: e.javaClass.simpleName))
         null
     }
+
+    /**
+     * Whether this phone holds a LIVE ERP pair -- one is stored and the bench has not refused it (TreeKeep.erpLive):
+     * the one place :app reads the two facts, for [fetch] and for the rename and delete routes (Renames.route,
+     * Deletes.route). The refusal is the sync's own finding (FrappeClient.setRefused, from its one bootstrap probe).
+     */
+    fun erpLive(context: Context): Boolean =
+        TreeKeep.erpLive(pair = FrappeClient.load(context) != null, refused = FrappeClient.refused(context))
 
     /** Drop every project an S5 read added (sign-out): the next person sees only their own. */
     fun forget(context: Context) {

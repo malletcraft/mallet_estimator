@@ -68,7 +68,12 @@ object Features {
      *  - the drawer's HELP ROW (MainActivity's settings groups): it would read "0 tours", so its group is not drawn,
      *    and with it the Help screen has no way in;
      *  - the DEMO CLIENT's seeding on a fresh install (TourSeed.ensure at MainActivity's start): the demo flat exists
-     *    only for the tours. A Demo Client a phone already holds is left alone.
+     *    only for the tours. What a phone already holds of it -- its capture row, its pano, its survey prep -- is
+     *    left in the store, untouched;
+     *  - the DEMO CLIENT'S ROW (port 63 slice F4a, 23 Nov 2026; Amit, with build 0.3.350 on his phone: "get rid of
+     *    any other clients"): Catalogue.projects appends the demo flat to the tree only while [TreeKeep.demoListed],
+     *    whose default is this constant -- until then it was appended always, a third client on a phone that has
+     *    two -- and the demo's own capture leaves the Queue's Sent list with it ([TreeKeep.listsCapture]).
      * Nothing is deleted: the seven flows and their texts, TourMachine, TourOverlay, the anchors on the screens,
      * survey prep's TourBindSurvey and the Help screen are all still there, and compiled on every build. The survey
      * flow's `mode:list` anchor names a step the screen no longer has; it is for whoever rewrites the tour once Amit

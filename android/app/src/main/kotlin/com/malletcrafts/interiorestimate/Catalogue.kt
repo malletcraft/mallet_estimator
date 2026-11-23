@@ -4,6 +4,7 @@ import android.content.Context
 import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.SiteRows
 import com.malletcrafts.interiorestimate.pano.TourDemo
+import com.malletcrafts.interiorestimate.pano.TreeKeep
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
 import org.json.JSONObject
@@ -572,11 +573,15 @@ class Catalogue(context: Context) {
                 clientId = "", jobType = l.jobType, local = true))
             seen.add(keyOf(l.client, l.site, l.project))
         }
-        // THE DEMO FLAT (port 61c §31; ch55, approved with v55): always in Browse, as Demo
-        // Client always is on the prototype — appended HERE, never written into locals(), so
-        // no sync leg ever sees it (the locals are what the ERP leg pushes). TourDemo is the
-        // one is-this-the-demo rule; every sync entry point refuses its rows through it.
-        if (out.none { TourDemo.isDemoProject(it.client, it.title) })
+        // THE DEMO FLAT (port 61c §31; ch55, approved with v55): in Browse WHILE THE HELP TOURS
+        // ARE ON, as Demo Client is on the prototype — appended HERE, never written into
+        // locals(), so no sync leg ever sees it (the locals are what the ERP leg pushes).
+        // TourDemo is the one is-this-the-demo rule; every sync entry point refuses its rows
+        // through it. It exists only for the tours, so with them off it is not a row of the
+        // tree (TreeKeep.demoListed, whose default is Features.HELP_TOURS; port 63 slice F4a --
+        // Amit, 23 Nov 2026: "get rid of any other clients", and this was a third on a phone
+        // that has two). What a phone seeded while they were on stays in its store, untouched.
+        if (TreeKeep.demoListed() && out.none { TourDemo.isDemoProject(it.client, it.title) })
             out.add(Project(TourDemo.CLIENT, TourDemo.SITE, "", TourDemo.PROJECT, "",
                 clientId = "", jobType = JOB_NEW, local = true))
         return out.sortedWith(compareBy({ it.client.lowercase() },

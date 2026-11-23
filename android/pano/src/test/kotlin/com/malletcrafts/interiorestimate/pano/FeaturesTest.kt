@@ -440,8 +440,13 @@ class FeaturesTest {
         val found = LiteralScan.ROOTS.flatMap { sources(it) }.associateWith { count(code(it), tours) }.filterValues { it > 0 }
         assertEquals(mapOf(
             pano + "Tour.kt" to 1,           // TourFlows.shipped: the default of its last parameter
+            pano + "TreeKeep.kt" to 1,       // TreeKeep.demoListed: the default of its parameter -- the Demo Client's row in the tree (port 63 slice F4a)
             app + "MainActivity.kt" to 2,    // the demo flat's seeding at start, and the drawer's Help group
         ).toSortedMap(), found.toSortedMap(), "the sources that read Features.HELP_TOURS, and how often")
+        // THE DEMO CLIENT'S ROW (port 63 slice F4a): the tree lists the demo flat only while the tours are on, through the rule
+        // that takes the switch as its default; :app asks it with no answer of its own (TreeKeepTest holds the rest)
+        assertEquals(1, count(code(pano + "TreeKeep.kt"), "fun demoListed(tours: Boolean = Features.HELP_TOURS): Boolean = tours"))
+        assertEquals(1, count(code(app + "Catalogue.kt"), "if (TreeKeep.demoListed() && out.none { TourDemo.isDemoProject(it.client, it.title) })"))
         val declared = LiteralScan.ROOTS.flatMap { sources(it) }.filter { Regex("""\bHELP_TOURS\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
         assertEquals(listOf(pano + "Features.kt"), declared, "HELP_TOURS is given a value in one place")
         // :pano -- the rule takes the switch as the DEFAULT of its last parameter

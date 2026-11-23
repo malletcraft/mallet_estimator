@@ -483,7 +483,8 @@ class RenameRouteTest {
         assertTrue(i in 0 until j && legacy.substring(i, j).contains("if (res.isSuccess) runCatching {"), "the refresh is outside the call that decides the rename")
         assertFalse(s5.contains("bootstrap()"), "no bootstrap inside a site's rename")
         // R9: the list is read first only when the route says so, and the route is asked again with the list read
-        assertTrue(s5.contains("if (route.readFirst)") && s5.contains("S5Masters.fetch(context)") && s5.contains("renameRoute(t, listRead = true)"), "S5's list first, then the route again")
+        // (the pin moved with port 63 slice F4a: the read now says whether the pair is live -- TreeKeepTest holds what it does with that)
+        assertTrue(s5.contains("if (route.readFirst)") && s5.contains("S5Masters.fetch(context, erpLive = S5Masters.erpLive(context))") && s5.contains("renameRoute(t, listRead = true)"), "S5's list first, then the route again")
         // the one step, only once S5 has answered for every project: the phone's rows, the room-scope key, the masters' rows
         val done = between(s5, "if (outcome is Renames.Outcome.Done)", "} else {")
         for (step in listOf("cat.renameLocal(\"site\", t.client, t.site, \"\", name)", "cat.moveRoomScope(t.client, t.site, name)", "cat.renameSiteRows(m, t.client, t.site, name)"))
@@ -519,16 +520,21 @@ class RenameRouteTest {
         assertFalse(between(rename, "private fun put(", "fun hear(context: Context)").contains("takeRead("), "the PUTs' answers are taken, not recorded as a read")
         assertFalse(between(rename, "fun seed(context: Context)", "\n    }\n").contains("takeRead("), "nor the seed's")
         // the three reads of S5's list: the S5 leg's, the one both legs make, and the one made at start with a pair stored
-        assertTrue(between(app("S5Session.kt"), "fun fetch(context: Context)", "fun forget(context: Context)").contains("S5Sites.takeRead(context, "), "S5Masters.fetch")
+        // (fetch's signature moved with port 63 slice F4a -- it is told whether the pair is live; what it feeds is unchanged)
+        assertTrue(between(app("S5Session.kt"), "fun fetch(context: Context, erpLive: Boolean)", "fun forget(context: Context)").contains("S5Sites.takeRead(context, "), "S5Masters.fetch")
         assertTrue(between(app("QuoteStageSync.kt"), "fun refresh(context: Context", "// ---- Record the approved scope").contains("S5Sites.takeRead(context, "), "QuoteStageSync.refresh")
         val hear = between(rename, "fun hear(context: Context): Boolean", "fun seed(context: Context)")
         assertTrue(hear.contains("\"/api/asis\"") && hear.contains("o.getJSONArray(\"projects\")") && hear.contains("S5Sites.takeRead(context, "), "SiteRename.hear reads the list for its names")
         assertFalse(hear.contains("saveMasters") || hear.contains("S5Masters"), "and leaves the masters the bootstrap's")
         // app start: with a pair stored the S5 leg's read is not made, so the list is read there too
+        // THESE TWO PINS MOVED WITH PORT 63 SLICE F4a, and what they hold did not get weaker: "a pair is stored" became
+        // "a pair is LIVE" (stored and not refused, or its bootstrap landed just now), because a phone holding a dead key
+        // took neither the S5 leg's read at start nor a bootstrap, and drew the ERP of the day the key died. Every phone
+        // still makes exactly one of the two reads; TreeKeepTest pins how `erpLive` is found.
         val main = app("MainActivity.kt")
         val start = between(main, "LaunchedEffect(configured) {", "// Back from the camera")
-        assertTrue(start.contains("if (FrappeClient.load(context) != null && S5Auth.current(context) != null) SiteRename.hear(context)"), "a stored pair: S5's list is read at start")
-        assertTrue(start.contains("if (FrappeClient.load(context) == null && S5Session.signedIn(context))") && start.contains("S5Masters.fetch(context)?.let { store.saveMasters(it) }"), "no pair: the S5 leg's read, as before")
+        assertTrue(start.contains("if (erpLive && S5Auth.current(context) != null) SiteRename.hear(context)"), "a live pair: S5's list is read at start")
+        assertTrue(Regex("""if \(!erpLive && S5Session\.signedIn\(context\)\)\s*S5Masters\.fetch\(context, erpLive = false\)\?\.let \{ store\.saveMasters\(it\) \}""").containsMatchIn(start), "no live pair: the S5 leg's read")
         assertTrue(start.contains("reload()"), "and the tree is redrawn from what was heard")
         // the dialog: both facts go to Renames.route, the second asked only while the first is false
         val route = between(main, "fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {", "fun renameHere(")
@@ -577,7 +583,7 @@ class RenameRouteTest {
         assertTrue(sites.contains("Renames.takes(") && sites.contains("Renames.Held("), "kept by S5's own stamp")
         // the two list reads feed it, by :pano's reader
         val session = app("S5Session.kt")
-        assertTrue(between(session, "fun fetch(context: Context)", "fun forget(context: Context)").contains("S5Sites.takeRead(context, "), "S5Masters.fetch feeds the names")
+        assertTrue(between(session, "fun fetch(context: Context, erpLive: Boolean)", "fun forget(context: Context)").contains("S5Sites.takeRead(context, "), "S5Masters.fetch feeds the names")
         assertFalse(session.contains("m.put(\"site_name\""), "an S5 entry is no longer stamped with the local row's name (R4)")
         assertTrue(between(app("QuoteStageSync.kt"), "fun refresh(context: Context", "// ---- Record the approved scope").contains("S5Sites.takeRead(context, "), "the list read both legs make feeds them too")
         // every answer to a PUT …/site is kept at once
@@ -602,7 +608,7 @@ class RenameRouteTest {
     @Test fun `the seed and the record's site - sent after the S5 list read, never for the demo, the record's through AsIsPath`() {
         val sync = app("SyncWorker.kt")
         val leg = between(sync, "private fun s5Leg(store: CaptureStore)", "private data class ErpOutcome")
-        val read = leg.indexOf("S5Masters.fetch(ctx)"); val seed = leg.indexOf("SiteRename.seed(ctx)")
+        val read = leg.indexOf("S5Masters.fetch(ctx, erpLive = false)"); val seed = leg.indexOf("SiteRename.seed(ctx)")
         assertTrue(read >= 0 && seed > read, "the seed follows the list read in the S5 leg")
         val rename = app("SiteRename.kt")
         assertTrue(between(rename, "fun seed(context: Context)", "\n    }\n").contains("Renames.seed(p.serverId, p.client, p.title, S5Sites.held(context, p.serverId), p.site)"), "which projects are seeded is :pano's rule")

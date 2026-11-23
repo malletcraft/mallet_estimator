@@ -92,6 +92,7 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.TourFlows
 import com.malletcrafts.interiorestimate.pano.TourMachine
+import com.malletcrafts.interiorestimate.pano.TreeKeep
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import com.malletcrafts.interiorestimate.pano.WishList
 import com.malletcrafts.interiorestimate.pano.i18n.LangRow
@@ -729,21 +730,30 @@ private fun AppScreenBody(onLang: () -> Unit) {
     LaunchedEffect(configured) {
         if (configured) {
             withContext(Dispatchers.IO) {
-                runCatching {
+                // Whether the pair ANSWERED just now: a bootstrap that landed is a live pair, whatever an earlier
+                // sync recorded about it (the refusal flag is as old as the last sync).
+                val booted = runCatching {
                     FrappeClient.load(context)?.bootstrap()?.let {
                         store.saveMasters(it)
+                        true
                     }
-                }
-                // A PAIR IS STORED (the A2 review, finding 1): the S5 read below is not made, and no other read of
+                }.getOrNull() == true
+                // A LIVE PAIR (TreeKeep.erpLive: stored, and not refused) or none decides which read of S5's list
+                // is made here, exactly as it decides the sync's leg (port 63 slice F4a).
+                val erpLive = booted || S5Masters.erpLive(context)
+                // A LIVE PAIR (the A2 review, finding 1): the S5 read below is not made, and no other read of
                 // S5's list runs until a sync or an opened project -- so on the update that brought S5Sites, the
                 // rename dialog opened on names S5 had never been asked for. Whatever S5 takes from this phone (its
                 // sign-in, or the stored key) reads the list ONCE here, for its site names alone: the masters stay
                 // the bootstrap's.
-                if (FrappeClient.load(context) != null && S5Auth.current(context) != null) SiteRename.hear(context)
-                // No pair, an S5 sign-in: S5's project list is the masters' projects
-                // (S5Masters merges; null keeps what is here), as the sync does.
-                if (FrappeClient.load(context) == null && S5Session.signedIn(context))
-                    S5Masters.fetch(context)?.let { store.saveMasters(it) }
+                if (erpLive && S5Auth.current(context) != null) SiteRename.hear(context)
+                // NO LIVE PAIR -- none stored, or the one stored was refused -- and an S5 sign-in: S5's list IS
+                // the list, as in the sync's S5 leg. Its projects are the masters' projects, and what an old ERP
+                // bootstrap left behind goes unless S5 lists it or a capture of it exists only on this phone
+                // (S5Masters.fetch through TreeKeep; null keeps what is here). Before this slice the read was made
+                // only with NO pair stored, so a phone holding a dead key drew its last bootstrap until a sync ran.
+                if (!erpLive && S5Session.signedIn(context))
+                    S5Masters.fetch(context, erpLive = false)?.let { store.saveMasters(it) }
             }
             // reload, not `masters =` alone: the tree also draws from S5Sites, which no state object observes
             reload()
@@ -1389,7 +1399,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 // nothing said whether S5 holds the site. Read now, the route asked again is S5's
                                 // own answer: its projects are the writes, or S5 does not hold it (below).
                                 val fresh = withContext(Dispatchers.IO) {
-                                    S5Masters.fetch(context)?.also { store.saveMasters(it) }
+                                    S5Masters.fetch(context, erpLive = S5Masters.erpLive(context))?.also { store.saveMasters(it) }
                                 }
                                 if (fresh == null) {
                                     renameFailed { tx -> tx.refuse_site_offline }
@@ -1653,7 +1663,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
         SearchOverlay(
             query = searchQuery,
             hits = hits,
-            recents = listOf("MB", "KIT", "Kothrud"), // text:value demo data (the card's demo.* rows are skipped and generate no accessor)
+            // No suggestions: the three that stood here were demo data, hard-coded, and named a place no project
+            // of this phone is at (port 63 slice F4a). An empty list draws no "Try" head (SearchOverlay).
+            recents = emptyList(),
             onQuery = { searchQuery = it },
             onPick = { h ->
                 tab = "browse"
@@ -1715,7 +1727,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         QueueScreen(
                             waiting = queue.filter { it.state != "SYNCED" }.map { queueRow(tx, it) } +
                                 cat.localSkus().map { skuQueueRow(it) },
-                            sent = queue.filter { it.state == "SYNCED" }.take(12).map { queueRow(tx, it) },
+                            // never the demo's own capture while the Demo Client is not a row of the tree (TreeKeep.listsCapture)
+                            sent = queue.filter { it.state == "SYNCED" && TreeKeep.listsCapture(it.deviceId) }.take(12).map { queueRow(tx, it) },
                             wifiOnly = AppPrefs.read(capturePrefs).wifiOnly)
                     }
                 }
@@ -3906,6 +3919,12 @@ data class AppPrefs(
  * Built from the capture QUEUE rather than from the server, because Work has
  * to answer "where was I" on a phone with no signal — which is the only time
  * anyone asks it.
+ *
+ * ONLY ROOMS OF A PROJECT THE TREE LISTS (port 63 slice F4a; TreeKeep.projectOf).
+ * A capture whose project is not in the tree -- an old ERP bootstrap's project
+ * that left it, the demo's while the tours are off -- used to be listed under
+ * its own names, as a card that opened nothing and named a client the tree no
+ * longer has.
  */
 private fun recentRooms(
     cat: Catalogue,
@@ -3913,19 +3932,22 @@ private fun recentRooms(
     queue: List<CaptureStore.Capture>,
 ): List<RecentRoom> {
     val projects = cat.projects(masters)
+    val titles = projects.map { it.title }
     val seen = LinkedHashMap<String, RecentRoom>()
     for (c in queue) {                       // store returns newest first
+        val at = TreeKeep.projectOf(c.projectTitle, titles)
+        if (at < 0) continue
+        val p = projects[at]
         val key = "${c.projectTitle.lowercase()}|${c.room.lowercase()}"
-        val p = projects.firstOrNull { it.title.equals(c.projectTitle, true) }
         val existing = seen[key]
         if (existing != null) {
             seen[key] = existing.copy(count = existing.count + 1)
             continue
         }
         seen[key] = RecentRoom(
-            client = p?.client ?: c.customerName,
-            site = p?.site ?: Catalogue.DEFAULT_SITE,
-            projectKey = p?.key ?: c.projectTitle,
+            client = p.client,
+            site = p.site,
+            projectKey = p.key,
             projectTitle = c.projectTitle,
             room = c.room,
             count = 1,
