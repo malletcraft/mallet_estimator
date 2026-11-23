@@ -109,8 +109,9 @@ object Features {
      * THE TAPE TOOL IS OFF (Amit, 23 Nov 2026, ~22:00 IST, with build 0.3.350 on his phone: "does tape tool make any
      * sense now? as we don't want any foto measured dimensions on fone."; port 63 slice F3). A Tape's figure IS what the
      * photo says -- that was the tool -- so it has no place on a phone that shows no figure nobody measured
-     * (DESIGN-imagemeter §18, whose rule 4 kept the Tape "until he rules"; he has now asked, and the answer here is
-     * CLAUDE'S, to be turned round by this one line: §24). A length the surveyor wants is a Line, which takes a reading.
+     * (DESIGN-imagemeter §18, whose rule 4 kept the Tape "until he rules"; he asked, slice F3a answered it as Claude's
+     * reading, and half an hour later HE RULED the same on a selector -- "Plain band, no figure": §24, §24.7 -- so it
+     * is his now; still one line to turn round). A length the surveyor wants is a Line, which takes a reading.
      *
      * What it hides, each at its entry (FeaturesTest pins every one; every rule is a pure function of :pano that takes
      * this constant as the default of its last parameter, and :app asks them with no answer of its own):
@@ -123,8 +124,11 @@ object Features {
      *  - NOTHING MEASURED FROM THE PHOTO IS DRAWN ON A TAPE A ROOM ALREADY HAS, on the screen's own painters -- the
      *    editing photo and the 360: no length figure ([PhotoFigures.tape], [SurveyMeas.tapeFigure]: nothing is handed
      *    to the figures' layout, [PhotoFigures.items]) and no graduations ([SurveyMeas.ticksOf]: a tick every 100 mm
-     *    and "500", "1000" beside it are the photo's figures as much as the length is). What is left is its plain
-     *    band; its code is where every picked item's is, on its chip.
+     *    and "500", "1000" beside it are the photo's figures as much as the length is). What is left is ITS PLAIN
+     *    BAND WITH ITS CODE -- Amit's own answer on the selector that followed (23 Nov 2026, ~22:35 IST, to "what will
+     *    happen to tape tool?"): "Plain band, no figure". The code, `F-T1`, is a name and no figure: along the band of
+     *    an unpicked one on the photo, past the far end on the 360 ([SurveyMeas.tapeName], [SurveyMeas.tapeSays],
+     *    [PhotoFigures.tapeLabel]; slice F3b), and for the picked one on its chip alone, where every picked item's is.
      *
      * What it does NOT touch -- A ROOM THAT ALREADY HAS A TAPE KEEPS IT. The file reads and writes it unchanged
      * (SurveyPrepFile); it is drawn; a tap picks it; it moves by its band and by its ends, and under Fine move's pad;

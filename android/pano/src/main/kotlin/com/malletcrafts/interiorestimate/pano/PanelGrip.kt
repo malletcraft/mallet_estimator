@@ -1,8 +1,10 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch.Box
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
@@ -27,7 +29,18 @@ import kotlin.math.sqrt
  * box. A handle of the held item never lies under it -- that is what the [CLEAR_DP] rule is for.
  *
  * Pure geometry in canvas px, as [SurveyPrepTouch] is -- the photo's canvas IS the pane -- so every rule is tested here
- * (PanelGripTest); :app draws [Place.tab] and [Place.dash], hands [Place.touch] to the press, and calls [press].
+ * (PanelGripTest); :app only asks and draws.
+ *
+ * AS BUILT ON THE SCREEN (slice F3b, 23 Nov 2026; §24.7): the grip is A CONTROL OF ITS OWN LAID OVER THE PHOTO, where
+ * the screen lays the fit and grid buttons -- not drawn on the photo's canvas and not pressed through the photo's
+ * gesture, as slice F3a first had it. So it takes its own press and the photo's pan, pinch and long press never see
+ * it; and a screen reader finds it as a button, "Options for FW1" ([MarkSheet.optionsLabel]). The screen asks ONE
+ * question as it composes the photo, [onPhoto] -- [shows], then the picked item's [handles], then [at] -- lays a box
+ * the size of the touch box at [Place.touch] with the tab ([TAB_W_DP] x [TAB_H_DP]) at its bottom centre and the
+ * dash ([DASH_W_DP] x [DASH_H_DP]) in the tab's middle, which is where [Place.tab] and [Place.dash] are, hands
+ * [Place.touch] to the painter as a box the code chip and every plate keep off, and feeds its press to [press]. On
+ * [Press.OPEN] it hands [SurveyPrepTouch.Hit.Grip] to the very function a tap on the photo is handed to, and
+ * [Pick.tap] answers [Pick.options] for it: the chip's own line then opens the panel.
  */
 object PanelGrip {
 
@@ -75,7 +88,9 @@ object PanelGrip {
      *  - THE KEYPAD IS NOT UP ([keypadUp]) -- he is typing a figure, and the pane's foot is the keys' top edge;
      *  - FINE MOVE'S PAD IS NOT UP ([padUp]) -- the pad stands in the pane's bottom corner and is what he is using;
      *  - NO ITEM IS BEING DRAGGED ([dragging]: a grab is moving the held item, by its body or a handle) -- the grip
-     *    would hop aside as a handle neared it; it is back, wherever it is then clear, when the finger lifts.
+     *    would hop aside as a handle neared it; it is back, wherever it is then clear, when the finger lifts. The
+     *    screen says the same while TWO FINGERS PINCH the photo (slice F3b): the grip is a control of its own, and a
+     *    pinch with one finger on it must never pull the panel up.
      * Held or not, at every quote stage: after Survey the panel is still the way to a mark's state and note.
      */
     fun shows(p: SurveyPrep.Prep, pick: Pick.State, step: String, tool: String, panelUp: Boolean, keypadUp: Boolean,
@@ -156,6 +171,71 @@ object PanelGrip {
         return Place(tab, Box(dl, dt, dl + DASH_W_DP * dp, dt + DASH_H_DP * dp), touch,
             if (abs(l - mid) <= EPS) CENTRE else if (l < mid) LEFT else RIGHT)
     }
+
+    // ------------------------------------------------------------------ on the editing photo (slice F3b)
+
+    /**
+     * WHAT STANDS OVER THE FOOT OF THE PHOTO PANE, px -- [at]'s `foot` (port 63 slice F3b): the phase band in landscape
+     * ([footDp]), and THE NOTE LINE AND THE SNACKBAR while one of them is drawn there ([notes]: the height of their
+     * column as laid out, its own 8 dp margins included; 0 while neither shows). They are drawn over the same foot --
+     * over the band, in landscape -- so the grip is lifted by the TALLER of the two, never by their sum: it stands
+     * just above a note for the few seconds the note is there, and is back on the foot when it goes. (A note is a
+     * `foot`, never a box to keep clear of: it is as wide as the foot, and would leave no grip at all.)
+     */
+    fun foot(land: Boolean, dp: Double, notes: Double = 0.0): Double = max(footDp(land) * dp, max(0.0, notes))
+
+    /**
+     * THE HANDLES OF THE ITEM [id] ON THE FACE [s], canvas px -- what [at] keeps the grip clear of, and the very list
+     * the painter hands the code chip ([SurveyPrepTouch.codeChip], [SurveyPrepTouch.codeChipOfLine]), held or not:
+     *  - a MARK: its eight tabs round its box as drawn; its four corners where they are [free] ([Quad.freeCorners],
+     *    by the screen's one value); a spot's own middle (a point, a Note's pin) -- [SurveyPrepTouch.handlesOf];
+     *  - a TAPE, a LINE, an AREA: its points; a CHAIN: its points.
+     * [toPx] maps face mm (x, y up) to the canvas, as the painter's own mapping does.
+     * NULL: [id] is null, or the item is not on this face -- the pick can name an item of another face, and the chip
+     * is not drawn then either -- or it is gone, or it has no point at all. NO GRIP then ([onPhoto]).
+     */
+    fun handles(p: SurveyPrep.Prep, s: String, id: String?, free: (SurveyPrep.Mark) -> Boolean,
+                toPx: (Double, Double) -> DoubleArray): List<DoubleArray>? {
+        val sf = p.surfaces[s] ?: return null
+        id ?: return null
+        sf.marks.firstOrNull { it.id == id }?.let { e ->
+            val a = toPx(e.x0, e.y1); val b = toPx(e.x1, e.y0)
+            val bb = Box(min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
+            return SurveyPrepTouch.handlesOf(bb, SurveyPrep.isSpot(e.t), Quad.freeCorners(e, free(e))?.map { q -> toPx(q[0], q[1]) })
+        }
+        sf.meas.firstOrNull { it.id == id && it.pts.isNotEmpty() }?.let { m -> return m.pts.map { q -> toPx(q[0], q[1]) } }
+        sf.chains.firstOrNull { it.id == id && it.nodes.isNotEmpty() }?.let { c -> return c.nodes.map { q -> toPx(q[0], q[1]) } }
+        return null
+    }
+
+    /**
+     * THE GRIP ON THE EDITING PHOTO NOW, OR NULL -- NONE (port 63 slice F3b): the ONE question the screen asks, each
+     * time it composes the photo. It is there when [shows] says so AND the picked item is on the face on show ([s];
+     * [handles]) AND a place along the foot is clear ([at]): the pane [w] x [h] px, [dp] px a dp, [foot] what stands
+     * over its foot ([foot]).
+     *
+     * THE GRIP IS PLACED FIRST AND THE CODE CHIP AFTER IT (slice F3b turned F3a's order round): this is asked where
+     * the photo is COMPOSED, before it is drawn, and the chip is placed by the painter -- so the painter is handed the
+     * grip's [Place.touch] among the boxes the chip and every figure's plate keep off (`keep`), and the two never
+     * overlap. That is why [avoid] is empty from the screen: nothing else that takes a press stands at the foot
+     * while the grip is shown (Fine move's pad hides it: [shows]).
+     */
+    fun onPhoto(p: SurveyPrep.Prep, pick: Pick.State, step: String, tool: String, panelUp: Boolean, keypadUp: Boolean,
+                padUp: Boolean, dragging: Boolean, s: String, free: (SurveyPrep.Mark) -> Boolean,
+                toPx: (Double, Double) -> DoubleArray, w: Double, h: Double, dp: Double, foot: Double = 0.0,
+                avoid: List<Box> = emptyList()): Place? {
+        if (!shows(p, pick, step, tool, panelUp, keypadUp, padUp, dragging)) return null
+        val hs = handles(p, s, pick.picked, free, toPx) ?: return null
+        return at(w, h, dp, hs, avoid, foot)
+    }
+
+    /**
+     * WHAT A SCREEN READER CALLS THE GRIP (port 63 slice F3b): what it calls the panel the grip opens, "Options for
+     * FW1" -- [MarkSheet.optionsLabel] of the picked item's code ([PhotoFigures.nameOf]). No text of its own is keyed
+     * for it. Empty with nothing picked, or its item gone: there is no grip then ([shows]).
+     */
+    fun said(tx: Tx, p: SurveyPrep.Prep, pick: Pick.State): String =
+        PhotoFigures.nameOf(p, pick)?.let { code -> MarkSheet.optionsLabel(tx, code) }.orEmpty()
 
     /** Whether a press at ([x], [y]) is in the grip's touch box; false with no grip ([g] null). */
     fun hit(g: Place?, x: Double, y: Double): Boolean = g != null && g.touch.contains(x, y)

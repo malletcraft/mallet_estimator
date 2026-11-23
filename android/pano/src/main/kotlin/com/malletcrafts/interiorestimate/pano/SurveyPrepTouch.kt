@@ -131,7 +131,8 @@ object SurveyPrepTouch {
         object Code : Hit()
         /** THE PANEL'S GRIP AT THE FOOT OF THE PHOTO PANE (port 63 slice F3a; [PanelGrip]; DESIGN-imagemeter §24): a tap
          *  on it opens the picked item's panel exactly as a tap on its code chip does ([Pick.options], row 7), and so
-         *  does a pull up from it ([PanelGrip.press]). The picked item's, so it carries no id -- as [Code] carries none. */
+         *  does a pull up from it ([PanelGrip.press]). The picked item's, so it carries no id -- as [Code] carries none.
+         *  On the screen (slice F3b) the grip takes its own press and hands THIS to the tap's one function. */
         object Grip : Hit()
     }
 
@@ -185,8 +186,12 @@ object SurveyPrepTouch {
      * A HANDLE OF THE HELD ITEM NEVER LIES UNDER IT: [PanelGrip.at] keeps its box [PanelGrip.CLEAR_DP] (16 dp, this
      * order's `tol`) from every one of them, and `< tol` is the reach a handle is pressed within -- so the two never
      * compete; were a caller to hand a grip on a handle all the same, the handle keeps the press, as it keeps it from
-     * the chip. The chip and the grip never overlap either ([PanelGrip.at] is handed the chip's tap box). Null, which
-     * is what every caller before slice F3b hands, changes nothing in this order.
+     * the chip. The chip and the grip never overlap either ([PanelGrip.at] is handed the chip's tap box). Null
+     * changes nothing in this order -- AND NULL IS WHAT THE SCREEN HANDS, after slice F3b as before it: there the grip
+     * is a control laid OVER the photo with a press of its own ([PanelGrip.onPhoto]), so a press in its box never
+     * reaches this order at all, which keeps every line above by construction -- nothing under the grip takes its
+     * press, and no handle is under it. The row stands for a caller that presses the grip through the photo's own
+     * gesture; the screen's tap still arrives as [Hit.Grip], handed to [Pick.tap] by the grip itself.
      */
     fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16,
             nodes: List<Nodes> = emptyList(), nodeR: Double = tol, body: Boolean = false, chip: Box? = null, grip: Box? = null): Hit? {

@@ -1101,7 +1101,8 @@ private object P3Draw {
             } else Pano360.seg(v, s, f, a, b)?.let { sg -> seg(c, sg, ink.stroke(col, 7f * u)) }
             val dx = (b[0] - a[0]) / len; val dy = (b[1] - a[1]) / len; val nx = -dy; val ny = dx
             fun at(k: Double, o: Double) = Pano360.toS(v, s, f, a[0] + dx * k + nx * o, a[1] + dy * k + ny * o)
-            for (tk in SurveyMeas.tapeTicks(len)) {
+            // its graduations are the rule's (port 63 slice F3b; SurveyMeas.ticksOf): none on the 360 while the Tape tool is off
+            for (tk in SurveyMeas.ticksOf(len, screen = true)) {
                 if (!tk.major && ppm * 100 < 4.0 * u) continue
                 val p = at(tk.at, hw) ?: continue
                 val q = at(tk.at, hw - 2 * hw * (if (tk.major) .62 else .36)) ?: continue
@@ -1117,12 +1118,15 @@ private object P3Draw {
             c.drawCircle(p[0].toFloat(), p[1].toFloat(), SurveyGuide.END_R_DP.toFloat() * u, ink.stroke(0x3b2f00, 2f * u))
         }
         if (pb != null) {
-            // the Tape's length on the photo, the number alone (P4): the one figure that IS the photo's (§18 rule 4)
-            val txt = SurveyMeas.tapeShown(len)
-            val tw = textW(txt, 12f * u, ink)
+            // WHAT IS WRITTEN PAST ITS FAR END IS THE RULE'S (port 63 slice F3b; SurveyMeas.tapeSays): with the Tape tool
+            // off, a Tape a room already has shows ITS CODE there -- the plain band's name, no length -- and one being
+            // pulled (there can be none) nothing; with it on, its length on the photo, the number alone (P4). The 360
+            // draws no code chip, so the code stands by the band picked or not. Its padlock keeps its place either way.
+            val txt = SurveyMeas.tapeSays(if (draft) null else code, len)
+            val tw = if (txt.isEmpty()) 0f else textW(txt, 12f * u, ink)
             val pw = if (locked && !draft) 26f * u else 0f
             val k = SurveyMeas.tapeTagAt(pa ?: doubleArrayOf(pb[0] - 1, pb[1]), pb, tw.toDouble(), pw.toDouble(), u.toDouble(), w.toDouble(), h.toDouble())
-            label(c, txt, k[0].toFloat(), k[1].toFloat(), if (off) 0xffd0d0 else 0xfff7c2, 12f * u, ink)
+            if (txt.isNotEmpty()) label(c, txt, k[0].toFloat(), k[1].toFloat(), if (off) 0xffd0d0 else 0xfff7c2, 12f * u, ink)
             if (pw > 0f) padPill(c, k[0].toFloat() + tw + pw, k[1].toFloat() - 13f * u, TAPE_C, ink)
         }
     }

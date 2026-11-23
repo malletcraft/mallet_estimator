@@ -2204,7 +2204,8 @@ in that looks like what it is: **the handle every bottom sheet has, standing at 
 is a panel to pull up.**
 
 **EVERY DECISION BELOW IS CLAUDE'S, not Amit's** — he asked for "a simple pull out dash" and no more. Each can be
-turned round.
+turned round. *(Slice F3b turned three round as it built the screen — the end of 5 "from the CODE CHIP's tap box", and
+12 and 13 whole: §24.7. They are left as written, as the record of F3a.)*
 
 1. **What it is.** A dark rounded tab, 72 × 20 dp, with a light 36 × 4 dp dash in it, its foot flush with the foot of
    the photo pane — in portrait directly above the tool row. Its touch box is 96 × 32 dp (the tab, 12 dp either side
@@ -2275,6 +2276,8 @@ such a figure. **A length the surveyor wants is a Line, which takes a reading** 
 **DECIDED BY CLAUDE — his message is a question, not a ruling — and turned round by ONE line**
 (`Features.TAPES = true`). It answers A7 with "goes", and supersedes §18 rule 4, §7's "Measure — Tape, Line" (the Add
 sheet's group is the Line alone) and every "Tape · Line" of the row in §2.1, §13 and §23.
+*(Half an hour later HE RULED on it himself, on a selector: "Plain band, no figure" — §24.7. So the switch is his now;
+and item 4's "an unpicked Tape is the yellow band alone" is superseded there: the band carries ITS CODE.)*
 
 1. **`Features.TAPES = false`, built exactly as `CHAINS` was**: one constant; every rule that reads it is a pure
    function of `:pano` taking it as the default of its LAST parameter; `:app` asks with no answer of its own and never
@@ -2431,3 +2434,210 @@ written and checked.
    bottom handles, never on them — and dragging those handles should still resize the door.
 3. **Look at the tool row.** Line, three types, More and `▸`: no Tape. A room that already has a tape should still
    show it as a plain yellow band, with no numbers on it, and it should still move and delete.
+
+### 24.7 F3b as built — the grip on the photo, and the Tape off on the screen (23 Nov 2026)
+
+One commit over F3a (`a8c8b2a`), branch `port63-f3`. `:app` is compiled only by CI; **nothing has been seen on a
+phone.** Nothing on the wire changes. `Features.HELP_TOURS`, `SITE_PROGRESS` and `CHAINS` stay false. No text was
+added, re-worded or deleted. Line numbers below are this commit's.
+
+**Amit ruled on the Tape between the two commits.** On the selector that followed his message (23 Nov 2026, ~22:35 IST,
+after he asked "what will happen to tape tool?") he chose **"Plain band, no figure"**: the tool is not offered, and a
+Tape already in a room stays on the photo as a plain band **with its code**, no ticks and no number, and can still be
+picked, moved and deleted. So §24.3 is no longer Claude's reading alone, A7 is answered by him, and the one place F3a
+departed from it — no code beside an unpicked band — is built here as he chose it.
+
+#### What Amit sees
+
+1. **Pick anything on a wall** — tap a window. A small dark tab with a light dash stands at the bottom middle of the
+   photo, directly above the tool row. **Tap it, or pull it up:** the options panel slides up — Lock · Duplicate · Fine
+   move, Lock all · Delete, then kind, trade, state and note — the same panel the `FW1 ▾` chip opens and the long
+   press opens. A pull opens it at once, the finger still down.
+2. **It is never on a handle.** A door standing on the floor in the middle of the photo has its bottom handles where
+   the tab would be: the tab stands to one side of them (right, on a tie), and they still resize the door. The
+   `FW1 ▾` chip and the figures never lie on it either.
+3. **It goes when it has nothing to do:** while the panel is open, while the keypad is up, while Fine move's pad is up,
+   while a tool is armed, while he drags the picked item, while two fingers pinch — and when nothing is picked. It is
+   back when that ends.
+4. **A note line or the snackbar at the foot of the photo lifts it:** it stands just above them and drops back to the
+   foot when they go. In landscape it stands on the phase band.
+5. **Nothing new stands under the photo.** The photo keeps its height; under it is the tool row, or the keypad, as
+   before.
+6. **The tool row has no Tape:** Line, three types, More ▸ and `▸` — six slots.
+7. **A room that already has a tape** shows it as a plain yellow band with its code along it, `F-T1` — no ticks, no
+   `500` / `1000`, no length. Tapped, it is picked: the code moves to its chip, `F-T1 ▾`, its two ends are handles,
+   the tab stands at the foot. It moves by its band and by an end; its panel has Lock · Fine move / Lock all · Delete.
+   On the 360 it is the band with `F-T1` past its far end.
+8. **A saved picture is unchanged** — an old Tape still prints its ticks and `F-T1 1234 mm` there (slice M3's).
+9. **With a screen reader** the tab is a button, "Options for FW1".
+
+#### What changed in each `:app` file
+
+`SurveyPrepScreen.kt` (SPS):
+- `116` — `import …pano.PanelGrip`. The header comment (`187-199`) names the six-slot row, the Tape off and the grip.
+- `396` — `var notesPx`: how high the note line and the snackbar stand over the photo's foot, px.
+  `1817` — their column measures itself (`.onSizeChanged { notesPx = it.height }`, before its own 8 dp padding, so
+  the margins are in it).
+- `1883-1884` — `SpPhoto` is handed `panelUp = panel != null`, `keypadUp = padOpen && pick.gold != null` (the
+  keypad's own condition, `StepRoute.underMark`'s) and `notesPx` — 0 unless a note or the snackbar is drawn.
+  `2589` — the three parameters, after `fine`.
+- `2719` — `var pinching`, in `SpPhoto`; `3476` set where the gesture sees a second finger; `3521` cleared in the
+  gesture's `finally`. **The only lines of the photo's own gesture this commit touches.**
+- `3153-3158` — **`val gripAt`**: the one question, `PanelGrip.onPhoto(…)`, asked as the photo is COMPOSED, with
+  `padUp = fine != null`, `dragging = loupe != null || pinching`, the screen's one `free`, the gesture's own mapping
+  (`toS`, which is the painter's) and `foot = PanelGrip.foot(land, dp, notesPx)`.
+- `3563` — the painter's keep-clear boxes (`figKeep`) gain `gripAt?.touch`: the code chip and every plate keep off it.
+- `3697-3700` — the grip itself, the LAST child of the photo's box: `SpPanelGrip(g, PanelGrip.said(tx, prep, pick),
+  Modifier.offset { … g.touch.l, g.touch.t … }) { onTap(SurveyPrepTouch.Hit.Grip, null) }`.
+- `3720` — **`SpPanelGrip`**, new: a 96 × 32 dp box with its own `pointerInput` (takes the finger as it goes down
+  and every move after; asks `PanelGrip.press`; calls `onOpen` on `OPEN`; a system cancel opens nothing) and
+  `semantics` (a button named by `said`, activated by the same `onOpen`); in it the 72 × 20 dp tab, top corners
+  round, at the bottom centre, and the 36 × 4 dp dash in the tab's middle.
+- `2983`, `3001` — F3a's two `Hit.Grip` branches: comments only. They are the sealed class's and are never reached,
+  because the photo's gesture is handed no grip.
+
+`SurveyPrepDraw.kt` (SPD): `1000` — `SurveyMeas.ticksOf(len, screen = quiet)` (a saved picture, not `quiet`, keeps
+its ticks); `1027-1028` — a Tape being pulled asks `SurveyMeas.tapeFigure(len)` and draws no label for an empty one.
+A plotted Tape's code needs no painter line: it is a plate of the figures' layout (`PhotoFigures.tapeLabel`, through
+the one `PhotoFigures.layout(…)` call), drawn by `drawPlates` with every other label, turned along the band.
+
+`SurveyPrep360.kt` (SP360): `1105` — `ticksOf(len, screen = true)`; `1125-1129` — the tag past the far end is
+`SurveyMeas.tapeSays(if (draft) null else code, len)`: the code with the tool off, the length with it on, nothing for
+one being pulled; no label is drawn for an empty one, and the padlock keeps its place.
+
+`SurveyPrepTools.kt` (SPT): `86-91` — the comment over the row says six slots. No code line.
+
+#### What `:pano` gained for it (each with its test)
+
+| New | Signature | Asked at |
+|---|---|---|
+| `PanelGrip.onPhoto` | `onPhoto(p, pick, step, tool, panelUp, keypadUp, padUp, dragging, s, free, toPx, w, h, dp, foot = 0.0, avoid = emptyList()): Place?` — `shows`, then `handles`, then `at` | `SPS:3154` |
+| `PanelGrip.handles` | `handles(p: SurveyPrep.Prep, s: String, id: String?, free: (SurveyPrep.Mark) -> Boolean, toPx: (Double, Double) -> DoubleArray): List<DoubleArray>?` — a mark's eight tabs, four free corners or a spot's middle; a Tape's, Line's, area's or chain's points; null: not on this face | through `onPhoto` |
+| `PanelGrip.foot` | `foot(land: Boolean, dp: Double, notes: Double = 0.0): Double` — the taller of the phase band and the notes' column | `SPS:3157` |
+| `PanelGrip.said` | `said(tx: Tx, p: SurveyPrep.Prep, pick: Pick.State): String` — `MarkSheet.optionsLabel` of the picked item's code | `SPS:3698` |
+| `SurveyMeas.tapeName` | `tapeName(code: String?, chipped: Boolean, tapes: Boolean = Features.TAPES): String` — its code with the tool off; nothing while its chip names it, for one being pulled, or with the tool on | through the two below |
+| `SurveyMeas.tapeSays` | `tapeSays(code: String?, len: Double, chipped: Boolean = false, tapes: Boolean = Features.TAPES): String` — `tapeFigure`, else `tapeName`: one label a Tape | `SP360:1125` |
+| `PhotoFigures.tapeLabel` | `tapeLabel(m: SurveyPrep.Meas, picked: Boolean, tapes: Boolean = Features.TAPES): String` | `PhotoFigures.items`, in `tape(m, tapes)`'s place |
+
+`Features.TAPES` is read 15 times in 6 sources now (F3a: 12), still none in `:app`.
+
+#### Decided here, where the brief and F3a were silent or disagreed — every one Claude's
+
+1. **The grip is a control of its own laid over the photo, with its own press — not drawn on the photo's canvas and
+   pressed through the photo's gesture, as F3a's §24.2 (12) had it.** The brief for this build asked for exactly
+   that, and the reasons hold: its press is its own BY CONSTRUCTION (it takes the finger as it goes down, so the
+   photo under it never pans, picks, long-presses or lets the pick go, and the photo's 300-line gesture is not
+   edited for it); and a screen reader finds it, which nothing drawn on a canvas can be (§24.2 (13) said it had no
+   node of its own). F3a's worry — the grip a frame behind the handles it keeps clear of — does not arise: it is
+   placed where the photo is COMPOSED, from the same view, pick and model the painter then draws from, in the same
+   frame.
+2. **So the grip is placed FIRST and the chip AFTER it** (the reverse of §24.2 (5)). Composition cannot know where the
+   painter will put the chip; the painter can be told where the grip is. `gripAt.touch` joins the boxes the chip and
+   every plate keep off. Either way the two never overlap; where the grip takes the chip's place below a mark, the
+   chip takes its next place (left, right, inside), or there is none and the grip is the way in.
+3. **ONE function still.** The control calls `onTap(SurveyPrepTouch.Hit.Grip, null)` — the function every tap on the
+   photo is handed to — so the dialog asks `Pick.tap`, which answers `Pick.options` for the grip as for the chip, and
+   the chip's own line (`SPS:1871`) opens the panel through `openPanel` (`SPS:946`). No `openPanel` call was written
+   for the grip. A screen reader's activation runs the same function.
+4. **What of F3a's `:pano` the screen does not call, and why it stays:** `SurveyPrepTouch.hit`'s `grip` parameter (the
+   screen hands none — the control stands over the canvas, which keeps that order by construction), and
+   `PanelGrip.open` (the tap goes through `Pick.tap`). Both are the rule for a caller that presses the grip through
+   the photo's gesture; their tests stand. `Hit.Grip` itself IS used: it is what the grip hands the tap's function.
+5. **No grip for an item of another face.** The pick can name one (the 360 can leave it on another face); the chip is
+   not drawn for it, and neither is the grip (`PanelGrip.handles` answers null).
+6. **A note lifts the grip; it does not cover it** (§24.2 (11) left this to F3b). The snackbar comes up as a mark is
+   placed — exactly when he may want its options — so the tab stands above it rather than under it for those seconds.
+   It is lifted by the notes' column as laid out, margins included; one frame after a note appears.
+7. **"Dragging" is the magnifier.** The screen's sign that a grab is moving the item is the loupe, which is up exactly
+   then (`loupe != null`); no line of the gesture was added for it. **And a pinch hides the grip too** — added by
+   Claude: without it a pinch with one finger on the tab could pull the panel up as that finger moved. This is the one
+   edit to the photo's gesture (two assignments).
+8. **The tab is drawn by the rule's numbers and by alignment** — a `TOUCH_W × TOUCH_H` box at `Place.touch`, the tab at
+   its bottom centre, the dash in the tab's middle — not by reading `Place.tab` and `Place.dash`. They are the same
+   boxes (`PanelGripTest` holds it wherever the grip stands).
+9. **A pull opens with the finger still down, and the rest of that press is nobody's.** The panel opens, the grip
+   leaves the screen with it, and the photo's gesture never saw the finger go down, so it does nothing with what is
+   left of the press. The panel's own first 300 ms take no tap.
+10. **The Tape's code, as he chose it:** along the band of an UNPICKED Tape — a label like every other, turned along
+    the band, kept off the chip, the grip and the other labels, and no tap target (a tap on it picks the Tape by its
+    line); for the PICKED one on its chip alone, never twice, as a mark's code is not drawn twice. On the 360, which
+    draws no chip, past the band's far end, picked or not. It is the one label on the photo that is a code:
+    `PhotoFiguresTest`'s walk "no label carries a code" holds it apart, by name, and every other label still goes
+    through the walk.
+11. **No key.** The grip has no word; a screen reader's name for it is the panel's existing `sp.sheet.aria.open_x`.
+
+#### Known, and left
+
+- **A pinch that begins with one finger on the tab zooms the photo** (the photo's gesture counts every finger on it)
+  and hides the grip; it does not open the panel unless that finger moved 12 dp up before the second landed.
+- **A note standing over a handle row.** With a note up, the grip stands higher on the photo and keeps clear of the
+  handles that are up there; where none of that row is clear there is no grip until the note goes.
+- **The grip's side-step is not animated**, and it is not drawn while the picked item is off the photo's edge any
+  differently: it is the pane's, so it stays, and opens the panel of an item scrolled out of view.
+- **The Line's tool chip still says a photo length while a Line is pulled** (§24.5); `SurveyMeas.listName` and
+  `tapeNote` still have no caller. Neither is this build's.
+- **S5 `/projects` still shows a Tape's photo length to the office** (A9).
+
+#### Tests
+
+**`:pano`: 113 test classes, 1,620 tests, 0 failures, 0 errors, 0 skipped** (from the XML; F3a: 113 and 1,613).
+New: `PanelGripTest` +5 (the handles; the foot; the one question, and the chip kept off the grip; the screen
+reader's name; the control's shape and press), `MeasureScreenTest` +2 (**the grip opens the panel by the one function
+— and nothing new stands under the photo**; **no Tape tool is offered — and a Tape a room already has is drawn by the
+rules as its plain band with its code**).
+
+**Pins MOVED, each with its reason written beside it — none deleted, none loosened:**
+- `FeaturesTest`: F3a's four-line work list (`tapeTicks(len)` twice, `tapeShown(len)` twice) is the four lines as
+  switched over, and no app source may ask the old names; the inventory counts 2 → 4 (`SurveyMeas`) and 3 → 4
+  (`PhotoFigures`) for the code's three rules; the layout's pinned line names `tapeLabel`; "the layout is not handed
+  it" is "handed no figure of it — its code, or nothing for the picked one".
+- `PhotoFiguresTest`: the tool-off layout holds the unpicked Tape's code plate (and none for the picked one); the
+  "no label carries a code" walk holds the band's name apart.
+- `QuadMeetsF1Test`: `free = free,` is counted twice — the grip's handles are asked with the same one value — and the
+  painter's is the last.
+
+**Proved by taking each rule out** (16 one-line changes to the new `:pano` rules, the whole suite run for each; every
+one turns tests red): the foot as a sum; a spot's middle, the free corners, the box's own corners, a chain's points and
+the face in `handles`; `shows`, the missing item and the foot in `onPhoto`; the screen reader's name; and for the code —
+the chip, the tool on, the name itself, the chip in `tapeSays`, the picked item and "only a Tape" in `tapeLabel`.
+
+**Texts.** None. `Tx` regenerated and unchanged (1,863 accessors); the ratchet lowered nothing; `unkeyed.tsv` and
+`mr-pending.tsv` unchanged.
+
+**Type-checked here, and what that cannot prove.** kotlinc 2.0.21 from the Gradle cache, this commit's real `:pano`
+classes and the hand-written stand-ins for Android and Compose (`scratchpad/f3-typecheck/`): `SurveyPrepScreen.kt`
+with its seven companions has NO error on a line of this commit — the 192 left are the same stub gaps in the same
+four files as at F3a, message for message. Fourteen errors planted on this commit's own lines (a misspelt rule, a name
+out of scope, swapped arguments, a wrong type, a missing argument, a lambda that returns nothing, a misspelt
+property, on all three files) were each reported. **Every name each added `:app` line uses was checked to be in scope
+where it is written**: in the dialog, `panel`, `padOpen`, `pick`, `note`, `snackText` and the new `notesPx` are its
+own state, declared above `notesOver` and `photoPane`; in `SpPhoto`, `prep`, `pick`, `mode`, `tool`, `tab`, `rect`,
+`free`, `fine`, `onTap` and the three new ones are parameters, `loupe`, `boxW`, `boxH`, `density`, `land`, `tx`, `toS`
+and the new `pinching` are declared above `gripAt`, and `gripAt` above the canvas and the grip that read it; in
+`SpPanelGrip` every name is a parameter, a local or an import the file already had. **Not proven:** the stand-ins are
+not Compose — that a child's consumed press keeps the photo's `awaitFirstDown()` out, that `isConsumed` marks a
+system cancel, how a screen reader reads the node; anything the Compose compiler plugin or lint adds; and everything
+about a phone.
+
+#### Where to look first if CI's `:app` compile is red
+
+1. `SPS:3720`, `SpPanelGrip` — the pointer loop (`ch.isConsumed`, `ch.pressed`, `ch.position`, `ch.id`), the
+   `semantics { …; onClick { …; true } }` line, `Color(Int)` twice, `RoundedCornerShape(topStart = …, topEnd = …)`.
+2. `SPS:3153-3158`, `gripAt` — the call's positional-then-named arguments against `PanelGrip.onPhoto`, and `toPx`
+   (`toS` returns a `FloatArray`).
+3. `SPS:1883-1884` and `2589` — the three new arguments and parameters of `SpPhoto`.
+4. `SPS:3563` — `… } + listOfNotNull(gripAt?.touch)`: a list of `SurveyPrepTouch.Box` both sides.
+5. `SPS:1817` — `.onSizeChanged { notesPx = it.height }`; `SPS:2719`, `3476`, `3521` — `pinching`.
+6. `SPD:1000`, `1027-1028`; `SP360:1105`, `1125-1129` — the four Tape lines.
+
+#### Three things for Amit to try first
+
+1. **Tap a window, then pull the little dark tab at the bottom of the photo up.** The options should rise under the
+   finger — the same panel as from `FW1 ▾`. Close it, tap the tab instead: the same. Tap empty photo: the window is
+   let go and the tab goes.
+2. **Zoom in until a door's bottom edge is at the bottom of the photo, and tap the door.** The tab should stand beside
+   the door's bottom handles, not on them; dragging a bottom handle should still resize the door, the tab gone while
+   it moves and back when the finger lifts. `FD1 ▾` should not sit on the tab.
+3. **Look at the tool row, and open a room that already has a tape.** No Tape in the row. The old tape should be a
+   plain yellow band with `F-T1` on it and no numbers; tapped, it should show `F-T1 ▾` and the tab; pulled up, Lock ·
+   Fine move and Delete — and it should still slide along the wall by its band.

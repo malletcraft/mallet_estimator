@@ -44,8 +44,9 @@ import kotlin.test.assertTrue
  * that could lay a new Tape reads it, and so does every pure rule that gives a Tape a figure or a graduation on the
  * screen's own painters -- each taking it as the default of its last parameter, which :app asks with no answer of its
  * own; a room that already has a Tape keeps it, drawn, picked, moved, opened, locked and deletable; and every file of
- * the Tape is still there. What :app's two painters still ask by themselves until slice F3b switches them over is
- * pinned as a list, so the hand-over is four named lines. The last tests.
+ * the Tape is still there. SLICE F3b SWITCHED :app's TWO PAINTERS OVER -- the four lines F3a pinned as its work list
+ * each ask :pano now, and no app source asks the old names -- and gave the plain band ITS CODE (Amit's selector answer
+ * of the same evening, "Plain band, no figure": the band with its code, no ticks and no number). The last tests.
  */
 class FeaturesTest {
 
@@ -765,19 +766,43 @@ class FeaturesTest {
         assertEquals(SurveyMeas.tapeFigure(len, tapes = Features.TAPES), SurveyMeas.tapeFigure(len))
         // ... one being pulled has none either (unreachable while the tool is off; the rule does not depend on that)
         assertEquals("", SurveyMeas.tapeFigure(640.0, tapes = false))
-        // THE FIGURES' LAYOUT IS NOT HANDED IT: with the switch off no plate of the face is the Tape's
+        // THE FIGURES' LAYOUT IS HANDED NO FIGURE OF IT: with the switch off no plate of the face is the Tape's LENGTH.
+        // (Port 63 slice F3b moved these lines: F3a handed the layout nothing at all for a Tape. Amit's own answer on
+        // the selector that followed, 23 Nov 2026 ~22:35 IST -- "Plain band, no figure": the band WITH ITS CODE, no
+        // ticks and no number -- so an unpicked Tape's one label is its code, `F-T1`, placed along its band with every
+        // other label; the picked one's is on its chip and the layout is handed nothing for it.)
         for (pick in listOf(Pick.NONE, Pick.State("t1", false, null), Pick.State("t1", true, null))) {
             val off = PhotoFigures.items(p, "front", W, H, pick, toPx, 1.0, textW, tapes = false)
             val on = PhotoFigures.items(p, "front", W, H, pick, toPx, 1.0, textW, tapes = true)
-            assertTrue(off.none { it.id == "t1" }, "$pick"); assertEquals(listOf("1234"), on.filter { it.id == "t1" }.flatMap { m -> m.figs.map { it.text } }, "$pick")
-            // the switch moves the Tape's figure alone: the Line's reading is there on both sides
-            assertEquals(on.filter { it.id != "t1" }.map { m -> m.id to m.figs.map { it.text } }, off.map { m -> m.id to m.figs.map { it.text } }, "$pick")
+            val named = if (pick.picked == "t1") emptyList() else listOf("F-T1")
+            assertEquals(named, off.filter { it.id == "t1" }.flatMap { m -> m.figs.map { it.text } }, "$pick: its code, or -- its chip naming it -- nothing")
+            assertEquals(listOf("1234"), on.filter { it.id == "t1" }.flatMap { m -> m.figs.map { it.text } }, "$pick")
+            for (f in off.flatMap { it.figs }.filter { it.code == "t1#" }) assertFalse(f.taps, "its name takes no tap: a tap on it picks the Tape by its line")
+            for (m in off) for (f in m.figs) { assertFalse("1234" in f.text, f.text); assertFalse("mm" in f.text, f.text) }
+            // the switch moves the Tape's label alone: the Line's reading is there on both sides
+            assertEquals(on.filter { it.id != "t1" }.map { m -> m.id to m.figs.map { it.text } }, off.filter { it.id != "t1" }.map { m -> m.id to m.figs.map { it.text } }, "$pick")
             assertTrue(off.any { it.id == "m1" && it.figs.any { f -> f.text == "1240" } }, "$pick: a Line's reading is a measured figure")
             assertEquals(off.map { it.id }, PhotoFigures.items(p, "front", W, H, pick, toPx, 1.0, textW).map { it.id }, "the default IS the switch")
             val lay = PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW)
-            assertTrue(lay.none { it.id == "t1" }, "$pick: the layout the painter asks")
+            assertEquals(named, lay.filter { it.id == "t1" }.flatMap { m -> m.figs.map { it.text } }, "$pick: the layout the painter asks")
             assertTrue(PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW, tapes = true).any { it.id == "t1" })
         }
+        // ITS NAME, THE RULE ITSELF (slice F3b): its code while the tool is off -- nothing while its chip names it, nothing
+        // for one being pulled, nothing with the tool on (its length is its label then, and its code is on its chip alone)
+        assertEquals("F-T1", SurveyMeas.tapeName("F-T1", chipped = false, tapes = false))
+        assertEquals("", SurveyMeas.tapeName("F-T1", chipped = true, tapes = false)); assertEquals("", SurveyMeas.tapeName(null, chipped = false, tapes = false))
+        for (chipped in listOf(true, false)) assertEquals("", SurveyMeas.tapeName("F-T1", chipped, tapes = true))
+        assertEquals(SurveyMeas.tapeName("F-T1", false, tapes = Features.TAPES), SurveyMeas.tapeName("F-T1", false), "the default IS the switch")
+        // WHAT A SCREEN PAINTER WRITES BESIDE IT is one label, never two: its length, else its name
+        assertEquals("F-T1", SurveyMeas.tapeSays("F-T1", len, tapes = false)); assertEquals("1234", SurveyMeas.tapeSays("F-T1", len, tapes = true))
+        assertEquals("", SurveyMeas.tapeSays("F-T1", len, chipped = true, tapes = false)); assertEquals("1234", SurveyMeas.tapeSays("F-T1", len, chipped = true, tapes = true))
+        assertEquals("", SurveyMeas.tapeSays(null, 640.0, tapes = false), "one being pulled: nothing"); assertEquals("640", SurveyMeas.tapeSays(null, 640.0, tapes = true))
+        assertEquals(SurveyMeas.tapeSays("F-T1", len, tapes = Features.TAPES), SurveyMeas.tapeSays("F-T1", len), "the default IS the switch -- and the 360 draws no chip, so it asks unchipped")
+        // ... and along its band on the editing photo (PhotoFigures.tapeLabel): the same, by whether it is the picked item
+        assertEquals("F-T1", PhotoFigures.tapeLabel(t1, picked = false, tapes = false)); assertEquals("", PhotoFigures.tapeLabel(t1, picked = true, tapes = false))
+        for (picked in listOf(true, false)) assertEquals("1234", PhotoFigures.tapeLabel(t1, picked, tapes = true))
+        assertEquals(PhotoFigures.tapeLabel(t1, false, tapes = Features.TAPES), PhotoFigures.tapeLabel(t1, false))
+        for (on in listOf(true, false)) for (picked in listOf(true, false)) assertEquals("", PhotoFigures.tapeLabel(p.measById("m1")!!.second, picked, tapes = on), "a Line is not a Tape")
         // ITS GRADUATIONS: none on the screen's own painters; a saved picture's old painter keeps them, whichever way the
         // switch stands (slice M3's); on, every painter's are tapeTicks, as before
         assertTrue(SurveyMeas.ticksOf(len, screen = true, tapes = false).isEmpty())
@@ -789,8 +814,8 @@ class FeaturesTest {
             assertEquals(SurveyMeas.ticksOf(l, screen = true, tapes = Features.TAPES).size, SurveyMeas.ticksOf(l, screen = true).size, "the default IS the switch")
         }
         assertTrue(SurveyMeas.tapeTicks(1234.0).any { it.figure }, "what goes: `500` and `1000` beside the long ticks are the photo's figures too")
-        // WHAT IS LEFT OF IT ON THE PHOTO: its band -- the one half-width the drawing and the pick share -- and, picked,
-        // its code on its chip, where every picked item's is
+        // WHAT IS LEFT OF IT ON THE PHOTO: its band -- the one half-width the drawing and the pick share -- and its code:
+        // along the band while it is not picked (above), and, picked, on its chip, where every picked item's is
         assertEquals(12.5, SurveyMeas.bandHalfMm(1.0, 2.0)); assertEquals(0xfacc15, SurveyMeas.TAPE_COLOUR)
         assertEquals("F-T1", PhotoFigures.nameOf(p, Pick.State("t1", false, null))); assertEquals("F-T1 ▾", SurveyPrepTouch.chipText("F-T1"))
         // no word its panel says carries a figure
@@ -867,8 +892,10 @@ class FeaturesTest {
             pano + "PhaseTools.kt" to 2,          // toolFor: the tool that is on; copyOk: Duplicate on a Tape
             pano + "SurveyPrepEdit.kt" to 1,      // menuItemsOf: the menu's Duplicate row, through copyOk
             pano + "MarkSheet.kt" to 3,           // acts, panel, actStep: the panel's acts, through menuItemsOf
-            pano + "SurveyMeas.kt" to 2,          // ticksOf: its graduations on the screen's painters; tapeFigure: its length there
-            pano + "PhotoFigures.kt" to 3,        // tape: its figure; items and layout: what the figures' layout is handed
+            // (slice F3b moved these two counts, 2 -> 4 and 3 -> 4: the plain band's CODE is three more rules, each reading
+            //  the switch as the default of its last parameter -- Amit's selector answer, "Plain band, no figure")
+            pano + "SurveyMeas.kt" to 4,          // ticksOf: its graduations on the screen's painters; tapeFigure: its length there; tapeName: its code in the length's place; tapeSays: the one label of the two
+            pano + "PhotoFigures.kt" to 4,        // tape: its figure; tapeLabel: what stands along its band; items and layout: what the figures' layout is handed
         ).toSortedMap(), found.toSortedMap(), "the sources that read Features.TAPES, and how often")
         val declared = all.filter { Regex("""\bTAPES\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
         assertEquals(listOf(pano + "Features.kt"), declared, "TAPES is given a value in one place")
@@ -877,7 +904,13 @@ class FeaturesTest {
         assertEquals(1, count(code(pano + "SurveyMeas.kt"), "fun ticksOf(len: Double, screen: Boolean, tapes: Boolean = Features.TAPES): List<Tick> ="))
         assertEquals(1, count(code(pano + "SurveyMeas.kt"), "fun tapeFigure(len: Double, tapes: Boolean = Features.TAPES): String = if (tapes) tapeShown(len) else "))
         assertEquals(1, count(code(pano + "PhotoFigures.kt"), "fun tape(m: SurveyPrep.Meas, tapes: Boolean = Features.TAPES): String ="))
-        assertEquals(1, count(code(pano + "PhotoFigures.kt"), "DimLayout.item(m.id, null, tape(m, tapes), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)"))
+        // (slice F3b moved this pin: the layout is handed the Tape's LABEL -- its figure with the tool on, its code with it
+        //  off and the Tape not picked -- where F3a handed it the figure alone)
+        assertEquals(1, count(code(pano + "PhotoFigures.kt"), "DimLayout.item(m.id, null, tapeLabel(m, pick.picked == m.id, tapes), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)"))
+        assertEquals(1, count(code(pano + "PhotoFigures.kt"), "fun tapeLabel(m: SurveyPrep.Meas, picked: Boolean, tapes: Boolean = Features.TAPES): String ="))
+        assertEquals(1, count(code(pano + "SurveyMeas.kt"), "fun tapeName(code: String?, chipped: Boolean, tapes: Boolean = Features.TAPES): String ="))
+        assertEquals(1, count(code(pano + "SurveyMeas.kt"), "fun tapeSays(code: String?, len: Double, chipped: Boolean = false, tapes: Boolean = Features.TAPES): String ="))
+        assertEquals(1, count(code(pano + "SurveyMeas.kt"), "tapeFigure(len, tapes).ifEmpty { tapeName(code, chipped, tapes) }"), "one label a Tape: its length, else its name")
         assertEquals(1, count(code(pano + "PhotoFigures.kt"), "} + items(prep, s, a, b, pick, toPx, dp, textW, ready, ask, tapes)"))
         // :app NEVER OVERRIDES IT: no app source names the switch or hands a rule its own answer
         val apps = all.filter { it.startsWith("app/") || it.startsWith("camera/") }
@@ -904,15 +937,29 @@ class FeaturesTest {
         // ITS FIGURE ON THE PHOTO is the layout's, which the painter asks with no answer of its own (the default: the switch)
         assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, free = o.free, ask = o.ask)"))
         for (rel in apps) { assertEquals(0, count(code(rel), "PhotoFigures.tape("), rel); assertEquals(0, count(code(rel), "PhotoFigures.items("), rel) }
-        // WHAT THE TWO PAINTERS STILL ASK BY THEMSELVES -- F3b's WORK LIST (this slice edits no painter: :app is compiled
-        // only by CI, and the switch-over is one commit). Until then a Tape a room already has is drawn on the photo with
-        // its graduations and no length, and on the 360 with both. F3b turns each `tapeTicks(len)` into
-        // `ticksOf(len, screen = …)` and each `tapeShown(len)` into `tapeFigure(len)`, and moves these four pins with it.
-        assertEquals(1, count(draw, "for (tk in SurveyMeas.tapeTicks(len)) {"), "the photo's painter and a saved picture's: F3b asks ticksOf(len, screen = quiet)")
-        assertEquals(1, count(draw, "val txt = if (quiet) SurveyMeas.tapeShown(len) else SurveyMeas.tapeTag(if (draft) null else code, len)"), "a Tape being pulled on the photo: F3b asks tapeFigure(len)")
-        assertEquals(1, count(p3, "for (tk in SurveyMeas.tapeTicks(len)) {"), "the 360's painter: F3b asks ticksOf(len, screen = true)")
-        assertEquals(1, count(p3, "val txt = SurveyMeas.tapeShown(len)"), "the 360's tag: F3b asks tapeFigure(len)")
-        for (rel in apps) { assertEquals(0, count(code(rel), "ticksOf("), "$rel: not switched over yet"); assertEquals(0, count(code(rel), "tapeFigure("), "$rel: not switched over yet") }
+        // THE TWO PAINTERS ASK THE RULES (port 63 slice F3b MOVED these four pins: F3a held the old lines as its work
+        // list -- `tapeTicks(len)` twice, `tapeShown(len)` twice -- because it edited no painter). Each asks :pano now with
+        // no answer of its own, so with the switch off a Tape a room already has is its plain band on the photo and on
+        // the 360: no graduation, no length. A SAVED PICTURE keeps its ticks (`screen = quiet` is false there) and its
+        // old tag (slice M3's). The 360's tag asks tapeSays, not tapeFigure: past the band's far end it writes the
+        // band's CODE while the tool is off -- there is no code chip on the 360 to name it.
+        assertEquals(1, count(draw, "for (tk in SurveyMeas.ticksOf(len, screen = quiet)) {"), "the photo's painter (quiet) and a saved picture's (not)")
+        assertEquals(1, count(draw, "val txt = if (quiet) SurveyMeas.tapeFigure(len) else SurveyMeas.tapeTag(if (draft) null else code, len)"), "a Tape being pulled on the photo")
+        assertEquals(1, count(draw, "if (txt.isEmpty()) return"), "... and no label is drawn for a figure the rule does not give")
+        assertEquals(1, count(p3, "for (tk in SurveyMeas.ticksOf(len, screen = true)) {"), "the 360's painter")
+        assertEquals(1, count(p3, "val txt = SurveyMeas.tapeSays(if (draft) null else code, len)"), "the 360's tag: its length with the tool on, its code with it off, nothing for one being pulled")
+        assertEquals(1, count(p3, "if (txt.isNotEmpty()) label(c, txt, k[0].toFloat(), k[1].toFloat(), if (off) 0xffd0d0 else 0xfff7c2, 12f * u, ink)"))
+        for (rel in apps) {
+            assertEquals(if (rel == app + "SurveyPrepDraw.kt" || rel == app + "SurveyPrep360.kt") 1 else 0, count(code(rel), "ticksOf("), "$rel: its graduations")
+            assertEquals(if (rel == app + "SurveyPrepDraw.kt") 1 else 0, count(code(rel), "tapeFigure("), "$rel: a Tape being pulled")
+            assertEquals(if (rel == app + "SurveyPrep360.kt") 1 else 0, count(code(rel), "tapeSays("), "$rel: the 360's tag")
+            // NO APP SOURCE ASKS THE OLD NAMES, OR THE NAME'S PARTS, BY ITSELF: a painter that did would draw the photo's
+            // figures whatever the switch says
+            for (old in listOf("tapeTicks(", "tapeShown(", "tapeName(", "tapeLabel(")) assertEquals(0, count(code(rel), old), "$rel asks $old by itself")
+        }
+        // ... and what it hands the rules are the screen's own: the photo's painter is the editing photo's exactly while
+        // it is `quiet` (the saved pictures' old `dims` painter is not), and a plotted Tape there returns before any tag
+        assertEquals(1, count(draw, "val quiet = o.mode == "), "one place says which painter is the screen's")
         // NOTHING OF THE TAPE WAS DELETED: its model, its file's reader and writer, its drag, its graduations and its
         // tags, its drawing on the photo and the 360, its icon, its hint, and its own tests
         val kept = mapOf(

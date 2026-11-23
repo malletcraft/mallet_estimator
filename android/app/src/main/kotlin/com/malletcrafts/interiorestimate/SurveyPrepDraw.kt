@@ -970,6 +970,10 @@ internal object SurveyPrepDraw {
      * it can be seen and tapped -- ringed white when picked, graduated from its start (a tick every 100 mm, a longer
      * one with its figure every 500 mm: SurveyMeas.tapeTicks), and its tag at the far end: "1234 mm" while it is
      * pulled, "F-T1 1234 mm" once plotted, kept on the canvas -- moved to the side of the band when the end is at an edge.
+     * THAT IS A SAVED PICTURE'S TAPE, still (slice M3's). ON THE EDITING PHOTO (`quiet`), SINCE THE TAPE TOOL WENT OFF
+     * (port 63 slice F3b; Features.TAPES, asked through SurveyMeas.ticksOf and the figures' layout): A PLAIN BAND -- no
+     * graduation, no length -- with its code along it (PhotoFigures.tapeLabel, placed with every other label by
+     * drawPlates), or on its chip while it is the picked item.
      */
     private fun tape(c: Canvas, a: DoubleArray, b: DoubleArray, code: String?, sel: Boolean, draft: Boolean, off: Boolean,
                      locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray, handles: Boolean = false,
@@ -990,7 +994,10 @@ internal object SurveyPrepDraw {
             if (sel) c.drawPath(band, stroke(argb(0xffffff), 5f * dp).apply { strokeJoin = Paint.Join.ROUND })
             c.drawPath(band, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(col, if (draft) 0xc8 else 0xf0) })
             c.drawPath(band, stroke(argb(0x3b2f00), 1f * dp))
-            for (tk in SurveyMeas.tapeTicks(len)) {
+            // ITS GRADUATIONS ARE THE RULE'S (port 63 slice F3b; SurveyMeas.ticksOf): on the editing photo (`quiet`) a Tape
+            // a room already has is its PLAIN BAND while the Tape tool is off -- a tick every 100 mm and "500" beside it
+            // are figures measured from the photo as much as its length is; a saved picture keeps them (slice M3's)
+            for (tk in SurveyMeas.ticksOf(len, screen = quiet)) {
                 // too close together to read: only every 500 mm
                 if (!tk.major && ppm * 100 < 4f * dp) continue
                 val p = at(tk.at, hw); val q = at(tk.at, hw - 2 * hw * (if (tk.major) .62 else .36))
@@ -1015,7 +1022,10 @@ internal object SurveyPrepDraw {
             if (locked) padPill(c, pb[0] + 8f * dp, pb[1] - 13f * dp, TAPE_C, dp)
             return
         }
-        val txt = if (quiet) SurveyMeas.tapeShown(len) else SurveyMeas.tapeTag(if (draft) null else code, len)
+        // a Tape being PULLED on the editing photo shows what the rule gives (SurveyMeas.tapeFigure: its length, the
+        // number alone, with the Tape tool on -- and nothing while it is off, when none can be pulled at all)
+        val txt = if (quiet) SurveyMeas.tapeFigure(len) else SurveyMeas.tapeTag(if (draft) null else code, len)
+        if (txt.isEmpty()) return
         val tw = Paint().apply { textSize = 12f * dp; isFakeBoldText = true }.measureText(txt)
         val pw = if (locked && !draft) 26f * dp else 0f
         // past the far end, kept on the canvas -- or beside it, above the band, when there is no room (SurveyMeas.tapeTagAt)

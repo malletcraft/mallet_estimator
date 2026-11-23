@@ -83,10 +83,12 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
  * second way to add a mark.
  *
  * THE CHAIN'S SLOT IS NOT DRAWN (port 63 slice F1, 16 Nov 2026; Amit, with build 0.3.337 on his phone: "chain mark is
- * rarely used. get rid of it."): SurveyPrepPalette.row answers SEVEN slots while Features.CHAINS is off -- Tape,
- * Line, three types, More ▸ and `▸` (port 63 slice I1: Select's slot went, `▸` is last) -- and every slot is weighed
- * alike here, so each is a seventh of the row. This file asks row() with no list of its own; the Chain's icon and its
- * chip below are kept, and drawn again by the one line in Features.
+ * rarely used. get rid of it."), NOR IS THE TAPE'S (port 63 slice F3, 23 Nov 2026; Amit, with 0.3.350: "does tape tool
+ * make any sense now? as we don't want any foto measured dimensions on fone."): SurveyPrepPalette.row answers SIX
+ * slots while Features.CHAINS and Features.TAPES are off -- Line, three types, More ▸ and `▸` (port 63 slice I1:
+ * Select's slot went, `▸` is last) -- and every slot is weighed alike here, so each is a sixth of the row. This file
+ * asks row() with no list of its own; the Chain's and the Tape's icons and chips below are kept, and each is drawn
+ * again by its one line in Features.
  */
 /**
  * THE TOOL REMEMBERS THE LAST KIND PICKED (port 62 slice L6; T53's subMem, index61c2.html 2470-2473): type and kind of

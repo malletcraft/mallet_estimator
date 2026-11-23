@@ -27,8 +27,14 @@ import kotlin.test.assertTrue
  * ([PanelGrip.press]): a tap, a pull up of 12 dp, a slip; and that it opens the chip's own panel.
  *
  * The Mi A3's photo pane in 2 · Mark as CodeChipTest and NudgePadTest take it, 348 x 514 dp, at 2 px a dp; the 360 x
- * 514 dp the brief names; and the landscape pane, 436 x 302 dp, where the phase band lies over its foot. Nothing here
- * is on screen: :app is compiled only by CI, and no :app line draws the grip until slice F3b.
+ * 514 dp the brief names; and the landscape pane, 436 x 302 dp, where the phase band lies over its foot.
+ *
+ * AND, SINCE SLICE F3b (§24.7), what the screen asks as it composes the photo: the ONE question, [PanelGrip.onPhoto]
+ * -- shown, the picked item on this face, a clear place; the picked item's own [PanelGrip.handles], the list the
+ * painter hands the code chip; what stands over the foot ([PanelGrip.foot]); what a screen reader calls it
+ * ([PanelGrip.said]); and that the control :app lays over the photo -- the tab at the bottom centre of its touch box,
+ * the dash in the tab's middle, its press fed in its own box's coordinates -- is the rule's. :app is compiled only by
+ * CI, and nothing has been seen on a phone; that the screen CALLS these is read as source in MeasureScreenTest.
  *
  * (Test names are plain ASCII: MeasureWalkTest's header says why.)
  */
@@ -425,5 +431,154 @@ class PanelGripTest {
         assertEquals("FD1", v.head.code); assertEquals(SurveyPrepEdit.DELETE, v.acts.all.last().id)
         // the reference rectangle and an id that is gone have no panel, so the grip is not shown for them
         assertNull(MarkSheet.openPanel(p, SurveyRef.id("front"), now)); assertFalse(shows(p, Pick.State(SurveyRef.id("front"), false, null)))
+    }
+
+    // ------------------------------------------------------------------ on the editing photo (slice F3b)
+
+    /** The wall across the pane's 348 dp, 2 px a dp, ITS FLOOR ON THE PANE'S FOOT (a face zoomed until its skirting is
+     *  at the bottom edge -- where a door's bottom tabs and the grip meet): 1 mm is 696 / W px, y down. */
+    private val k = w / W
+    private val toPx: (Double, Double) -> DoubleArray = { x, y -> doubleArrayOf(x * k, h - y * k) }
+    private val plain: (SurveyPrep.Mark) -> Boolean = { false }
+    private fun pts(l: List<DoubleArray>?) = l?.map { q -> listOf(Math.round(q[0] * 1000) / 1000.0, Math.round(q[1] * 1000) / 1000.0) }
+
+    @Test fun `the handles it keeps clear of are the picked item's own on this face - the list the painter hands the code chip`() {
+        val p = wall()
+        // A MARK: the eight tabs round its box as drawn -- its top-left is (x0, y1) on the canvas, y down
+        val d1 = p.markById("d1")!!.second
+        val a = toPx(d1.x0, d1.y1); val b = toPx(d1.x1, d1.y0)
+        val bb = Box(a[0], a[1], b[0], b[1])
+        assertEquals(pts(SurveyPrepTouch.handlesOf(bb, false)), pts(PanelGrip.handles(p, "front", "d1", plain, toPx)))
+        assertEquals(8, PanelGrip.handles(p, "front", "d1", plain, toPx)!!.size)
+        // ... whichever way the mapping runs: a mirrored canvas gives the same box, so the same tabs
+        val mirrored: (Double, Double) -> DoubleArray = { x, y -> doubleArrayOf((W - x) * k, y * k) }
+        val ma = mirrored(d1.x0, d1.y1); val mb = mirrored(d1.x1, d1.y0)
+        assertEquals(pts(SurveyPrepTouch.handlesOf(Box(minOf(ma[0], mb[0]), minOf(ma[1], mb[1]), maxOf(ma[0], mb[0]), maxOf(ma[1], mb[1])), false)),
+            pts(PanelGrip.handles(p, "front", "d1", plain, mirrored)))
+        // ITS FOUR CORNERS where they are free -- by the one value the screen hands the painter and the press
+        val freed = PanelGrip.handles(p, "front", "d1", { it.id == "d1" }, toPx)
+        assertEquals(pts(Quad.corners(d1).map { q -> toPx(q[0], q[1]) }), pts(freed)); assertEquals(4, freed!!.size)
+        assertEquals(pts(SurveyPrepTouch.handlesOf(bb, false, Quad.freeCorners(d1, true)!!.map { q -> toPx(q[0], q[1]) })), pts(freed))
+        // A SPOT -- a Note's pin: its own middle, and no tab; freeing it changes nothing (it may have no corners)
+        val n1 = p.markById("n1")!!.second
+        val mid = toPx((n1.x0 + n1.x1) / 2, (n1.y0 + n1.y1) / 2)
+        for (f in listOf(plain, { _: SurveyPrep.Mark -> true })) assertEquals(pts(listOf(mid)), pts(PanelGrip.handles(p, "front", "n1", f, toPx)))
+        // A TAPE, A LINE, AN AREA, A CHAIN: its points, each an end a press drags
+        for (id in listOf("t1", "m1", "m2")) assertEquals(pts(p.measById(id)!!.second.pts.map { q -> toPx(q[0], q[1]) }), pts(PanelGrip.handles(p, "front", id, plain, toPx)), id)
+        assertEquals(pts(p.chainById("k1")!!.second.nodes.map { q -> toPx(q[0], q[1]) }), pts(PanelGrip.handles(p, "front", "k1", plain, toPx)))
+        assertEquals(listOf(2, 2, 3, 2), listOf("t1", "m1", "m2", "k1").map { PanelGrip.handles(p, "front", it, plain, toPx)!!.size })
+        // NULL -- NO GRIP: nothing picked, an item of ANOTHER face (the pick can name one; no chip is drawn then either),
+        // an id that is gone, the reference rectangle, a face that is not there
+        assertNull(PanelGrip.handles(p, "front", null, plain, toPx))
+        for (id in ITEMS) assertNull(PanelGrip.handles(p, "back", id, plain, toPx), "$id is not on the back wall")
+        assertNull(PanelGrip.handles(p, "front", "gone", plain, toPx)); assertNull(PanelGrip.handles(p, "front", SurveyRef.id("front"), plain, toPx))
+        assertNull(PanelGrip.handles(p, "nowhere", "d1", plain, toPx))
+        // every item of the wall answers on its own face: the grip has a list for each
+        for (id in ITEMS) assertNotNull(PanelGrip.handles(p, "front", id, plain, toPx), id)
+    }
+
+    @Test fun `what stands over the foot lifts it by the taller of the band and the notes - never by their sum`() {
+        // portrait: nothing, until a note or the snackbar is drawn there -- then by that column's own height
+        assertEquals(0.0, PanelGrip.foot(false, dp)); assertEquals(0.0, PanelGrip.foot(false, dp, 0.0))
+        assertEquals(96.0, PanelGrip.foot(false, dp, 96.0)); assertEquals(0.0, PanelGrip.foot(false, dp, -5.0), "a height is never negative")
+        // landscape: the phase band's 20 dp; a note stands OVER the band, so the taller of the two
+        assertEquals(40.0, PanelGrip.foot(true, dp)); assertEquals(40.0, PanelGrip.foot(true, dp, 30.0)); assertEquals(96.0, PanelGrip.foot(true, dp, 96.0))
+        assertEquals(PanelGrip.footDp(true) * 3.0, PanelGrip.foot(true, 3.0))
+        // the grip then stands that far over the pane's foot, its shape unchanged
+        val g = assertNotNull(PanelGrip.at(w, h, dp, foot = PanelGrip.foot(false, dp, 96.0)))
+        assertEquals(listOf(126.0, 434.0, 222.0, 466.0), dpOf(g.touch)); assertEquals(h - 96.0, g.tab.b)
+    }
+
+    private fun onPhoto(p: SurveyPrep.Prep, pick: Pick.State, step: String = StepRoute.MARK, tool: String = SEL, panelUp: Boolean = false,
+                        keypadUp: Boolean = false, padUp: Boolean = false, dragging: Boolean = false, s: String = "front",
+                        free: (SurveyPrep.Mark) -> Boolean = plain, foot: Double = 0.0) =
+        PanelGrip.onPhoto(p, pick, step, tool, panelUp, keypadUp, padUp, dragging, s, free, toPx, w, h, dp, foot)
+
+    @Test fun `the one question the screen asks - shown, on this face, and a clear place - and the chip is then kept off it`() {
+        val p = wall()
+        // EVERY ITEM OF THE WALL, picked -- held or not: there is a grip, at the foot, and it is at(...)'s answer for the
+        // item's own handles
+        for (id in ITEMS) for (held in listOf(true, false)) {
+            val g = assertNotNull(onPhoto(p, Pick.State(id, held, null)), "$id held $held")
+            val want = assertNotNull(PanelGrip.at(w, h, dp, PanelGrip.handles(p, "front", id, plain, toPx)!!))
+            assertEquals(dpOf(want.touch), dpOf(g.touch), id); assertEquals(want.how, g.how, id); assertEquals(h, g.touch.b)
+            for (q in PanelGrip.handles(p, "front", id, plain, toPx)!!) assertTrue(SurveyPrepTouch.boxDist(g.touch, q[0], q[1]) >= 16 * dp - 1e-6, "$id ${q.toList()}")
+        }
+        // the door stands on the floor left of the middle, its bottom tabs on the foot: its grip has stepped aside; the
+        // Line high on the wall leaves it centred
+        assertFalse(onPhoto(p, Pick.State("d1", true, null))!!.how == PanelGrip.CENTRE); assertEquals(PanelGrip.CENTRE, onPhoto(p, Pick.State("m1", true, null))!!.how)
+        // NONE where shows() says none: nothing picked, another step, a tool armed, the panel, the keypad or the pad up, a drag
+        val d = Pick.State("d1", true, null)
+        assertNull(onPhoto(p, Pick.NONE)); assertNull(onPhoto(p, d, step = StepRoute.LINES)); assertNull(onPhoto(p, d, step = StepRoute.PANO))
+        assertNull(onPhoto(p, d, tool = SurveyPrepPalette.LINE)); assertNull(onPhoto(p, d, tool = "D"))
+        assertNull(onPhoto(p, d, panelUp = true)); assertNull(onPhoto(p, d, keypadUp = true)); assertNull(onPhoto(p, d, padUp = true)); assertNull(onPhoto(p, d, dragging = true))
+        // NONE for an item of another face, though it is picked and its panel could open -- no chip is drawn for it either
+        assertTrue(shows(p, d)); assertNull(onPhoto(p, d, s = "back")); assertNull(onPhoto(p, Pick.State(SurveyRef.id("front"), false, null)))
+        // the foot it is handed lifts it; a pane too small has none
+        assertEquals(h - 96.0, onPhoto(p, Pick.State("m1", true, null), foot = 96.0)!!.touch.b)
+        assertNull(PanelGrip.onPhoto(p, d, StepRoute.MARK, SEL, false, false, false, false, "front", plain, toPx, 1.0, 1.0, dp), "before the pane is measured")
+        // A FREED mark: the grip keeps clear of its corners, not of tabs it no longer shows
+        val freed = assertNotNull(onPhoto(p, d, free = { it.id == "d1" }))
+        for (q in Quad.corners(p.markById("d1")!!.second).map { c -> toPx(c[0], c[1]) }) assertTrue(SurveyPrepTouch.boxDist(freed.touch, q[0], q[1]) >= 16 * dp - 1e-6)
+        // THE GRIP IS PLACED FIRST, THE CHIP AFTER IT: handed the grip's touch box among the boxes it keeps off, the chip
+        // of a mark low on the wall never lies on the grip -- with it or without it the chip is still placed
+        val low = SurveyPrep.fresh(L, W, H)
+        low.surface("front").marks.add(SurveyPrep.Mark("s1", "D", "FD1", 1100.0, 1600.0, 250.0, 700.0))
+        val gl = assertNotNull(PanelGrip.onPhoto(low, Pick.State("s1", true, null), StepRoute.MARK, SEL, false, false, false, false, "front", plain, toPx, w, h, dp))
+        val m = low.markById("s1")!!.second
+        val a = toPx(m.x0, m.y1); val b = toPx(m.x1, m.y0); val bb = Box(a[0], a[1], b[0], b[1])
+        val tabs = SurveyPrepTouch.handlesOf(bb, false)
+        for (lift in listOf(16 * dp, 60 * dp)) for (tw in listOf(40.0, 90.0, 140.0)) {
+            val chip = assertNotNull(SurveyPrepTouch.codeChip(bb, tabs, tw, w, h, dp, lift, listOf(gl.touch)))
+            assertFalse(chip.tap.l < gl.touch.r && chip.tap.r > gl.touch.l && chip.tap.t < gl.touch.b && chip.tap.b > gl.touch.t, "the chip's tap box overlaps the grip's")
+        }
+        // ... and a Line whose first point is just over the foot's middle: its chip would stand BELOW that point, on the
+        // grip's row -- told of the grip, it stands somewhere else
+        val line = listOf(pt(174.0, 440.0), pt(174.0, 200.0))
+        val g2 = assertNotNull(PanelGrip.at(w, h, dp, line)); assertEquals(PanelGrip.CENTRE, g2.how)
+        val alone = assertNotNull(SurveyPrepTouch.codeChipOfLine(line, 60.0, w, h, dp))
+        assertTrue(alone.tap.l < g2.touch.r && alone.tap.r > g2.touch.l && alone.tap.t < g2.touch.b && alone.tap.b > g2.touch.t, "untold, the chip would lie on the grip")
+        val kept = assertNotNull(SurveyPrepTouch.codeChipOfLine(line, 60.0, w, h, dp, listOf(g2.touch)))
+        assertFalse(kept.tap.l < g2.touch.r && kept.tap.r > g2.touch.l && kept.tap.t < g2.touch.b && kept.tap.b > g2.touch.t)
+    }
+
+    @Test fun `a screen reader calls it what it calls the panel it opens - Options for the picked item's code - with no text of its own`() {
+        val p = wall()
+        for ((id, code) in listOf("d1" to "FD1", "t1" to "F-T1", "m1" to "F-M1", "m2" to "F-M2", "k1" to "FK1", "n1" to "FNOTE1")) {
+            for (held in listOf(true, false)) assertEquals("Options for $code", PanelGrip.said(en, p, Pick.State(id, held, null)), id)
+            // it IS the panel's own name, in both languages: the key the code chip and the panel already have
+            for (tx in listOf(Tx.EN, Tx.MR)) {
+                assertEquals(MarkSheet.optionsLabel(tx, code), PanelGrip.said(tx, p, Pick.State(id, true, null)))
+                assertEquals(MarkSheet.panel(tx, p, MarkSheet.openPanel(p, id, 0L)!!, 0, null)!!.pane, PanelGrip.said(tx, p, Pick.State(id, true, null)), "$id: the panel it opens is called the same")
+            }
+        }
+        assertEquals("", PanelGrip.said(en, p, Pick.NONE)); assertEquals("", PanelGrip.said(en, p, Pick.State("gone", true, null)))
+    }
+
+    @Test fun `as built it is a control over the photo - the tab at the bottom centre of its touch box, the dash in the tab's middle, by the rule's own numbers`() {
+        // :app lays a box TOUCH_W x TOUCH_H at Place.touch and aligns the tab to its bottom centre and the dash to the
+        // tab's centre: that is where Place.tab and Place.dash are, wherever the grip stands
+        val door = box(100.0, 300.0, 190.0, 508.0)
+        for (g in listOf(PanelGrip.at(w, h, dp)!!, PanelGrip.at(w, h, dp, tabs(door))!!, PanelGrip.at(436 * dp, 302 * dp, dp, foot = 40.0)!!, PanelGrip.at(w, h, dp, foot = 96.0)!!)) {
+            assertEquals(PanelGrip.TOUCH_W_DP, g.touch.w / dp, 1e-9); assertEquals(PanelGrip.TOUCH_H_DP, g.touch.h / dp, 1e-9)
+            assertEquals(PanelGrip.TAB_W_DP, g.tab.w / dp, 1e-9); assertEquals(PanelGrip.TAB_H_DP, g.tab.h / dp, 1e-9)
+            assertEquals(PanelGrip.DASH_W_DP, g.dash.w / dp, 1e-9); assertEquals(PanelGrip.DASH_H_DP, g.dash.h / dp, 1e-9)
+            assertEquals((g.touch.l + g.touch.r) / 2, (g.tab.l + g.tab.r) / 2, 1e-9, "the tab: centred across its box"); assertEquals(g.touch.b, g.tab.b, 1e-9, "... and on its foot")
+            assertEquals((g.tab.l + g.tab.r) / 2, (g.dash.l + g.dash.r) / 2, 1e-9); assertEquals((g.tab.t + g.tab.b) / 2, (g.dash.t + g.dash.b) / 2, 1e-9, "the dash: in the tab's middle")
+        }
+        // THE PRESS AS THE CONTROL FEEDS IT: its own box's coordinates plus where the box stands are the pane's -- a tap in
+        // the box's corner opens, a pull of 12 dp from anywhere in it opens while the finger is down, a slip off it does not
+        val g = PanelGrip.at(w, h, dp, tabs(door))!!
+        fun local(x: Double, y: Double) = doubleArrayOf(g.touch.l + x * dp, g.touch.t + y * dp)
+        val down = local(3.0, 30.0)
+        assertEquals(Press.OPEN, local(3.0, 30.0).let { PanelGrip.press(g, down[1], it[0], it[1], lifted = true, dp) })
+        assertEquals(Press.WAIT, local(3.0, 19.0).let { PanelGrip.press(g, down[1], it[0], it[1], lifted = false, dp) })
+        assertEquals(Press.OPEN, local(40.0, 18.0).let { PanelGrip.press(g, down[1], it[0], it[1], lifted = false, dp) }, "pulled up 12 dp: at once")
+        assertEquals(Press.LOST, local(-20.0, 30.0).let { PanelGrip.press(g, down[1], it[0], it[1], lifted = true, dp) })
+        // and what it then hands the tap's one function is the grip's own hit, which Pick answers as it answers the chip
+        val p = wall(); val sc = Pick.Scene(p, 0, StepRoute.MARK) { s -> SurveyPrep.size(s, L, W, H) }
+        val st = Pick.State("d1", false, "FD1.w")
+        assertEquals(Pick.tap(sc, st, Hit.Code).options, Pick.tap(sc, st, Hit.Grip).options); assertTrue(Pick.tap(sc, st, Hit.Grip).options)
+        assertEquals(st, Pick.tap(sc, st, Hit.Grip).state, "nothing picked, held or gold changes")
     }
 }

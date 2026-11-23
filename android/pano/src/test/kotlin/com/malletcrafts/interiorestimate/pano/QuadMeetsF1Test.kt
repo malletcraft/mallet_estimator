@@ -397,9 +397,13 @@ class QuadMeetsF1Test {
         assertEquals(1, count(screen, "fun freeNow(): (SurveyPrep.Mark) -> Boolean = Quad.freeOf(freeId, pick.picked, part)")); assertEquals(1, count(screen, "Quad.freeOf("))
         assertEquals(1, count(screen, "free = freeNow(),"), "the photo: its press and its painter")
         assertEquals(1, count(screen, "val freeS by rememberUpdatedState(free)"), "the gesture outlives recompositions")
-        assertEquals(1, count(screen, "free = free,"), "the painter's Marks")
+        // (port 63 slice F3b moved this count 1 -> 2: the panel's grip keeps clear of the picked mark's handles -- its four
+        //  corners where they are free -- and is told which by the same one value, PanelGrip.onPhoto's `free`; the painter's
+        //  Marks is the LAST of the two in the file)
+        assertEquals(2, count(screen, "free = free,"), "the grip's handles, and the painter's Marks")
+        assertEquals(1, count(screen, "padUp = fine != null, dragging = loupe != null || pinching, s = tab, free = free,"), "the grip's")
         // ... handed BEFORE the pinned tail of the screen's Marks(...) (MeasureScreenTest)
-        assertTrue(screen.indexOf("free = free,") in 0 until screen.indexOf("nudge = if (which == \"main\") fine else null), mm, u)"))
+        assertTrue(screen.lastIndexOf("free = free,") in 0 until screen.indexOf("nudge = if (which == \"main\") fine else null), mm, u)"))
         assertEquals(1, count(p3, "fun free(e: SurveyPrep.Mark): Boolean = Quad.freeOf(freeIdS, selS?.id, selS?.part)(e)")); assertEquals(1, count(p3, "Quad.freeOf("))
         for (name in appDir.list()!!.filter { it.endsWith(".kt") }) assertFalse(Regex("""\bQuad\.free\(""").containsMatchIn(appCode(name)), "$name asks Quad.free itself")
 

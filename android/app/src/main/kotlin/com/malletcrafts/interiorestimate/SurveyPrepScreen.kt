@@ -113,6 +113,7 @@ import com.malletcrafts.interiorestimate.pano.MeasureFlow
 import com.malletcrafts.interiorestimate.pano.MeasurePad
 import com.malletcrafts.interiorestimate.pano.MeasureText
 import com.malletcrafts.interiorestimate.pano.NudgePad
+import com.malletcrafts.interiorestimate.pano.PanelGrip
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.PhaseTools
@@ -183,9 +184,19 @@ import kotlin.math.roundToInt
  *    value, Pick.State, and every event that changes it is a function of Pick
  *    in :pano; where a reading lands is Landing; the laser's link and its chip
  *    in the top bar LaserChip; which figures the photo draws PhotoFigures.
- *    Nothing on this screen fires the laser. The row under the photo: Tape,
- *    Line, three types, More ▸ and `▸` (the next unread figure); a tool places
+ *    Nothing on this screen fires the laser. The row under the photo: Line,
+ *    three types, More ▸ and `▸` (the next unread figure); a tool places
  *    ONE item and goes off, and with no tool on a touch selects.
+ *    THE TAPE TOOL IS OFF (port 63 slice F3; Features.TAPES -- Amit, 23 Nov
+ *    2026: "does tape tool make any sense now? as we don't want any foto
+ *    measured dimensions on fone.", then "Plain band, no figure"): no new Tape
+ *    can be laid, and one a room already has is kept as its plain band with
+ *    its code -- no ticks, no length -- and is picked, moved and deleted.
+ *    THE PANEL'S GRIP (port 63 slice F3b; PanelGrip -- Amit, the same day:
+ *    "there should be a simple pull out dash which will let me pull up those
+ *    optios."): while an item is picked a dark tab with a dash stands on the
+ *    photo's foot; a tap or a pull up on it opens the panel the code chip
+ *    opens, by the chip's own line.
  *    THE CHAIN TOOL IS OFF (port 63 slice F1; Features.CHAINS -- Amit, 16 Nov
  *    2026: "chain mark is rarely used. get rid of it."): no new chain can be
  *    drawn, and one a room already has is kept, drawn, measured (FK1.1 … and
@@ -380,6 +391,9 @@ internal fun SurveyPrepDialog(
     // what the photo last drew of the picked item -- its box, its code chip, the canvas's size: written by the drawing,
     // read by the press (the chip's tap box), the lift and Fine move's corner. Never read by composition.
     val shown = remember { SurveyPrepDraw.Shown() }
+    // how high the note line and the snackbar stand over the photo's foot, px, as laid out (their column with its
+    // margins): the panel's grip is lifted clear of them while either shows (port 63 slice F3b; PanelGrip.foot)
+    var notesPx by remember { mutableIntStateOf(0) }
     // px a dp, for Fine move's corner -- read HERE, above the local functions that use it
     val pxPerDp = LocalDensity.current.density.toDouble()
     // what the hand feels when a laser reading lands, fails the guard or is thrown away (Landing.pulses) -- his eyes are
@@ -1800,7 +1814,7 @@ internal fun SurveyPrepDialog(
         if (land) SpPhaseBand(band, true, Modifier.align(Alignment.BottomCenter))
     }
     val notesOver: @Composable BoxScope.() -> Unit = {
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { notesPx = it.height }.padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             note?.let { SpNote(it, Modifier) }
             snackText?.let { t -> SpSnack(t, snackUndo, Modifier.fillMaxWidth()) { if (snackText != null && snackUndo && hist.size == snackHist) { hideSnack(); undo() } else hideSnack() } }
@@ -1864,6 +1878,10 @@ internal fun SurveyPrepDialog(
                     shown = shown, panelTop = { panelTop },
                     // Fine move, while its pad is up: the photo draws the part it nudges solid (NudgePad.solid)
                     fine = fineNow,
+                    // THE PANEL'S GRIP at the photo's foot (port 63 slice F3b; PanelGrip.onPhoto): not while the panel is
+                    // open or the keypad stands under the photo, and lifted clear of a note or the snackbar while one shows
+                    panelUp = panel != null, keypadUp = padOpen && pick.gold != null,
+                    notesPx = if (note != null || snackText != null) notesPx else 0,
                     // the keypad's uncommitted digits for the gold plate; the hollow glyph while the laser is not ready;
                     // the plate that has just taken a reading; and the bump that pans to a gold figure off screen
                     live = MeasurePad.live(padNow()),
@@ -2521,6 +2539,11 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
  * magnifier (Quad.drag: a side near upright or level snaps straight, its guide
  * ray bold; a corner that would break the shape stops), and its body is pressed
  * only inside its shape.
+ * THE PANEL HAS A GRIP (port 63 slice F3b; DESIGN-imagemeter §24.7; PanelGrip):
+ * while an item is picked, a dark tab with a dash stands on the photo's foot
+ * (SpPanelGrip, laid over the photo as the fit and grid buttons are, with a
+ * press of its own); a tap or a pull up on it is handed to onTap as
+ * SurveyPrepTouch.Hit.Grip, which is the way the code chip's tap opens the panel.
  */
 @Composable
 private fun SpPhoto(
@@ -2560,6 +2583,10 @@ private fun SpPhoto(
     /** FINE MOVE WHILE ITS PAD IS UP, else null: the part it nudges is drawn SOLID on the held item (NudgePad.solid) --
      *  one tab, corner or end, or every handle when the arrows move the whole item. */
     fine: NudgePad.State?,
+    /** THE PANEL'S GRIP (port 63 slice F3b; PanelGrip.onPhoto): whether the panel is open, and whether the keypad stands
+     *  under the photo -- with either there is no grip -- and how high the note line and the snackbar stand over the
+     *  photo's foot just now, px (0: neither is drawn), which lifts the grip clear of them (PanelGrip.foot). */
+    panelUp: Boolean, keypadUp: Boolean, notesPx: Int,
     /** 1 · Lines: a press took a line, its end or the reference rectangle -- the lines' own selection. */
     onLineGrab: (SpSel) -> Unit,
     /** The keypad's uncommitted digits (MeasurePad.live), drawn on the gold plate; null: none. */
@@ -2686,6 +2713,10 @@ private fun SpPhoto(
     val viewKey: Any = if (mode == "lines") "lines:$tab" else img
     var view by remember(viewKey) { mutableStateOf(SurveyPrep.PhotoView()) }
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
+    // TWO FINGERS ARE ON THE PHOTO -- a pinch (port 63 slice F3b): the panel's grip is not shown meanwhile, so a pinch
+    // that has one finger on the grip can never pull the panel up. Set by the gesture as the pinch begins, cleared
+    // when the gesture ends however it ends.
+    var pinching by remember { mutableStateOf(false) }
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
     var boxW by remember { mutableStateOf(1f) }
@@ -2946,8 +2977,9 @@ private fun SpPhoto(
         is SurveyPrepTouch.Hit.Node -> h.id
         is SurveyPrepTouch.Hit.Body -> pickS.picked
         // the picked item's code chip: the picked item's -- a long press on it is a long press on the item; and the
-        // panel's grip at the photo's foot is the picked item's too (PanelGrip; port 63 slice F3a: nothing hands
-        // SurveyPrepTouch.hit a grip yet, so this branch is the sealed class's and cannot be reached until F3b)
+        // panel's grip at the photo's foot is the picked item's too (PanelGrip; port 63 slice F3: this branch is the
+        // sealed class's -- the grip is laid OVER the photo with a press of its own (SpPanelGrip), markHit hands
+        // SurveyPrepTouch.hit no grip, and so no press of the photo's own gesture is ever a Hit.Grip)
         is SurveyPrepTouch.Hit.Code, is SurveyPrepTouch.Hit.Grip -> pickS.picked
         is SurveyPrepTouch.Hit.Tag -> prepS.ownerOf(h.code)?.id
         null -> line
@@ -2964,7 +2996,8 @@ private fun SpPhoto(
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         return when (h) {
             // a press on the code chip grabs nothing, as one on a figure: a drag from it pans -- and one on the panel's
-            // grip grabs no item either (port 63 slice F3a: the sealed class's branch, unreachable until F3b hands a grip)
+            // grip grabs no item either (port 63 slice F3: the sealed class's branch -- the grip takes its own press,
+            // SpPanelGrip, so the photo's gesture never sees one)
             null, is SurveyPrepTouch.Hit.Tag, is SurveyPrepTouch.Hit.Code, is SurveyPrepTouch.Hit.Grip -> null
             is SurveyPrepTouch.Hit.Body -> bodyGrab(sx, sy)
             is SurveyPrepTouch.Hit.Node -> if (Pick.handles(pickS, h.id)) nodeGrab(h.id, h.i) else null
@@ -3106,6 +3139,22 @@ private fun SpPhoto(
             val at = MeasureFlow.span(prep, code) { _ -> ab }
             if (at != null) MeasureFlow.panTo(view, box(), r.sq.x(at[0]), r.sq.y(at[1]), r.sq.x(at[2]), r.sq.y(at[3]))?.let { v -> view = v; tick++ }
         }
+    }
+
+    // THE PANEL'S GRIP, AS THE PHOTO IS COMPOSED (port 63 slice F3b; DESIGN-imagemeter §24.7). Amit, 23 Nov 2026, with
+    // 0.3.350 on his phone: "options like unlock duplicate etc are coming when i tap the mark type very hard. there
+    // should be a simple pull out dash which will let me pull up those optios." Whether it is there and where it stands
+    // along the foot is ONE question of :pano (PanelGrip.onPhoto: an item picked on this face in 2 · Mark, no tool on,
+    // no panel, keypad or Fine move's pad up, nothing being dragged -- the magnifier is up exactly while a grab moves --
+    // and no pinch under way, and a place 16 dp clear of every handle of the picked item, as the painter's own mapping
+    // puts them). It is asked
+    // HERE, before the photo is drawn, so it follows the zoom, the pan and the pick in the same frame; the painter is
+    // then handed its touch box as one more box the code chip and every plate keep off (figKeep, below).
+    val gripAt: PanelGrip.Place? = rect?.let { r ->
+        PanelGrip.onPhoto(prep, pick, mode, tool, panelUp, keypadUp, padUp = fine != null, dragging = loupe != null || pinching, s = tab, free = free,
+            toPx = { x, y -> toS(r.sq.x(x), r.sq.y(y)).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } },
+            w = boxW.toDouble(), h = boxH.toDouble(), dp = density.density.toDouble(),
+            foot = PanelGrip.foot(land, density.density.toDouble(), notesPx.toDouble()))
     }
 
     // THE PHOTO'S PLACE, AND THE PHOTO IN IT (port 63 slice I2b): the outer box keeps its place and cuts what leaves it;
@@ -3424,6 +3473,7 @@ private fun SpPhoto(
                         val down = ev.changes.filter { it.pressed }
                         if (down.size >= 2) {
                             secondFinger = true
+                            pinching = true
                             act(gc.move(down[0].position.x.toDouble(), down[0].position.y.toDouble(), t, down.size))
                             // PINCH AND PAN, as before: zoom about where the fingers started, follow their midpoint
                             val a = down[0].position; val b = down[1].position
@@ -3468,6 +3518,7 @@ private fun SpPhoto(
                     // ... and a corner's, the same (port 63 slice Q2)
                     if (cornerGrabbed) onEndGuideS(null)
                     loupe = null
+                    pinching = false
                     // A CORNER LET GO WHERE IT STARTED (the review of Q2, finding 4): it snapped back onto its own two
                     // lines -- every drag shorter than the snapping distance at this zoom does -- so the mark is exactly
                     // as it was (Quad.unmoved). The drag's undo step is taken back off, as for a handle whose press
@@ -3505,9 +3556,11 @@ private fun SpPhoto(
                 // grid column, which no plate may cover (canvas px). There is no `all`: every mark shows what it has.
                 // The item the pick names, on THIS face (the 360 can leave it on another)
                 val pickedHere = pick.picked?.takeIf { pid -> prep.itemById(pid)?.s == tab }
+                // ... and THE PANEL'S GRIP (port 63 slice F3b): its touch box, where it was placed as this frame was
+                // composed -- the code chip and every plate keep off it, so the chip and the grip never overlap
                 val figKeep = listOfNotNull(fitAt).map { f ->
                     SurveyPrepTouch.Box((f.left - photoAt.x).toDouble(), (f.top - photoAt.y).toDouble(),
-                        (f.right - photoAt.x).toDouble(), (f.bottom - photoAt.y).toDouble()) }
+                        (f.right - photoAt.x).toDouble(), (f.bottom - photoAt.y).toDouble()) } + listOfNotNull(gripAt?.touch)
                 fun overlay(c: android.graphics.Canvas, mm: (Double, Double) -> FloatArray, which: String) {
                     if (mode == "lines") {
                         // the plane grid in 1 · Lines (its button on), through the face's own mapping, so it leans with
@@ -3636,7 +3689,67 @@ private fun SpPhoto(
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp)) }
             }
         }
+        // THE PANEL'S GRIP (port 63 slice F3b; PanelGrip): laid over the photo at the place the rule gave, its touch box's
+        // top-left on the canvas -- which is this box -- and drawn LAST, so its press is its own and never the photo's.
+        // A tap or a pull up on it is handed to onTap as Hit.Grip: Pick.tap answers Pick.options for it, as for the code
+        // chip, and the dialog then opens the panel by the chip's own line. NO SECOND WAY IN. A screen reader calls it
+        // what it calls the panel it opens, "Options for FW1" (PanelGrip.said: MarkSheet.optionsLabel of the item's code).
+        gripAt?.let { g ->
+            SpPanelGrip(g, PanelGrip.said(tx, prep, pick),
+                Modifier.offset { IntOffset(g.touch.l.roundToInt(), g.touch.t.roundToInt()) }) { onTap(SurveyPrepTouch.Hit.Grip, null) }
+        }
     }
+    }
+}
+
+/**
+ * THE PANEL'S GRIP (port 63 slice F3b; DESIGN-imagemeter §24.7; every rule is PanelGrip in :pano). Amit, 23 Nov 2026,
+ * with build 0.3.350 on his phone: "there should be a simple pull out dash which will let me pull up those optios." A
+ * box the size of its touch box (PanelGrip.TOUCH_W_DP x TOUCH_H_DP; the caller puts it where PanelGrip.onPhoto said),
+ * and in it, at its bottom centre, the dark tab with its top corners round (TAB_W_DP x TAB_H_DP, TAB_RADIUS_DP) and the
+ * light dash in the tab's middle (DASH_W_DP x DASH_H_DP) -- where Place.tab and Place.dash are. No word and no figure.
+ * ITS PRESS IS ITS OWN, AND NOTHING OF IT IS THE PHOTO'S: it takes the finger as it goes down and every move of it
+ * after, so the photo under it neither pans, nor picks, nor lets the pick go, and a pinch never starts from it. What
+ * the press comes to is PanelGrip.press, asked at every move and at the lift against the box it stood in when the
+ * finger went down: a pull up of 12 dp opens AT ONCE, the finger still down; a lift inside the box is a tap and opens;
+ * a slip off it does nothing; a system cancel (every pointer up, already consumed) is no lift and opens nothing.
+ * [onOpen] is the tap's own function -- the caller hands it Hit.Grip -- so this file has no second way to open the
+ * panel. A screen reader finds it as a button named [said], and its activation is the same [onOpen].
+ */
+@Composable
+private fun SpPanelGrip(g: PanelGrip.Place, said: String, modifier: Modifier, onOpen: () -> Unit) {
+    val gS by rememberUpdatedState(g)
+    val onOpenS by rememberUpdatedState(onOpen)
+    val pxPerDp = LocalDensity.current.density.toDouble()
+    Box(modifier.width(PanelGrip.TOUCH_W_DP.toFloat().dp).height(PanelGrip.TOUCH_H_DP.toFloat().dp)
+        .semantics { contentDescription = said; role = Role.Button; onClick { onOpenS(); true } }
+        .pointerInput(Unit) {
+            awaitEachGesture {
+                val first = awaitFirstDown()
+                first.consume()
+                // where the grip stands as the finger goes down: the whole press is judged against that box
+                val at = gS
+                val downY = at.touch.t + first.position.y
+                var out = PanelGrip.Press.WAIT
+                while (out == PanelGrip.Press.WAIT) {
+                    val ev = awaitPointerEvent()
+                    val ch = ev.changes.firstOrNull { it.id == first.id } ?: break
+                    val lifted = !ch.pressed
+                    // a system cancel arrives as the pointer up AND already consumed: it is no lift, so no tap
+                    if (lifted && ch.isConsumed) break
+                    ch.consume()
+                    out = PanelGrip.press(at, downY, at.touch.l + ch.position.x, at.touch.t + ch.position.y, lifted, pxPerDp)
+                    if (lifted) break
+                }
+                if (out == PanelGrip.Press.OPEN) onOpenS()
+            }
+        }, contentAlignment = Alignment.BottomCenter) {
+        Box(Modifier.width(PanelGrip.TAB_W_DP.toFloat().dp).height(PanelGrip.TAB_H_DP.toFloat().dp)
+            .clip(RoundedCornerShape(topStart = PanelGrip.TAB_RADIUS_DP.toFloat().dp, topEnd = PanelGrip.TAB_RADIUS_DP.toFloat().dp))
+            .background(Color(PanelGrip.TAB_COLOUR or (PanelGrip.TAB_ALPHA shl 24))), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(PanelGrip.DASH_W_DP.toFloat().dp).height(PanelGrip.DASH_H_DP.toFloat().dp)
+                .clip(CircleShape).background(Color(0xFF000000.toInt() or PanelGrip.DASH_COLOUR)))
+        }
     }
 }
 

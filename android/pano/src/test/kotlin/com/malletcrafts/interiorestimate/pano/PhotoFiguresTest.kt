@@ -342,6 +342,12 @@ class PhotoFiguresTest {
         assertEquals("1234", SurveyMeas.tapeFigure(1234.4, tapes = true)); assertEquals("", SurveyMeas.tapeFigure(1234.4, tapes = false))
         assertEquals(SurveyMeas.tapeFigure(1234.4, tapes = Features.TAPES), SurveyMeas.tapeFigure(1234.4))
         for (on in listOf(true, false)) assertEquals("", PhotoFigures.tape(p.measById("m1")!!.second, tapes = on), "a Line is not a Tape")
+        // (port 63 slice F3b) NO FIGURE, BUT ITS NAME: what stands along the band of a Tape a room already has, its tool
+        // off, is its code -- Amit's selector answer, "Plain band, no figure": the band with its code -- unless it is the
+        // picked item, whose chip names it; with the tool on it is the figure, picked or not, as it was
+        assertEquals("F-T1", PhotoFigures.tapeLabel(t1, picked = false, tapes = false)); assertEquals("", PhotoFigures.tapeLabel(t1, picked = true, tapes = false))
+        for (picked in listOf(true, false)) assertEquals("1234", PhotoFigures.tapeLabel(t1, picked, tapes = true))
+        assertEquals(PhotoFigures.tapeLabel(t1, false, tapes = Features.TAPES), PhotoFigures.tapeLabel(t1, false), "the default IS the switch")
         assertEquals("F-T1 1234 mm", SurveyMeas.tapeTag(t1.code, SurveyMeas.plen(t1.pts)), "what 0.3.345 prints, which this replaces")
         assertEquals("", SurveyMeas.shownTag("F-T1", SurveyMeas.TAPE, null, true))
         // what takes a tap: a figure or a question mark
@@ -412,8 +418,17 @@ class PhotoFiguresTest {
             val k1 = p.chainById("k1")!!.second; val v = SurveyChain.vals(k1, p.actual, W, H)
             for (i in 0 until k1.nodes.size - 1) PhotoFigures.chainSeg(k1, v, i, pick, ready)?.let { labels += it.text }
             labels += PhotoFigures.chainTotal(k1, v, pick, ready).text; labels += PhotoFigures.chainTotal360(v)
-            for (on in listOf(true, false))
-                labels += PhotoFigures.items(p, "front", W, H, pick, { x, y -> doubleArrayOf(x / 8, 340 - y / 8) }, 1.0, { t, fs, _ -> t.length * fs * 0.6 }, ready, tapes = on).flatMap { mk -> mk.figs.map { it.text } }
+            for (on in listOf(true, false)) {
+                val its = PhotoFigures.items(p, "front", W, H, pick, { x, y -> doubleArrayOf(x / 8, 340 - y / 8) }, 1.0, { t, fs, _ -> t.length * fs * 0.6 }, ready, tapes = on)
+                // (Port 63 slice F3b moved this walk. THE ONE LABEL THAT IS A CODE: a Tape a room already has, its tool
+                //  OFF and not the picked item, is named along its plain band by its code -- Amit's selector answer of
+                //  23 Nov 2026, "Plain band, no figure": the band with its code, no ticks and no number. It is a name
+                //  where there is no measurement to label, which is not what P4 took off the lines; it is held here,
+                //  apart, and every other label -- the Tape's own with its tool on included -- goes through the walk.)
+                val band = its.filter { it.id == "t1" }.flatMap { mk -> mk.figs.map { it.text } }
+                if (on) labels += band else assertEquals(if (pick.picked == "t1") emptyList() else listOf("F-T1"), band, "$pick")
+                labels += its.filter { it.id != "t1" }.flatMap { mk -> mk.figs.map { it.text } }
+            }
         }
         assertTrue(labels.count { it.isNotEmpty() } > 40, "${labels.count { it.isNotEmpty() }}")
         for (t in labels) {
@@ -433,16 +448,23 @@ class PhotoFiguresTest {
         // (Port 63 slice F3a: `lay` names the Tape's switch. It is asked ON through this test, so every index below is the
         // one it was; what the phone draws with the switch OFF -- no Tape among the figures -- is held first.)
         fun lay(pick: State, tapes: Boolean = true) = PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW, tapes = tapes)
-        // THE TAPE TOOL OFF: nothing picked, the door's one read figure and NOTHING ELSE -- the Tape's length is the
-        // photo's, so the layout is not handed it; picked or held, the Tape still has none
+        // THE TAPE TOOL OFF: the door's one read figure and NO OTHER FIGURE -- the Tape's length is the photo's, so the
+        // layout is not handed it. (Port 63 slice F3b moved these lines: an UNPICKED Tape's one label is its CODE, the
+        // plain band's name -- Amit's selector answer of 23 Nov 2026, "Plain band, no figure": the band with its code, no
+        // ticks and no number -- placed along its band and no tap target; picked or held, its chip names it and the
+        // layout is handed nothing for it, as F3a had it for every Tape.)
         for (pick in listOf(Pick.NONE, State("t1", false, null), State("t1", true, null))) lay(pick, tapes = false).let { ms ->
-            assertEquals(listOf(D1, W1, E1, D2), ms.map { it.id }, "$pick"); assertEquals(listOf(1, 0, 0, 0), ms.map { it.figs.size }, "$pick")
+            val named = pick.picked != "t1"
+            assertEquals(listOf(D1, W1, E1, D2) + (if (named) listOf("t1") else emptyList()), ms.map { it.id }, "$pick")
+            assertEquals(listOf(1, 0, 0, 0) + (if (named) listOf(1) else emptyList()), ms.map { it.figs.size }, "$pick")
             val out = DimLayout.placeShown(ms, 340.0, 340.0, emptyList(), 1.0, 1.0)
-            assertEquals(listOf("FD1.w"), out.plates.map { it.code }); assertEquals(listOf("898"), out.plates.map { it.fig.text })
+            assertEquals(listOf("FD1.w") + (if (named) listOf("t1#") else emptyList()), out.plates.map { it.code }, "$pick")
+            assertEquals(listOf("898") + (if (named) listOf("F-T1") else emptyList()), out.plates.map { it.fig.text }, "$pick")
+            assertEquals(listOf("FD1.w"), out.tags.map { it.code }, "$pick: the band's name is no tap target")
         }
         assertEquals(lay(Pick.NONE, tapes = Features.TAPES).map { it.id }, PhotoFigures.layout(Tx.EN, p, "front", W, H, Pick.NONE, toPx, 1.0, 1.0, textW).map { it.id }, "the default IS the switch")
-        // the switch moves the Tape's figure alone: every mark's are the same on both sides
-        assertEquals(lay(State(W1, true, "FW1.w"), tapes = true).take(4).map { m -> m.figs.map { it.text } }, lay(State(W1, true, "FW1.w"), tapes = false).map { m -> m.figs.map { it.text } })
+        // the switch moves the Tape's label alone: every mark's figures are the same on both sides
+        assertEquals(lay(State(W1, true, "FW1.w"), tapes = true).take(4).map { m -> m.figs.map { it.text } }, lay(State(W1, true, "FW1.w"), tapes = false).take(4).map { m -> m.figs.map { it.text } })
         // THE TAPE TOOL ON, as it was. Nothing picked: the door's one read figure; the window, the point and the wished
         // door cost nothing -- and of the Tapes, Lines, areas and chains (P5: placed with the marks) only the Tape, whose
         // figure is the photo's

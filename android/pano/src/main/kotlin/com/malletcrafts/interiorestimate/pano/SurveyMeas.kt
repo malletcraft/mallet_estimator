@@ -352,6 +352,30 @@ object SurveyMeas {
      */
     fun tapeFigure(len: Double, tapes: Boolean = Features.TAPES): String = if (tapes) tapeShown(len) else ""
 
+    /**
+     * THE NAME BESIDE A TAPE A ROOM ALREADY HAS, WHILE ITS TOOL IS OFF (port 63 slice F3b; [Features.TAPES]): ITS CODE,
+     * `F-T1`. Amit's own answer on the selector of 23 Nov 2026 (~22:35 IST, after asking "what will happen to tape
+     * tool?"): "Plain band, no figure" -- the tool is not offered, and a Tape already in a room stays on the photo as
+     * a plain band WITH ITS CODE, no ticks and no number. A band with no length on it and no name beside it would be a
+     * yellow strip nobody could tell from another; the code is a name, not a figure, and nothing of it is measured from
+     * the photo. "" -- NOTHING --
+     *  - while [tapes] is ON: its length is its figure ([tapeFigure]) and its code is on its chip alone (P4);
+     *  - while its code CHIP names it ([chipped]: it is the picked item on the editing photo, `F-T1 ▾`) -- the code is
+     *    never drawn twice, as a mark's is not;
+     *  - for one being pulled, which has no code yet ([code] null).
+     * The switch is the DEFAULT of the last parameter. (A saved picture's tag is [tapeTag], untouched: slice M3's.)
+     */
+    fun tapeName(code: String?, chipped: Boolean, tapes: Boolean = Features.TAPES): String =
+        if (tapes || chipped || code == null) "" else code
+
+    /**
+     * WHAT A SCREEN PAINTER WRITES BESIDE A TAPE -- the editing photo's plate along its band ([PhotoFigures.tapeLabel])
+     * and the 360's tag past its far end: its length while [tapes] is on ([tapeFigure]); while it is off, its NAME
+     * ([tapeName]) -- or nothing, for one its chip names and for one being pulled. Never both: one label a Tape.
+     */
+    fun tapeSays(code: String?, len: Double, chipped: Boolean = false, tapes: Boolean = Features.TAPES): String =
+        tapeFigure(len, tapes).ifEmpty { tapeName(code, chipped, tapes) }
+
     /** Whether that tag takes a tap under its reading key: only when it shows a figure or `?` -- the code alone is
      *  not a figure, and a tap on the Line's own body picks it (which is what puts the `?` there). */
     fun tagTaps(reading: Double?, ask: Boolean): Boolean = reading != null || ask

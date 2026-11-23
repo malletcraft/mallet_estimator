@@ -118,7 +118,8 @@ object PhotoFigures {
      * [ask]: the phase keys readings ([MeasureFlow.canRead]) -- false after Survey, where the picked item shows its READ
      * figures only and no `?` anywhere (the review of I1, finding 5).
      *
-     * [tapes]: [Features.TAPES], handed on to [items] -- off, a Tape's photo figure is not among them (port 63 slice F3).
+     * [tapes]: [Features.TAPES], handed on to [items] -- off, a Tape's photo figure is not among them (port 63 slice F3):
+     * an unpicked Tape's code is, in its place ([tapeLabel]).
      */
     fun layout(tx: Tx, prep: SurveyPrep.Prep, s: String, a: Double, b: Double, pick: Pick.State, toPx: (Double, Double) -> DoubleArray,
                u: Double, dp: Double, textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null,
@@ -135,9 +136,10 @@ object PhotoFigures {
      * draws them:
      *  - a LINE: its [line] figure ALONG it, from its first point to its last;
      *  - an AREA: its perimeter's figure at its middle (the mean of its corners), level -- it has no one line;
-     *  - a TAPE: its [tape] figure along its band, centred on it; no tap target (it takes no reading) -- and, while
-     *    [tapes] is off ([Features.TAPES], the default of the last parameter; port 63 slice F3), NOTHING: its figure is
-     *    the photo's, so none is handed to the layout;
+     *  - a TAPE: its [tapeLabel] along its band, centred on it; no tap target (it takes no reading) -- its [tape]
+     *    figure while its tool is on; while [tapes] is off ([Features.TAPES], the default of the last parameter; port
+     *    63 slice F3) NO FIGURE, its figure being the photo's: its CODE, the plain band's name, and for the picked
+     *    one -- whose chip names it -- nothing;
      *  - a CHAIN: each segment's [chainSeg] figure along that segment, and its [chainTotal] at its last point, level.
      * A figure that shows nothing ("", or a chain segment with none) is not handed in: it costs the layout nothing.
      */
@@ -156,7 +158,7 @@ object PhotoFigures {
             DimLayout.item(m.id, t.key, t.text, from, to, pick.picked == m.id, t.gold, read, dp, textW)?.let { out += it }
         }
         for (m in sf.meas) if (m.kind == SurveyMeas.TAPE && m.pts.size == 2)
-            DimLayout.item(m.id, null, tape(m, tapes), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)?.let { out += it }
+            DimLayout.item(m.id, null, tapeLabel(m, pick.picked == m.id, tapes), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)?.let { out += it }
         for (c in sf.chains) if (c.nodes.size >= 2) {
             val v = SurveyChain.vals(c, prep.actual, a, b)
             for (i in 0 until c.nodes.size - 1) chainSeg(c, v, i, pick, ready, ask)?.let { t ->
@@ -213,6 +215,16 @@ object PhotoFigures {
      *  don't want any foto measured dimensions on fone" -- a Tape a room already has is its plain band. */
     fun tape(m: SurveyPrep.Meas, tapes: Boolean = Features.TAPES): String =
         if (m.kind == SurveyMeas.TAPE && m.pts.size == 2) SurveyMeas.tapeFigure(SurveyMeas.plen(m.pts), tapes) else ""
+
+    /**
+     * WHAT STANDS ALONG A TAPE'S BAND ON THE EDITING PHOTO ([SurveyMeas.tapeSays]; port 63 slice F3b): its [tape]
+     * figure while its tool is on; while it is off, ITS CODE -- `F-T1`, the plain band's name (Amit's selector answer
+     * of 23 Nov 2026, "Plain band, no figure": the band with its code, no ticks and no number) -- unless it is the
+     * [picked] item, whose code chip names it. Placed by [items] with every other label, turned along the band, and no
+     * tap target: a tap on it picks the Tape by its line, as a tap on the band does. "" for anything but a Tape.
+     */
+    fun tapeLabel(m: SurveyPrep.Meas, picked: Boolean, tapes: Boolean = Features.TAPES): String =
+        if (m.kind == SurveyMeas.TAPE && m.pts.size == 2) SurveyMeas.tapeSays(m.code, SurveyMeas.plen(m.pts), picked, tapes) else ""
 
     /** The same Line or area ON THE 360: its reading once read, the number alone; else nothing. Never `?`, never gold. */
     fun line360(m: SurveyPrep.Meas, actual: Map<String, Double>): String =
