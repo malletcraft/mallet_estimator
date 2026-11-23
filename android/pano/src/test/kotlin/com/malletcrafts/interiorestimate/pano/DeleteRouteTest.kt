@@ -1,8 +1,10 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DeleteRouteTest {
@@ -94,5 +96,85 @@ class DeleteRouteTest {
         assertEquals("ग्राहक हा ऑफिसचा कस्टमर रेकॉर्ड आहे, त्यामुळे तो फोनवरून काढता येत नाही. त्याखालच्या साइट्स इथे हटवा; ग्राहक हटवणे हे ऑफिसचे काम आहे.", client.reason)
         assertEquals("या फोनवरून काढले — मुख्य साइट कधीच ऑफिस सिस्टमवर पोहोचले नव्हते.",
             Deletes.localOnlyMessage(Tx.MR, "Main site"))
+    }
+
+    // ---- port 63 slice F4b: the third fact -- S5 holds something of the row --------------------------------------
+
+    private val siteOnS5 = "This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed."
+    private val projectOnS5 = "This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed."
+
+    @Test
+    fun `a site S5 holds is refused - never removed from this phone as though it had never left it`() {
+        // 23 Nov 2026, found by reading and reproduced on made-up names: a site made on a phone and uploaded through S5
+        // has no bench docname and was never in a bootstrap, so it was "a row this phone invented". Deleting it removed
+        // the phone's row, said "Removed from this phone — … had never reached the office system", and the site stayed,
+        // listed by S5. The August sentence, by a new road.
+        val r = Deletes.route(Tx.EN, "site", "", serverKnown = false, onS5 = true)
+        assertEquals(DeleteRoute.Blocked(siteOnS5), r)
+        assertTrue(r !is DeleteRoute.LocalOnly)
+        // the same row with nothing on S5 is still this phone's own, and still a local delete
+        assertEquals(DeleteRoute.LocalOnly, Deletes.route(Tx.EN, "site", "", serverKnown = false, onS5 = false))
+        // a project the same way
+        assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.EN, "project", "", serverKnown = false, onS5 = true))
+        assertEquals(DeleteRoute.LocalOnly, Deletes.route(Tx.EN, "project", "", serverKnown = false, onS5 = false))
+    }
+
+    @Test
+    fun `a phone-minted S5 key is never sent to the bench as a docname`() {
+        // "S5-…" is an id, so it used to be Server("S5-…"): delete_node asked the bench for a Project it has never held.
+        for (known in listOf(true, false)) for (on in listOf(true, false)) {
+            val r = Deletes.route(Tx.EN, "project", "S5-aaaaaaaaaa", serverKnown = known, onS5 = on)
+            assertEquals(DeleteRoute.Blocked(projectOnS5), r, "known=$known onS5=$on")
+        }
+        assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.EN, "project", " S5-0123456789 ", serverKnown = false))
+    }
+
+    @Test
+    fun `a row with a bench docname that S5 also holds is refused - a bench delete would leave it listed by S5`() {
+        assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.EN, "project", "PROJ-T3", serverKnown = true, onS5 = true))
+        // and for a site it is also the guard against a cascade aimed at the WHOLE bench site from a row S5 named differently
+        assertEquals(DeleteRoute.Blocked(siteOnS5), Deletes.route(Tx.EN, "site", "SITE-T2", serverKnown = false, onS5 = true))
+        assertEquals(DeleteRoute.Blocked(siteOnS5), Deletes.route(Tx.EN, "site", "", serverKnown = true, onS5 = true), "S5's answer before 'cannot identify'")
+        // nothing on S5: the three routes exactly as they were
+        assertEquals(DeleteRoute.Server("PROJ-T3"), Deletes.route(Tx.EN, "project", "PROJ-T3", serverKnown = true, onS5 = false))
+        assertEquals(DeleteRoute.Server("SITE-T2"), Deletes.route(Tx.EN, "site", "SITE-T2", serverKnown = true, onS5 = false))
+        assertTrue(Deletes.route(Tx.EN, "site", "", serverKnown = true, onS5 = false) is DeleteRoute.Blocked)
+        // the default is "nothing on S5": a caller that does not say routes as before the slice
+        for (kind in listOf("site", "project")) for (id in listOf("", "PROJ-T3")) for (known in listOf(true, false))
+            assertEquals(Deletes.route(Tx.EN, kind, id, known, onS5 = false), Deletes.route(Tx.EN, kind, id, known), "$kind '$id' known=$known")
+    }
+
+    @Test
+    fun `a client keeps its own refusal whatever S5 holds`() {
+        val office = Deletes.route(Tx.EN, "client", "", serverKnown = false)
+        for (on in listOf(true, false)) for (id in listOf("", "CUST-T1", "S5-aaaaaaaaaa"))
+            assertEquals(office, Deletes.route(Tx.EN, "client", id, serverKnown = false, onS5 = on), "id='$id' onS5=$on")
+    }
+
+    @Test
+    fun `the refusal says S5 holds it and that nothing was removed, in one line`() {
+        for (t in listOf(siteOnS5, projectOnS5)) {
+            assertTrue(t.contains("S5"), t)
+            assertTrue(t.contains("nothing was removed"), "the phone's row is still there, and the sentence says so: $t")
+            assertFalse(t.contains("Removed from this phone") || t.contains("never reached"), t)
+            assertTrue(t.length <= 120, "too long to read on site: ${t.length}")
+        }
+        // English first (Amit, 16 Nov 2026): under मराठी each reads its English until the Marathi is written (mr-pending.tsv)
+        assertEquals(DeleteRoute.Blocked(siteOnS5), Deletes.route(Tx.MR, "site", "", serverKnown = false, onS5 = true))
+        assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.MR, "project", "", serverKnown = false, onS5 = true))
+    }
+
+    @Test
+    fun `the phone's delete asks with what S5 holds of the row - read as source, since only CI compiles the app`() {
+        val f = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt")
+        assertTrue(f.isFile, "the app's MainActivity.kt is beside :pano (${f.absolutePath})")
+        val main = f.readText()
+        assertEquals(1, Regex("Deletes\\.route\\(").findAll(main.lines().filterNot { it.trim().startsWith("//") }.joinToString("\n")).count(), "one caller of the rule")
+        assertTrue(Regex("""val route = Deletes\.route\(tx, t\.kind, t\.serverId, t\.serverKnown,\s*onS5 = cat\.onS5\(masters, queue, t\.kind, t\.client, t\.site, t\.project\)\)""").containsMatchIn(main),
+            "the same Catalogue.onS5 the rename's route asks")
+        // "Removed from this phone" is said on the LocalOnly route alone
+        val a = main.indexOf("} else if (route is DeleteRoute.LocalOnly) {"); val b = main.indexOf("lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }")
+        assertTrue(a in 0 until b && !main.substring(a, b).contains("} else {"), "the local-only sentence follows the local-only route")
+        assertEquals(1, Regex("Deletes\\.localOnlyMessage\\(").findAll(main).count())
     }
 }

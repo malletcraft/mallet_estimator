@@ -1146,11 +1146,52 @@ word the new screen says is a `tx.<key>` read made in `:pano` (`MarkSheet.shapeS
 and no existing value changed. The fifteen four-corner texts are still English in both tables (decision 7 above:
 English first), each listed in `mr-pending.tsv`.
 
+## Port 63 slices F4a and F4b (23 Nov 2026): the client / site / project tree -- 6 keys added in F4b, English first
+
+Amit, 23 Nov 2026, with build 0.3.350 on his phone: "get rid of any other clients. … verify if renaming a site, client
+works actually correct." The design record is `android/docs/port63/DESIGN-tree.md`.
+
+**F4a adds no key and changes no text.** One new `:pano` file, `pano/TreeKeep.kt` (what the tree keeps of an ERP
+bootstrap once S5 is the list; no shown text), joined `ported.txt`, and `literal-counts.tsv` gained its row (0). The
+search overlay's three hard-coded demo suggestions left `MainActivity.kt` (they were marked `// text:value`, so no count
+moved), and its "Try" head (`app.try`, unchanged) is drawn only over a list that is not empty.
+
+**F4b adds six keys**, each a phone text (flag `phone-text`), ENGLISH FIRST (decision 7 above): the Marathi value of each
+IS its English for now, with a note saying so, and all six are listed in `mr-pending.tsv` (31 -> 37). Each is a WHOLE
+KEY PER KIND, as the card where-notes the delete dialog's refusals: a gendered Marathi word cannot share a template.
+
+| Key | English | Read by |
+|---|---|---|
+| `app.client_office_record_renamed` | `This client is the office's record. It is renamed at the office, not from this phone.` | `Renames.officeRecord` -- the rename dialog, in the grey line's place with the name not editable: a client that carries a bench docname on a phone with no live ERP pair |
+| `app.project_office_record_renamed` | `This project is the office's record. It is renamed at the office, not from this phone.` | `Renames.officeRecord` -- the same, for a project |
+| `app.client_s5_not_renamed` | `This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.` | `Renames.heldByS5` -- the same place: a client S5 holds a project of, or a capture of which is keyed for S5 |
+| `app.project_s5_not_renamed` | `This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.` | `Renames.heldByS5` -- the same, for a project |
+| `app.site_s5_not_removed` | `This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed.` | `Deletes.route` -- the dialog's delete half, the blocker in red with no button: a site S5 holds a project of |
+| `app.project_s5_not_removed` | `This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed.` | `Deletes.route` -- the same, for a project S5 lists or one under a phone-minted `S5-…` key |
+
+**What they replace on screen.** The first four stand where a phone with no ERP pair used to say `Could not rename: no
+server configured` (`app.msg.could_not_rename_x` over `app.no_server_configured`) -- after Save, with the name editable,
+and of a phone that was signed in to S5 -- or where a client made on the phone was renamed on the phone alone and
+reported as renamed. The last two stand where a site S5 holds used to be dropped from the phone with `Removed from this
+phone — {name} had never reached the office system.` (`app.msg.removed_phone_x_never`). **None of the three old keys
+changes or loses its reader**: the bench rename and the bench delete still say "no server configured" when their call
+cannot be made, and a row that is only this phone's own is still removed with its sentence.
+
+"S5" is written as the site's rename dialog already writes it (`app.site_not_renamed_here`, `app.site_on_s5_so_new`).
+None of the six has a placeholder. **No existing English or Marathi value is changed**: the diff of `strings-mr.json`
+is six additions.
+
+1,940 keys (1,934 + 6); Tx regenerated with `:pano:i18nGen` (1,869 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and no file is gone (F4a added `TreeKeep.kt 0`); `unkeyed.tsv` stays empty; the accessors
+nothing calls BY NAME stay at 656 (all six new keys are born read). Two new literals are marked `// text:value`: the
+phone-minted key's prefix `S5-` in `pano/RenameRoute.kt` and a line of SQL in `app/CaptureStore.kt`; the capture
+store's state `SYNCED` is marked where `app/S5Session.kt` and `app/MainActivity.kt` newly compare it.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,934 keys each (counted 23 Nov 2026: the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,940 keys each (counted 23 Nov 2026: the 1,934 of port 63 slice Q2b and the 6 of its slice F4b; that 1,934 is the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

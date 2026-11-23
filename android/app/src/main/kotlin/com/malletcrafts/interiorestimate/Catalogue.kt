@@ -708,6 +708,39 @@ class Catalogue(context: Context) {
             }
 
     /**
+     * WHETHER S5 HOLDS SOMETHING OF A ROW, OR IS BEING SENT SOMETHING OF IT (port 63 slice F4b) -- asked for the row a
+     * rename or a delete is aimed at: a "client" with everything under it, a "site" of that client, or one "project" at
+     * that client and site. The rule is :pano's (Renames.onS5); this gathers what it asks with:
+     *  - CARRIED ids: the server id of every project the tree lists under the row, and the project id of every capture
+     *    of the row -- a capture's site read where its key was minted from, the phone's own row for its client and title
+     *    ([localSiteFor]). Never the demo's captures;
+     *  - DERIVED keys: what each row made on this phone under it would be called on S5 (S5Auth.localKey), which counts
+     *    only where S5's list has named it -- the project made here that S5 holds, while nobody is signed in and the
+     *    masters no longer list it;
+     *  - LISTED: S5Sites holds a name for the id, blank included.
+     * True: a client or a project is not renamed on the phone alone (Renames.route), and a site or a project is not
+     * "removed from this phone" as though S5 did not hold it (Deletes.route).
+     */
+    fun onS5(masters: JSONObject?, captures: List<CaptureStore.Capture>, kind: String,
+             client: String, site: String, project: String): Boolean {
+        fun mine(c: String, s: String, p: String): Boolean = when (kind) {
+            "client" -> same(c, client)
+            "site" -> same(c, client) && same(s, site)
+            "project" -> same(c, client) && same(s, site) && same(p, project)
+            else -> false
+        }
+        val carried = projects(masters).filter { mine(it.client, it.site, it.title) }.map { it.serverId } +
+            captures.filter { c ->
+                !TourDemo.isDemoProject(c.customerName, c.projectTitle) &&
+                    mine(c.customerName, localSiteFor(c.customerName, c.projectTitle), c.projectTitle)
+            }.map { it.project }
+        val derived = locals().filter { mine(it.client, it.site, it.project) }
+            .map { S5Auth.localKey(it.client, it.site, it.project) }
+        val held = S5Sites.all(appContext)
+        return Renames.onS5(carried, derived) { id -> held.containsKey(id) }
+    }
+
+    /**
      * AUDIT R9, for a site: a capture of this site queued or uploaded under a phone-minted S5 key ("S5-…", a hash of
      * client|site|title, re-derived and never stored) that the masters do not list yet. Renamed now, the site's next
      * capture would mint a NEW hash -- two S5 projects with one title. The site of a capture is read where its key

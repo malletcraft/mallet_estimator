@@ -28,11 +28,14 @@ class RenameRouteTest {
     private val en = Tx.EN
     private val P = "PROJ-DEMO"
 
+    // `erpLive` was called legacy-pair until port 63 slice F4b: Renames.route's parameter was renamed with its meaning ("a
+    // pair is stored" became "a LIVE pair: stored and not refused"), so the six cases below that named the old argument
+    // name the new one. A site never reads it, so no site case changed what it expects.
     private fun site(
         name: String = "Demo Site, Pune", serverId: String = "", hasLocalRow: Boolean = false, s5: List<Write> = emptyList(),
-        signedIn: Boolean = true, legacyPair: Boolean = false, unlisted: Boolean = false, listRead: Boolean = false, tx: Tx = en,
+        signedIn: Boolean = true, erpLive: Boolean = false, unlisted: Boolean = false, listRead: Boolean = false, tx: Tx = en,
         heard: Boolean = true, mayHold: Boolean = false,
-    ) = Renames.route(tx, "site", name, serverId, hasLocalRow, s5, signedIn, legacyPair, unlisted, listRead, heard, mayHold)
+    ) = Renames.route(tx, "site", name, serverId, hasLocalRow, s5, signedIn, erpLive, unlisted, listRead, heard, mayHold)
 
     private val shutWords = "This site cannot be renamed from this phone: S5 does not hold it and it was not made here."
 
@@ -43,7 +46,7 @@ class RenameRouteTest {
         assertEquals(RenameRoute.S5(w, readFirst = false), site(s5 = w))
         assertEquals(RenameRoute.S5(w, readFirst = false), site(s5 = w, hasLocalRow = true))
         // the bench's docname and a stored ERP pair change nothing: a site is never sent to the bench (R1, R5)
-        assertEquals(RenameRoute.S5(w, readFirst = false), site(s5 = w, serverId = "MEST-SITE-0005", legacyPair = true))
+        assertEquals(RenameRoute.S5(w, readFirst = false), site(s5 = w, serverId = "MEST-SITE-0005", erpLive = true))
         assertEquals(Line.S5, Renames.line(site(s5 = w)))
         assertFalse(Renames.shut(site(s5 = w)))
         // a project S5 lists with NO name is still S5's to name: its base is ''
@@ -64,7 +67,7 @@ class RenameRouteTest {
         assertEquals(RenameRoute.Local, site(hasLocalRow = true))
         assertEquals(Line.PHONE, Renames.line(RenameRoute.Local))
         // signed in or not, a pair or not: nothing is sent anywhere for a row that is words on this phone
-        assertEquals(RenameRoute.Local, site(hasLocalRow = true, signedIn = false, legacyPair = true))
+        assertEquals(RenameRoute.Local, site(hasLocalRow = true, signedIn = false, erpLive = true))
     }
 
     @Test fun `nothing on S5 and nothing made here is refused from the start - the demo site, the row gone, a bootstrap-only site (R3)`() {
@@ -76,7 +79,7 @@ class RenameRouteTest {
         assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "Main site"))
         // a site only an old ERP bootstrap named: the docname is there, a pair even -- and the bench is still not called
         for (pair in listOf(true, false)) for (signed in listOf(true, false))
-            assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "Main site", serverId = "MEST-SITE-0002", legacyPair = pair, signedIn = signed), "pair=$pair signed=$signed")
+            assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "Main site", serverId = "MEST-SITE-0002", erpLive = pair, signedIn = signed), "pair=$pair signed=$signed")
     }
 
     @Test fun `the (no site) bucket has no name to change, whatever is filed in it`() {
@@ -130,7 +133,7 @@ class RenameRouteTest {
         val row = site(hasLocalRow = true, heard = false, mayHold = true)
         assertEquals(first, row); assertTrue(row !is RenameRoute.Local)
         // a stored pair changes nothing (the phone this was found on holds one): a site never takes the bench's route
-        assertEquals(first, site(hasLocalRow = true, serverId = "MEST-SITE-0005", legacyPair = true, heard = false, mayHold = true))
+        assertEquals(first, site(hasLocalRow = true, serverId = "MEST-SITE-0005", erpLive = true, heard = false, mayHold = true))
         // R9's capture is S5's to answer too once the list is read: not the Local route's refusal before it
         assertEquals(first, site(hasLocalRow = true, unlisted = true, heard = false, mayHold = true))
         // signed out, the list cannot be read: said, under the S5 line, the name editable -- never SHUT, never Local
@@ -207,15 +210,22 @@ class RenameRouteTest {
     @Test fun `a client and a project keep their two routes - with a refusal in place of a call that cannot succeed`() {
         for (kind in listOf("client", "project")) {
             fun r(serverId: String, local: Boolean, pair: Boolean, name: String = "Asha flat") =
-                Renames.route(en, kind, name, serverId, local, listOf(Write(P, "x")), signedIn = true, legacyPair = pair, unlisted = true)
+                Renames.route(en, kind, name, serverId, local, listOf(Write(P, "x")), signedIn = true, erpLive = pair, unlisted = true)
             // the bench holds it and a pair is stored: rename_node by docname, as before port 62
             assertEquals(RenameRoute.Legacy("PROJ-0003"), r("PROJ-0003", local = false, pair = true), kind)
             assertEquals(RenameRoute.Legacy("PROJ-0003"), r(" PROJ-0003 ", local = true, pair = true), kind)
             assertEquals(Line.SERVER, Renames.line(r("PROJ-0003", local = false, pair = true)))
-            // the bench holds it and NO pair is stored: the call cannot be made -- said, not attempted (R1, R2)
+            // the bench holds it and there is NO live pair: the call cannot be made -- said, not attempted (R1, R2).
+            // THIS PIN MOVED WITH PORT 63 SLICE F4b, and it is stricter than it was: the refusal used to be
+            // Blocked("Could not rename: no server configured", Line.SERVER) -- drawn only after Save, the name editable,
+            // and untrue of a phone that is signed in to S5. It is now the row's own reason, in the grey line's place,
+            // from the moment the dialog opens (Amit, 23 Nov 2026: "verify if renaming a site, client works actually correct").
             val noPair = r("PROJ-0003", local = true, pair = false)
-            assertEquals(RenameRoute.Blocked("Could not rename: no server configured", Line.SERVER), noPair, kind)
-            assertFalse(Renames.shut(noPair))
+            assertEquals(RenameRoute.Blocked(
+                if (kind == "client") "This client is the office's record. It is renamed at the office, not from this phone."
+                else "This project is the office's record. It is renamed at the office, not from this phone.", Line.SHUT), noPair, kind)
+            assertTrue(Renames.shut(noPair), "the name is shown, not edited, and Save is off")
+            assertFalse(noPair.toString().contains("no server configured"))
             // made on this phone: the local rename; whitespace is not a docname
             assertEquals(RenameRoute.Local, r("", local = true, pair = false), kind)
             assertEquals(RenameRoute.Local, r("\t ", local = true, pair = true), kind)
@@ -227,6 +237,178 @@ class RenameRouteTest {
         // the client bucket is named as the tree names it
         assertEquals("Could not rename: (no client)",
             assertIs<RenameRoute.Blocked>(Renames.route(en, "client", "(no client)", "", false, emptyList(), true, false, false)).reason)
+    }
+
+    // ---- port 63 slice F4b: a rename that cannot work says so before Save, and never forks ----------------------
+
+    private val officeClient = "This client is the office's record. It is renamed at the office, not from this phone."
+    private val officeProject = "This project is the office's record. It is renamed at the office, not from this phone."
+    private val s5Client = "This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it."
+    private val s5Project = "This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it."
+
+    /** A client's or a project's route: no S5 writes and no R9 capture (both are a site's alone). */
+    private fun row(kind: String, serverId: String = "", local: Boolean = false, live: Boolean = false, onS5: Boolean = false, name: String = "Asha Rao", signedIn: Boolean = true) =
+        Renames.route(en, kind, name, serverId, local, emptyList(), signedIn, erpLive = live, unlisted = false, onS5 = onS5)
+
+    @Test fun `the rename table of a phone with no live ERP pair, row by row - what works works, and what cannot is shut before Save`() {
+        // SITE the phone lists under a name S5 holds: works, on S5 and the phone, exactly as before this slice
+        val w = listOf(Write("PROJ-T1", "Flat 9"), Write("S5-aaaaaaaaaa", "Flat 9"))
+        assertEquals(RenameRoute.S5(w, readFirst = false), site(name = "Flat 9", s5 = w))
+        // SITE "(no site)": shut -- a bucket has no name to change
+        assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "(no site)", s5 = listOf(Write("PROJ-T2", ""))))
+        // SITE only an old ERP bootstrap names: shut
+        assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "Flat 9 Tower", serverId = "SITE-T1"))
+        // CLIENT that is an ERP customer (its id reaches the phone on a project S5 lists): it answered "Could not rename:
+        // no server configured" after Save. Shut, as the office's record -- signed in to S5 or not, a phone row or not,
+        // and whatever S5 holds of it: the docname decides
+        for (signed in listOf(true, false)) for (local in listOf(true, false)) for (on in listOf(true, false))
+            assertEquals(RenameRoute.Blocked(officeClient, Line.SHUT), row("client", serverId = "Asha Rao", local = local, onS5 = on, signedIn = signed), "signed=$signed local=$local onS5=$on")
+        // CLIENT made on this phone whose project S5 holds: it said "Renamed" and forked into two clients. Shut, never Local
+        val made = row("client", local = true, onS5 = true, name = "Bela Nair")
+        assertEquals(RenameRoute.Blocked(s5Client, Line.SHUT), made)
+        assertTrue(made !is RenameRoute.Local)
+        // ANY PROJECT: an ERP project by its docname; a project under a phone-minted key; a phone row of a project S5 holds
+        assertEquals(RenameRoute.Blocked(officeProject, Line.SHUT), row("project", serverId = "PROJ-T1", onS5 = true, name = "kitchen"))
+        assertEquals(RenameRoute.Blocked(s5Project, Line.SHUT), row("project", serverId = "S5-aaaaaaaaaa", local = true, name = "balcony"))
+        assertEquals(RenameRoute.Blocked(s5Project, Line.SHUT), row("project", local = true, onS5 = true, name = "balcony"))
+        // every one of them is SHUT: the grey line's place holds the reason from the moment the dialog opens
+        for (r in listOf(row("client", serverId = "Asha Rao"), made, row("project", serverId = "PROJ-T1"), row("project", serverId = "S5-aaaaaaaaaa"))) {
+            assertTrue(Renames.shut(r)); assertEquals(Line.SHUT, Renames.line(r))
+        }
+        // (a room has no rename anywhere on the phone: there is no route to ask)
+    }
+
+    @Test fun `a phone-minted S5 key is never a bench docname - with a live pair, a dead one or none`() {
+        assertEquals("S5-", Renames.MINTED)
+        assertTrue(Renames.minted("S5-aaaaaaaaaa")); assertTrue(Renames.minted(" S5-0123456789 "))
+        for (no in listOf("", "PROJ-T3", "SITE-T1", "s5-aaaaaaaaaa", "Asha Rao", "XS5-1")) assertFalse(Renames.minted(no), "'$no'")
+        // it is :app's own grammar for the key it mints
+        assertTrue(app("S5Session.kt").contains("fun isLocalKey(project: String) = project.startsWith(\"${Renames.MINTED}\")"), "S5Auth.isLocalKey is Renames.minted's prefix")
+        assertTrue(app("S5Session.kt").contains("return \"${Renames.MINTED}\" + d.joinToString(\"\")"), "S5Auth.localKey mints under it")
+        // with a LIVE pair it used to be Legacy("S5-…"): rename_node asked the bench for a Project it has never held
+        for (live in listOf(true, false)) for (on in listOf(true, false)) for (local in listOf(true, false)) {
+            val r = row("project", serverId = "S5-aaaaaaaaaa", local = local, live = live, onS5 = on)
+            assertEquals(RenameRoute.Blocked(s5Project, Line.SHUT), r, "live=$live onS5=$on local=$local")
+        }
+        // a real docname with a live pair still goes to the bench, as before
+        assertEquals(RenameRoute.Legacy("PROJ-T3"), row("project", serverId = "PROJ-T3", live = true))
+        assertEquals(RenameRoute.Legacy("Asha Rao"), row("client", serverId = "Asha Rao", live = true, onS5 = true), "the bench rename of a live pair is not this slice's")
+    }
+
+    @Test fun `the Local route is only for a row nothing of which is on S5`() {
+        for (kind in listOf("client", "project")) {
+            // made on this phone, nothing sent: renamed here
+            assertEquals(RenameRoute.Local, row(kind, local = true), kind)
+            assertEquals(RenameRoute.Local, row(kind, local = true, live = true), kind)
+            assertEquals(RenameRoute.Local, row(kind, local = true, signedIn = false), kind)
+            // the same row once S5 holds something of it: shut, whatever else is true
+            for (live in listOf(true, false)) for (signed in listOf(true, false)) {
+                val r = row(kind, local = true, live = live, onS5 = true, signedIn = signed)
+                assertEquals(RenameRoute.Blocked(if (kind == "client") s5Client else s5Project, Line.SHUT), r, "$kind live=$live signed=$signed")
+            }
+            // no row here, no docname, nothing on S5 (the demo's): nothing a rename could change, as before
+            assertEquals(RenameRoute.Blocked("Could not rename: Asha Rao", Line.PHONE), row(kind), kind)
+            // no row here, no docname, but S5 holds it -- the "(no client)" bucket of projects S5 lists with no customer: shut
+            assertEquals(Line.SHUT, assertIs<RenameRoute.Blocked>(row(kind, onS5 = true)).line, kind)
+        }
+        // a site never reads onS5: it has its own route to S5
+        assertEquals(RenameRoute.Local, Renames.route(en, "site", "Flat 9", "", true, emptyList(), true, false, false, onS5 = true))
+        // the default is "nothing on S5": a caller that does not say otherwise routes as before the slice
+        assertEquals(row("client", local = true), Renames.route(en, "client", "Asha Rao", "", true, emptyList(), true, false, false))
+    }
+
+    @Test fun `whether S5 holds something of a row - an id S5 lists, a phone-minted key a project or a capture carries, a phone row's key only when S5 lists it`() {
+        val none: (String) -> Boolean = { false }
+        fun lists(vararg ids: String): (String) -> Boolean = { it in ids }
+        assertFalse(Renames.onS5(emptyList(), emptyList(), none))
+        assertFalse(Renames.onS5(listOf("", " ", ""), listOf(""), none), "a row only this phone holds carries no id")
+        // CARRIED: an ERP id counts when S5 lists it
+        assertTrue(Renames.onS5(listOf("PROJ-T1"), emptyList(), lists("PROJ-T1")))
+        assertFalse(Renames.onS5(listOf("PROJ-T1"), emptyList(), lists("PROJ-T2")), "an ERP project S5 does not list is not on S5")
+        // CARRIED: a phone-minted key counts by itself -- the tree's project, or a capture keyed for S5 that the list has not named yet
+        assertTrue(Renames.onS5(listOf("", "S5-aaaaaaaaaa"), emptyList(), none))
+        // DERIVED: what a phone row WOULD be called on S5 always looks minted, so it counts only when S5 lists it
+        assertFalse(Renames.onS5(listOf(""), listOf("S5-bbbbbbbbbb"), none), "typed on the phone and never sent")
+        assertTrue(Renames.onS5(listOf(""), listOf("S5-bbbbbbbbbb"), lists("S5-bbbbbbbbbb")), "the project made here that S5 holds, seen while signed out")
+        assertFalse(Renames.onS5(emptyList(), listOf(""), { true }))
+    }
+
+    @Test fun `a local rename takes the row's captures with it - the ones no server holds and that carry no project id (R10)`() {
+        fun c(project: String = "", client: String = "Bela Nair", title: String = "study", sent: Boolean = false) = TreeKeep.Cap(project, client, title, sent)
+        // a CLIENT rename: every capture of that client, whatever its title, names as the catalogue compares them
+        val client = Renames.rekey("client", "Bela Nair", "", " Bela N ")
+        assertEquals(c(client = "Bela N"), client(c()))
+        assertEquals(c(client = "Bela N", title = "loft"), client(c(client = "bela_nair", title = "loft")))
+        assertEquals(c(client = "Asha Rao"), client(c(client = "Asha Rao")), "another client's capture is not touched")
+        // a PROJECT rename: the captures of that client AND title
+        val project = Renames.rekey("project", "Bela Nair", "study", "Study wall")
+        assertEquals(c(title = "Study wall"), project(c()))
+        assertEquals(c(client = "BELA  NAIR", title = "Study wall"), project(c(client = "BELA  NAIR", title = " Study ")), "the client's own spelling stays: only the title is renamed")
+        assertEquals(c(title = "loft"), project(c(title = "loft")), "the same client's other project")
+        assertEquals(c(client = "Asha Rao"), project(c(client = "Asha Rao")), "another client's project of the same title")
+        // LEFT EXACTLY AS IT IS: a capture a server holds, and a capture that carries a project id (it is that project's)
+        for (re in listOf(client, project)) {
+            assertEquals(c(sent = true), re(c(sent = true)))
+            assertEquals(c(project = "S5-aaaaaaaaaa"), re(c(project = "S5-aaaaaaaaaa")))
+            assertEquals(c(project = "PROJ-T3"), re(c(project = "PROJ-T3")))
+        }
+        // a SITE rename changes no capture (a capture carries no site), nor does an unknown kind or a blank name
+        for (kind in listOf("site", "room", "")) assertEquals(c(), Renames.rekey(kind, "Bela Nair", "study", "X")(c()), kind)
+        for (blank in listOf("", "   ")) { assertEquals(c(), Renames.rekey("client", "Bela Nair", "", blank)(c())); assertEquals(c(), Renames.rekey("project", "Bela Nair", "study", blank)(c())) }
+        // a change of case or spacing alone is still a write of the new spelling, on the same capture
+        assertEquals(c(client = "Bela Nair"), Renames.rekey("client", "bela nair", "", "Bela Nair")(c(client = "bela nair")))
+    }
+
+    @Test fun `the four new reasons are whole keys per kind, and wait for their Marathi in English`() {
+        assertEquals(officeClient, Renames.officeRecord(en, "client")); assertEquals(officeProject, Renames.officeRecord(en, "project"))
+        assertEquals(s5Client, Renames.heldByS5(en, "client")); assertEquals(s5Project, Renames.heldByS5(en, "project"))
+        // English first (Amit, 16 Nov 2026): no Marathi is composed yet, so under मराठी each reads its English (mr-pending.tsv)
+        assertEquals(officeClient, Renames.officeRecord(Tx.MR, "client")); assertEquals(s5Project, Renames.heldByS5(Tx.MR, "project"))
+        // each is read in a glance, and none blames a server that is not configured
+        for (t in listOf(officeClient, officeProject, s5Client, s5Project)) {
+            assertTrue(t.length <= 140, "too long to read on site: ${t.length}")
+            assertFalse(t.contains("server") || t.contains("configured"), t)
+        }
+    }
+
+    @Test fun `the phone's dialog routes on a LIVE pair and on what S5 holds, and its local rename carries the captures`() {
+        val main = app("MainActivity.kt")
+        // nothing in :app says "a pair is stored" to the rule any more
+        for (f in listOf("MainActivity.kt", "TreeShell.kt", "Catalogue.kt", "S5Session.kt", "SyncWorker.kt"))
+            assertFalse(app(f).contains("legacyPair"), "$f still names the old argument")
+        val route = between(main, "fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {", "fun renameHere(")
+        assertTrue(route.contains("erpLive = S5Masters.erpLive(context),"), "a live pair: stored and not refused")
+        assertFalse(route.contains("FrappeClient.load(context) != null"), "never 'a pair is stored'")
+        assertTrue(route.contains("onS5 = !isSite && cat.onS5(masters, queue, t.kind, t.client, t.site, t.project))"), "what S5 holds of a client or a project")
+        // the dialog OPENS on that route: the reason is drawn before any Save
+        assertTrue(main.contains("val opened = remember(t, masters, queue, dataTick, renameIds, renameWhyTick, tx) { renameRoute(t) }"))
+        assertTrue(main.contains("shut = if (opened is RenameRoute.Blocked && Renames.shut(opened)) opened.reason else \"\","))
+        // and SHUT is drawn for any kind: the name not editable, Save off, the reason in the grey line's place
+        val dialog = between(app("TreeShell.kt"), "fun RenameDialog(", "internal const val MM_PER_IN")
+        assertTrue(dialog.contains("val isShut = line == RenameRoute.Line.SHUT") && dialog.contains("enabled = !busy && !isShut,") &&
+            dialog.contains("RenameRoute.Line.SHUT -> shut") && dialog.contains("TextButton(enabled = changed && !busy && !isShut,"))
+        // what S5 holds of a row is gathered in ONE place and judged by :pano
+        val cat = app("Catalogue.kt")
+        val on = between(cat, "fun onS5(masters: JSONObject?, captures: List<CaptureStore.Capture>, kind: String,", "fun hasUnlistedCapture(")
+        assertTrue(on.contains("projects(masters).filter { mine(it.client, it.site, it.title) }.map { it.serverId }"), "the tree's projects of the row")
+        assertTrue(on.contains("!TourDemo.isDemoProject(c.customerName, c.projectTitle)") && on.contains("mine(c.customerName, localSiteFor(c.customerName, c.projectTitle), c.projectTitle)") && on.contains("}.map { it.project }"), "its captures, never the demo's")
+        assertTrue(on.contains(".map { S5Auth.localKey(it.client, it.site, it.project) }"), "its phone rows' keys")
+        assertTrue(on.contains("return Renames.onS5(carried, derived) { id -> held.containsKey(id) }") && on.contains("val held = S5Sites.all(appContext)"), "judged by Renames.onS5 on what S5's list has named")
+        assertEquals(1, Regex("return Renames\\.onS5\\(").findAll(cat + main).count(), "one caller of the rule")
+        // THE LOCAL RENAME CARRIES THE CAPTURES, in the same step, before the tree is re-read
+        val here = between(main, "fun renameHere(t: RenameTarget, newName: String) {", "renaming?.let { t ->")
+        val renamed = here.indexOf("if (!cat.renameLocal(t.kind, t.client, t.site, t.project, newName))")
+        val rekey = here.indexOf("val rekey = Renames.rekey(t.kind, t.client, t.project, newName)")
+        val write = here.indexOf("if (now != was) store.setNames(c.deviceId, now.client, now.title)")
+        val reload = here.indexOf("reload()")
+        assertTrue(renamed in 0 until rekey && rekey < write && write < reload, "renamed, re-keyed, written, and only then re-read")
+        assertTrue(between(here, "if (t.kind != \"site\") {", "WishSync.renameLocal(").contains("for (c in store.all()) {"), "every capture is asked; a site rename changes none")
+        assertTrue(here.contains("val was = TreeKeep.Cap(c.project, c.customerName, c.projectTitle, sent = c.state == \"SYNCED\")") && here.contains("val now = rekey(was)"), "which captures is :pano's answer")
+        assertEquals(1, Regex("store\\.setNames\\(").findAll(main).count(), "one writer of a capture's names")
+        // the store's write: the two name columns of one row, and nothing else
+        val set = between(app("CaptureStore.kt"), "fun setNames(deviceId: String, customerName: String, projectTitle: String) {", "fun setState(")
+        assertTrue(set.contains("put(\"customer_name\", customerName)") && set.contains("put(\"project_title\", projectTitle)") && set.contains("\"device_id = ?\", arrayOf(deviceId))"))
+        assertEquals(2, Regex("put\\(").findAll(set).count(), "the project id, the state and the files are not touched")
     }
 
     @Test fun `each refusal says the prototype's Marathi under Tx MR`() {

@@ -1285,11 +1285,17 @@ private fun AppScreenBody(onLang: () -> Unit) {
             s5Projects = ids.mapNotNull { id -> S5Sites.held(context, id)?.let { RenameRoute.Write(id, it.site) } },
             // an S5 sign-in, or the legacy key S5 also takes: with neither there is nothing to call S5 with
             signedIn = S5Session.signedIn(context) || FrappeClient.authorization(context) != null,
-            legacyPair = FrappeClient.load(context) != null,
+            // A LIVE pair -- stored, and not refused (port 63 slice F4b): a client's or a project's bench rename is
+            // made only with one. A stored pair alone sent the call out with a key that died on 23 Oct.
+            erpLive = S5Masters.erpLive(context),
             unlisted = isSite && cat.hasUnlistedCapture(masters, queue, t.client, t.site),
             listRead = listRead,
             heard = heard,
-            mayHold = !heard && cat.mayBeOnS5(masters, queue, t.client, t.site))
+            mayHold = !heard && cat.mayBeOnS5(masters, queue, t.client, t.site),
+            // A CLIENT OR A PROJECT S5 HOLDS SOMETHING OF (port 63 slice F4b): shut from the moment the dialog opens,
+            // with the reason -- renamed on the phone alone it was reported as renamed and listed twice. A site has
+            // its own route to S5 above.
+            onS5 = !isSite && cat.onS5(masters, queue, t.kind, t.client, t.site, t.project))
     }
     // THE LOCAL RENAME -- the Local route's Save, and a site's Save whose route became Local once S5's list had been
     // read for it (the A2 review, finding 1). A local row is words in this phone's preferences, so it is corrected
@@ -1307,6 +1313,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
             cat.moveRoomScope(t.client, t.site, newName)
             store.masters()?.let { m ->
                 if (cat.renameSiteRows(m, t.client, t.site, newName)) store.saveMasters(m)
+            }
+        }
+        if (t.kind != "site") {
+            // THE ROW'S CAPTURES FOLLOW ITS NAME (audit R10; port 63 slice F4b). A capture row carries the client and
+            // the title it was shot under and nothing ever changed them, so a renamed project showed no photos and
+            // its upload went up under the OLD name -- a second project, or the old client back beside the new one.
+            // Which captures, and to what, is :pano's answer (Renames.rekey): the ones no server holds and that carry
+            // no project id. A site rename changes no capture: a capture carries no site.
+            val rekey = Renames.rekey(t.kind, t.client, t.project, newName)
+            for (c in store.all()) {
+                val was = TreeKeep.Cap(c.project, c.customerName, c.projectTitle, sent = c.state == "SYNCED") // text:value the store's state
+                val now = rekey(was)
+                if (now != was) store.setNames(c.deviceId, now.client, now.title)
             }
         }
         // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
@@ -1475,7 +1494,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 // sent a row the bench knew about down the local branch and
                 // reported success — the 2026-08-24 site that was still there
                 // three days later. Deletes.route refuses that case instead.
-                val route = Deletes.route(tx, t.kind, t.serverId, t.serverKnown)
+                // AND A THIRD FACT (port 63 slice F4b): whether S5 holds something of the row. A site
+                // made on a phone and uploaded through S5 has no docname and was never in a bootstrap,
+                // so it took the local branch below and was "removed from this phone" while S5 went on
+                // listing it. S5 has no delete for a project: such a row is refused, and says so.
+                val route = Deletes.route(tx, t.kind, t.serverId, t.serverKnown,
+                    onS5 = cat.onS5(masters, queue, t.kind, t.client, t.site, t.project))
                 if (route is DeleteRoute.Blocked) {
                     deleteBlocker = route.reason
                     deleteFatal = true

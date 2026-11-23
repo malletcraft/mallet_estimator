@@ -21,7 +21,17 @@
 # Port 63 slice Q2a (23 Nov 2026) added two: the four-corner mark on the screen (DESIGN-quad §11) -- the closing check's sentence with
 # NO figure (sp.measure.sides_say_x: the key Q1 added under this name quoted an estimate and went in slice I1b; this is its sentence
 # re-worded) and what a refused corner nudge of Fine move's pad says (sp.shape.corner_stops). 31 in all.
+# Port 63 slice F4b (23 Nov 2026) added six: the tree's rename dialog (android/docs/port63/DESIGN-tree.md §3) -- why a client or a project
+# cannot be renamed from this phone (app.client_office_record_renamed / app.project_office_record_renamed: the office's record;
+# app.client_s5_not_renamed / app.project_s5_not_renamed: S5 holds it) and why a site or a project S5 holds is not removed
+# (app.site_s5_not_removed / app.project_s5_not_removed). 37 in all.
 key	English
+app.client_office_record_renamed	This client is the office's record. It is renamed at the office, not from this phone.
+app.client_s5_not_renamed	This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.
+app.project_office_record_renamed	This project is the office's record. It is renamed at the office, not from this phone.
+app.project_s5_not_removed	This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed.
+app.project_s5_not_renamed	This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.
+app.site_s5_not_removed	This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed.
 measure.diagonal	diagonal, bottom-left to top-right
 measure.diagonal_plan	diagonal, back-left to front-right
 measure.side_back	back side

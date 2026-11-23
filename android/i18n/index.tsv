@@ -133,7 +133,9 @@ app.characteristics_3ab10101_notify_read	app_characteristics_3ab10101_notify_rea
 app.checks_1_press_measure	app_checks_1_press_measure	static	-
 app.choose_rooms	app_choose_rooms	static	-
 app.cleared_work_face	app_cleared_work_face	static	-
+app.client_office_record_renamed	app_client_office_record_renamed	static	-
 app.client_office_s_customer	app_client_office_s_customer	static	-
+app.client_s5_not_renamed	app_client_s5_not_renamed	static	-
 app.client_site_project_room	app_client_site_project_room	static	-
 app.connect	app_connect	static	-
 app.connect_pressed	app_connect_pressed	static	-
@@ -324,6 +326,9 @@ app.pick_360_gallery	app_pick_360_gallery	static	-
 app.pinch_zoom_double_tap	app_pinch_zoom_double_tap	static	-
 app.project_has_no_skus	app_project_has_no_skus	static	-
 app.project_is_at	app_project_is_at	static	-
+app.project_office_record_renamed	app_project_office_record_renamed	static	-
+app.project_s5_not_removed	app_project_s5_not_removed	static	-
+app.project_s5_not_renamed	app_project_s5_not_renamed	static	-
 app.queued	app_queued	static	-
 app.reading_x_mm_unit	app_reading_x_mm_unit	template	mm: String
 app.ready_shoot	app_ready_shoot	static	-
@@ -368,6 +373,7 @@ app.single_photo	app_single_photo	static	-
 app.site_name	app_site_name	static	-
 app.site_not_renamed_here	app_site_not_renamed_here	static	-
 app.site_on_s5_so_new	app_site_on_s5_so_new	static	-
+app.site_s5_not_removed	app_site_s5_not_removed	static	-
 app.site_type	app_site_type	static	-
 app.site_type_x_pick	app_site_type_x_pick	template	v: String
 app.site_url	app_site_url	static	-

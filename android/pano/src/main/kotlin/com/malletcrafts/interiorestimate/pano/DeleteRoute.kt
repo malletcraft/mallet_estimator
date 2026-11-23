@@ -27,6 +27,15 @@ package com.malletcrafts.interiorestimate.pano
  * to the office is not a local row — it is a bug in this app, and the only
  * honest response is to refuse and say so, because deleting locally would
  * once again destroy the phone's copy while leaving the real record standing.
+ *
+ * AND A THIRD FACT, SINCE S5 HOLDS PROJECTS THE BENCH HAS NEVER SEEN (port 63 slice F4b, 23 Nov 2026;
+ * android/docs/port63/DESIGN-tree.md): whether S5 holds something of the row. A site made on a phone and uploaded
+ * through S5 has no bench docname and was never in a bootstrap, so the pairing above read it as "a row this phone
+ * invented": deleting it removed the phone's row, said "Removed from this phone — … had never reached the office
+ * system", and the site stayed, listed by S5 -- the August sentence again, by a new road. And a project under a
+ * phone-minted `S5-…` key carries an id, so it was sent to the bench, which has never held it. S5 has no delete for
+ * a project, and nothing this phone can do removes one from it: a row S5 holds anything of is REFUSED, saying so and
+ * that nothing was removed.
  */
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
@@ -51,9 +60,11 @@ object Deletes {
      * @param kind        "client", "site" or "project"
      * @param serverId    the ERP docname, blank if the app does not hold one
      * @param serverKnown whether this row came from the bench's bootstrap
+     * @param onS5        whether S5 holds something of the row, or is being sent something of it (Renames.onS5,
+     *                    Catalogue.onS5 in :app): asked for a site and for a project
      */
     @JvmStatic
-    fun route(tx: Tx, kind: String, serverId: String, serverKnown: Boolean): DeleteRoute {
+    fun route(tx: Tx, kind: String, serverId: String, serverKnown: Boolean, onS5: Boolean = false): DeleteRoute {
         // A client is an ERPNext Customer. It belongs to the office ledger,
         // it is referenced by quotations and invoices this app never sees,
         // and no phone removes one. The UI already offers no delete on a
@@ -63,6 +74,13 @@ object Deletes {
         if (kind == "client") return DeleteRoute.Blocked(tx.app_client_office_s_customer)
 
         val id = serverId.trim()
+
+        // S5 HOLDS IT, AND THIS PHONE CANNOT DELETE IT THERE. Before the bench and before the local branch: a bench
+        // delete would leave it listed by S5, and a local one would say it had never left the phone. A phone-minted
+        // `S5-…` key is S5's by its own grammar and is never a docname to send the bench.
+        if (onS5 || Renames.minted(id)) return DeleteRoute.Blocked(
+            if (kind == "project") tx.app_project_s5_not_removed else tx.app_site_s5_not_removed)
+
         if (id.isNotEmpty()) return DeleteRoute.Server(id)
 
         // The whole point of this function. Known to the office but no id in

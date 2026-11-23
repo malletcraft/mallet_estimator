@@ -202,6 +202,18 @@ class CaptureStore(context: Context) :
         }, "device_id = ?", arrayOf(deviceId))
     }
 
+    /** A rename of a row made on this phone takes its capture rows with it (port 63 slice
+     *  F4b; audit R10): the client and the project title a capture was shot under, which
+     *  nothing else ever writes after the shutter. WHICH captures, and to what, is
+     *  Renames.rekey's answer in :pano -- one no server holds and that carries no project
+     *  id -- never decided here. */
+    fun setNames(deviceId: String, customerName: String, projectTitle: String) {
+        writableDatabase.update("captures", ContentValues().apply {
+            put("customer_name", customerName)
+            put("project_title", projectTitle)
+        }, "device_id = ?", arrayOf(deviceId)) // text:value SQL, never shown
+    }
+
     fun setState(deviceId: String, state: String, serverName: String? = null,
                  error: String? = null) {
         writableDatabase.update("captures", ContentValues().apply {

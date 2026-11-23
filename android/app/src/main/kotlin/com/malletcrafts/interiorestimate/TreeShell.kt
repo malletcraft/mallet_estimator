@@ -620,6 +620,13 @@ fun previewCode(client: String, room: String, articleCode: String): String =
  * NOT editable, Save off, and the reason ([shut]) in the grey line's place. The
  * grey line itself says where the rename goes ([line]): a site S5 holds no
  * longer claims "ERP and every other device".
+ *
+ * SINCE PORT 63 SLICE F4b A CLIENT AND A PROJECT CAN BE SHUT TOO (Renames.route):
+ * the office's record on a phone with no live ERP pair, and a row S5 holds
+ * something of. Nothing here changed for it -- SHUT is drawn for any [what] --
+ * but the refusal that used to arrive after Save ("Could not rename: no server
+ * configured") is now the reason standing in the grey line's place from the
+ * moment the dialog opens.
  */
 @Composable
 fun RenameDialog(

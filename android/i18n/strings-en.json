@@ -1057,10 +1057,30 @@
   "where": "v53build/app.js:581 · job",
   "kind": "static"
  },
+ "app.client_office_record_renamed": {
+  "en": "This client is the office's record. It is renamed at the office, not from this phone.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt officeRecord at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a CLIENT that carries a bench docname on a phone with no live ERP pair -- it used to be \"Could not rename: no server configured\", after Save · a whole key per kind (the project's twin is app.project_office_record_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.client_office_s_customer": {
   "en": "A client is the office's customer record, so it is not removed from a phone. Delete the sites under it here; the customer itself is a desk job.",
   "where": "v53build/app.js:267 · body",
   "kind": "static"
+ },
+ "app.client_s5_not_renamed": {
+  "en": "This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt heldByS5 at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a CLIENT S5 holds a project of, or a capture of which is keyed for S5 -- a rename on the phone alone used to say Renamed and leave two clients · a whole key per kind (the project's twin is app.project_s5_not_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.client_site_project_room": {
   "en": "Client, site, project, room or SKU",
@@ -2556,6 +2576,36 @@
   "where": "v53build/app.js:457 · shot",
   "kind": "static"
  },
+ "app.project_office_record_renamed": {
+  "en": "This project is the office's record. It is renamed at the office, not from this phone.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt officeRecord at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a PROJECT that carries a bench docname on a phone with no live ERP pair · a whole key per kind (the client's twin is app.client_office_record_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.project_s5_not_removed": {
+  "en": "This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt route at cff09e5+F4b · Shell · the rename dialog's delete half (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): the blocker, in red, with no button, for a PROJECT S5 lists or one under a phone-minted S5 key -- it used to be sent to the bench, which has never held it · a whole key per kind (the site's twin is app.site_s5_not_removed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.project_s5_not_renamed": {
+  "en": "This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt heldByS5 at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a PROJECT S5 lists, one under a phone-minted S5 key, or one a capture of which is keyed for S5 · a whole key per kind (the client's twin is app.client_s5_not_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.queued": {
   "en": "queued",
   "where": "v53build/app.js:440 · line",
@@ -2886,6 +2936,16 @@
    "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (b) the grey line, for a site S5 holds"
   ],
   "kind": "static"
+ },
+ "app.site_s5_not_removed": {
+  "en": "This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt route at cff09e5+F4b · Shell · the rename dialog's delete half (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): the blocker, in red, with no button, for a SITE S5 holds a project of -- it used to be removed from the phone and said \"Removed from this phone — … had never reached the office system\" while S5 went on listing it · a whole key per kind (the project's twin is app.project_s5_not_removed; a client offers no delete) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.site_type": {
   "en": "Site type",

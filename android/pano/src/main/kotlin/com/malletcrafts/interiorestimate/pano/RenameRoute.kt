@@ -38,6 +38,26 @@ package com.malletcrafts.interiorestimate.pano
  *  - A CLIENT and a PROJECT keep the two routes they had (the phone's own row, else the bench by docname), with
  *    [RenameRoute.Blocked] in place of a call that cannot succeed: no stored ERP pair to call the bench with, or
  *    no row on this phone to rename. Their other defects (R10-R12, and R9's project and client thirds) are slice A3.
+ *  - A CLIENT OR A PROJECT THAT CANNOT BE RENAMED SAYS SO BEFORE SAVE, AND A RENAME NEVER FORKS (port 63 slice F4b,
+ *    23 Nov 2026; android/docs/port63/DESIGN-tree.md). Amit, with build 0.3.350 on his phone: "verify if renaming a
+ *    site, client works actually correct", and what he had seen was "Rename did not take". Verified: on a phone with
+ *    no ERP pair a client or a project that carries an id answered "Could not rename: no server configured" -- after
+ *    Save, and of a phone that IS signed in; with a dead pair stored the call went out with the dead key; a
+ *    phone-minted `S5-…` id was sent to the bench as a Project docname; and a client made on the phone was renamed
+ *    on the phone alone and reported as renamed while the project S5 holds stayed under the old name, so two clients
+ *    were listed and the next capture minted a second S5 project. So, for a client and a project:
+ *      · a bench docname goes to the bench only with a LIVE pair ([Renames.route]'s `erpLive`: stored and not
+ *        refused); without one the row is the office's record and is shut, saying so ([Renames.officeRecord]:
+ *        app.client_office_record_renamed, app.project_office_record_renamed);
+ *      · a phone-minted `S5-…` id ([Renames.minted]) is never a docname and never goes to the bench;
+ *      · a row S5 holds anything of, or is being sent anything of ([Renames.route]'s `onS5`, [Renames.onS5]), is shut
+ *        with the reason ([Renames.heldByS5]: app.client_s5_not_renamed, app.project_s5_not_renamed): S5 keeps no
+ *        client name and has no route for a project's title, so a rename on the phone would not reach it. It is shut
+ *        from the moment the dialog opens -- the name shown, not edited -- never refused after Save;
+ *      · the phone's own row is renamed ([RenameRoute.Local]) only where nothing of it is on S5, and its capture
+ *        rows that no server holds are renamed in the same step ([Renames.rekey]; audit R10), so the photos stay
+ *        with the row and its first upload goes up under the new name, to ONE project.
+ *    S5 keeping a client's name, and a project's title rename, are a later slice that needs Amit's yes.
  *
  * The same object holds the wire ([Renames.siteRequest], [Renames.siteVerdict], pinned to S5's own answers in
  * `S5Site`), what one Save comes to over several projects ([Renames.outcome], [Renames.text]), the order S5's
@@ -54,8 +74,9 @@ sealed class RenameRoute {
     /**
      * The grey line under the name, which says where this rename goes: [S5] a site S5 holds (app.site_on_s5_so_new);
      * [SERVER] a client or a project on the office system (app.x_server_so_new); [PHONE] a row made on this phone
-     * (app.x_has_not_synced); [SHUT] a site that cannot be renamed here at all -- the name is shown and not edited,
-     * Save is off, and the reason stands in the grey line's place (app.site_not_renamed_here, P0 c).
+     * (app.x_has_not_synced); [SHUT] a row that cannot be renamed here at all -- the name is shown and not edited,
+     * Save is off, and the reason stands in the grey line's place: a site (app.site_not_renamed_here, P0 c), and
+     * since port 63 slice F4b a client or a project that is the office's record or is on S5.
      */
     enum class Line { S5, SERVER, PHONE, SHUT }
 
@@ -96,19 +117,23 @@ object Renames {
      * @param hasLocalRow whether a row made on this phone carries the name (Catalogue.hasLocal)
      * @param s5Projects  for a site: the projects under it that S5 lists, each with S5's own name for it as the base
      * @param signedIn    whether this phone holds anything to call S5 with (an S5 sign-in, or the legacy key S5 also takes)
-     * @param legacyPair  whether an ERP pair is stored, for a client's or a project's bench rename
+     * @param erpLive     whether this phone holds a LIVE ERP pair -- stored, and not refused ([TreeKeep.erpLive]) --
+     *                    for a client's or a project's bench rename. It took the place of "a pair is stored" in port
+     *                    63 slice F4b: a refused pair cannot rename anything, and the call used to go out with it
      * @param unlisted    for a site: a capture of it is queued or uploaded under an `S5-…` key the masters do not list
      * @param listRead    S5's list has just been read for this Save, so [unlisted] is S5's own answer
      * @param heard       for a site: a read of S5's list has landed on this phone since it keeps S5's site names
      *                    (S5Sites.heard in :app). False, an empty [s5Projects] says nothing about S5
      * @param mayHold     for a site, read only while not [heard]: S5 may hold something of it -- a project under it
      *                    carries a server id, or a capture of it a project id (Catalogue.mayBeOnS5)
+     * @param onS5        for a client or a project: S5 holds something of the row, or is being sent something of it
+     *                    ([onS5], Catalogue.onS5 in :app). Never read for a site, which has its own route to S5
      */
     @JvmStatic
     fun route(
         tx: Tx, kind: String, name: String, serverId: String, hasLocalRow: Boolean,
-        s5Projects: List<RenameRoute.Write>, signedIn: Boolean, legacyPair: Boolean, unlisted: Boolean,
-        listRead: Boolean = false, heard: Boolean = true, mayHold: Boolean = false,
+        s5Projects: List<RenameRoute.Write>, signedIn: Boolean, erpLive: Boolean, unlisted: Boolean,
+        listRead: Boolean = false, heard: Boolean = true, mayHold: Boolean = false, onS5: Boolean = false,
     ): RenameRoute {
         if (kind == "site") {
             // The bucket has no name to change, whatever is filed in it: renaming it would name every unnamed project at once.
@@ -138,11 +163,18 @@ object Renames {
             return RenameRoute.Blocked(tx.app_site_not_renamed_here, RenameRoute.Line.SHUT)
         }
         val id = serverId.trim()
-        if (id.isNotEmpty()) {
-            if (legacyPair) return RenameRoute.Legacy(id)
-            // No stored pair: the call cannot be made. The words are the ones the banner used to carry.
-            return RenameRoute.Blocked(tx.app_msg_could_not_rename_x(why = tx.app_no_server_configured), RenameRoute.Line.SERVER)
+        // A BENCH DOCNAME -- never a phone-minted `S5-…` key, which the bench has never held ("No such Project").
+        if (id.isNotEmpty() && !minted(id)) {
+            if (erpLive) return RenameRoute.Legacy(id)
+            // No live pair: the call cannot be made, and the row is not this phone's to rename. Said from the moment
+            // the dialog opens, in the row's own terms -- it used to be "Could not rename: no server configured",
+            // after Save, on a phone that was signed in.
+            return RenameRoute.Blocked(officeRecord(tx, kind), RenameRoute.Line.SHUT)
         }
+        // S5 HOLDS SOMETHING OF IT, OR IS BEING SENT IT: a rename on the phone would not reach S5, so the project S5
+        // holds would stay under the old name beside a copy under the new one -- two clients, and a second S5 project
+        // at the next capture. Shut, with the reason, until S5 can be told a client's or a project's name.
+        if (onS5 || minted(id)) return RenameRoute.Blocked(heldByS5(tx, kind), RenameRoute.Line.SHUT)
         if (hasLocalRow) return RenameRoute.Local
         // No docname and no row on this phone (the demo client or project, the "(no client)" bucket): nothing a
         // rename could change, so it is not reported as one.
@@ -159,6 +191,65 @@ object Renames {
         "site" -> tx.app_site_not_renamed_here
         "client" -> tx.app_msg_could_not_rename_x(why = Masters.client_name(tx, name))
         else -> tx.app_msg_could_not_rename_x(why = name)
+    }
+
+    /**
+     * Why a client or a project that carries a bench docname is shut on a phone with no live ERP pair: it is the
+     * office's record and is renamed there. A whole key per kind (a gendered Marathi word cannot share a template).
+     */
+    fun officeRecord(tx: Tx, kind: String): String =
+        if (kind == "client") tx.app_client_office_record_renamed else tx.app_project_office_record_renamed
+
+    /** Why a client or a project S5 holds something of is shut: the new name would not reach S5. A whole key per kind. */
+    fun heldByS5(tx: Tx, kind: String): String =
+        if (kind == "client") tx.app_client_s5_not_renamed else tx.app_project_s5_not_renamed
+
+    /** How every phone-minted S5 project key begins (S5Auth.localKey in :app, pinned equal by RenameRouteTest). */
+    const val MINTED = "S5-" // text:value a wire value, the phone-minted S5 project key's prefix
+
+    /** Whether [id] is a phone-minted S5 project key and not a bench docname: such an id never goes to the bench. */
+    fun minted(id: String): Boolean = id.trim().startsWith(MINTED)
+
+    /**
+     * WHETHER S5 HOLDS SOMETHING OF A ROW, OR IS BEING SENT SOMETHING OF IT -- the row a rename or a delete is aimed
+     * at: a client with everything under it, a site, or one project.
+     *
+     * @param carried the project ids the row's projects and captures CARRY: the server id of each project the tree
+     *                lists under the row, and the project id of each capture of the row ('' entries are ignored)
+     * @param derived the keys the row's phone-made rows WOULD have on S5 (S5Auth.localKey of each): every one looks
+     *                minted, so one counts only when S5's list has named it
+     * @param listed  whether S5's list has named a project id on this phone (S5Sites holds it)
+     *
+     * A carried id counts when S5 lists it, or when it is a phone-minted key -- a capture keyed for S5 has gone up
+     * under that key or is about to, and the key is a hash of the very names a rename would change. A derived key
+     * counts only when S5 lists it: that is the project made on this phone that S5 holds, seen while nobody is
+     * signed in and the masters no longer list it.
+     */
+    fun onS5(carried: List<String>, derived: List<String>, listed: (String) -> Boolean): Boolean =
+        carried.any { it.isNotBlank() && (minted(it) || listed(it)) } || derived.any { it.isNotBlank() && listed(it) }
+
+    /**
+     * THE ROW'S CAPTURES FOLLOW ITS NAME ON A LOCAL RENAME (audit R10; port 63 slice F4b). A capture row carries the
+     * client and the project title it was shot under, and nothing ever changed them: after a local rename the photos
+     * stayed under the old name (the renamed project showed none), and the upload that followed went up under the
+     * old name -- a second project, or the old client back beside the renamed one.
+     *
+     * The answer is the change for ONE capture: a "client" rename gives [to] to every capture of that client, a
+     * "project" rename to every capture of that client and title (names as the catalogue compares them). A "site"
+     * rename changes no capture: a capture carries no site. Left exactly as it is: a capture a server already holds
+     * ([TreeKeep.Cap.sent]) and a capture that carries a project id -- that one is the project's, its names are the
+     * server's to change, and a row with such a capture never takes the Local route ([onS5]).
+     */
+    fun rekey(kind: String, client: String, title: String, to: String): (TreeKeep.Cap) -> TreeKeep.Cap {
+        val n = to.trim()
+        return { c ->
+            when {
+                n.isEmpty() || c.sent || c.project.isNotBlank() -> c
+                kind == "client" && key(c.client) == key(client) -> c.copy(client = n)
+                kind == "project" && key(c.client) == key(client) && key(c.title) == key(title) -> c.copy(title = n)
+                else -> c
+            }
+        }
     }
 
     /** The line for a bench rename (a client's or a project's) that the bench refused or could not be reached for: its own words, as the banner used to carry them. */
