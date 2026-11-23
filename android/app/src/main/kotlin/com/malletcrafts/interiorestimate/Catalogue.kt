@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.KeyBook
 import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.SiteRows
@@ -682,15 +683,28 @@ class Catalogue(context: Context) {
      * is what keeps a site S5's while nobody is signed in: sign-out drops the projects only S5 listed from the masters
      * (S5Masters.forget), the phone's own row shows again in their place, and without it the rename would fall to that
      * row -- a local rename of a site S5 holds, undone by the next sign-in. With it the dialog says to sign in.
+     * The key of such a row is the one this phone REMEMBERS for it ([keyOfRow]), not one worked out from its names.
      */
     fun s5ProjectsOf(masters: JSONObject?, client: String, site: String): List<String> {
         val listed = projectsOf(masters, client, site).map { it.serverId }
             .filter { it.isNotBlank() && S5Sites.held(appContext, it) != null }
+        val book = S5Keys.book(appContext)
         val minted = locals().filter { same(it.client, client) && same(it.site, site) }
-            .map { S5Auth.localKey(it.client, it.site, it.project) }
+            .map { keyOfRow(book, it.client, it.site, it.project) }
             .filter { id -> S5Sites.held(appContext, id)?.let { it.site.isBlank() || same(it.site, site) } == true }
         return (listed + minted).distinct()
     }
+
+    /**
+     * THE S5 KEY OF A ROW MADE ON THIS PHONE: the key this phone REMEMBERS for its client and title (S5Keys; the rule
+     * is :pano's KeyBook) -- and, for a row no capture has been keyed for yet, the key its first capture will be
+     * given, which is the hash of its names as they stand (S5Auth.localKey: what S5Auth.keyFor mints, and remembers
+     * from then on). The ONE place the tree asks what such a row is called on S5 (the review of F4; DESIGN-tree.md
+     * §10): asked of the names alone, a row that had been moved to another site, or whose site had been renamed, no
+     * longer gave the key S5 holds it under.
+     */
+    private fun keyOfRow(book: KeyBook.Book, client: String, site: String, title: String): String =
+        KeyBook.keyFor(book, client, title) ?: S5Auth.localKey(client, site, title)
 
     /**
      * WHETHER S5 MAY HOLD SOMETHING OF THIS SITE -- asked only while S5's list has not been read on this phone
@@ -715,30 +729,56 @@ class Catalogue(context: Context) {
      *  - CARRIED ids: the server id of every project the tree lists under the row, and the project id of every capture
      *    of the row -- a capture's site read where its key was minted from, the phone's own row for its client and title
      *    ([localSiteFor]). Never the demo's captures;
-     *  - DERIVED keys: what each row made on this phone under it would be called on S5 (S5Auth.localKey), which counts
-     *    only where S5's list has named it -- the project made here that S5 holds, while nobody is signed in and the
-     *    masters no longer list it;
+     *  - DERIVED keys: what each row made on this phone under it is called on S5 -- the key this phone remembers for
+     *    it ([keyOfRow]) -- which counts only where S5's list has named it: the project made here that S5 holds, while
+     *    nobody is signed in and the masters no longer list it;
      *  - LISTED: S5Sites holds a name for the id, blank included.
      * True: a client or a project is not renamed on the phone alone (Renames.route), and a site or a project is not
      * "removed from this phone" as though S5 did not hold it (Deletes.route).
      */
     fun onS5(masters: JSONObject?, captures: List<CaptureStore.Capture>, kind: String,
-             client: String, site: String, project: String): Boolean {
+             client: String, site: String, project: String): Boolean =
+        s5Ties(masters, captures, kind, client, site, project).keys.isNotEmpty()
+
+    /**
+     * What ties a row to S5, gathered ONCE for the rename's route ([onS5]) and the delete's (Deletes.Tie):
+     * [keys] the S5 project ids the answer rests on (Renames.heldKeys: none means nothing of the row is on S5), and
+     * [captures] whether a capture of the row is on this phone AT ALL -- keyed or not, sent or not.
+     */
+    class S5Ties(val keys: List<String>, val captures: Boolean)
+
+    /**
+     * [onS5]'s gathering, with what a DELETE also needs (the review of F4, 23 Nov 2026; DESIGN-tree.md §10): the keys
+     * themselves, so S5's list can be asked about exactly those; and whether any photo of the row is still on this
+     * phone, because only a row with none can be judged by a list (a capture may still be on its way up).
+     * A DERIVED key is the key the phone REMEMBERS for the row ([keyOfRow]). A capture counts as the row's where its
+     * client, site and title are the row's (its site read from the phone's own row, [localSiteFor]) -- and, for the
+     * photo count alone, also where it is a capture of a project the tree lists under the row, by that project's id or
+     * its client and title: a project S5 lists may have no row of this phone's to read a site from, and its photos are
+     * the row's all the same. Never the demo's captures.
+     */
+    fun s5Ties(masters: JSONObject?, captures: List<CaptureStore.Capture>, kind: String,
+               client: String, site: String, project: String): S5Ties {
         fun mine(c: String, s: String, p: String): Boolean = when (kind) {
             "client" -> same(c, client)
             "site" -> same(c, client) && same(s, site)
             "project" -> same(c, client) && same(s, site) && same(p, project)
             else -> false
         }
-        val carried = projects(masters).filter { mine(it.client, it.site, it.title) }.map { it.serverId } +
-            captures.filter { c ->
-                !TourDemo.isDemoProject(c.customerName, c.projectTitle) &&
-                    mine(c.customerName, localSiteFor(c.customerName, c.projectTitle), c.projectTitle)
-            }.map { it.project }
+        val book = S5Keys.learn(appContext, captures)
+        val under = projects(masters).filter { mine(it.client, it.site, it.title) }
+        val real = captures.filter { c -> !TourDemo.isDemoProject(c.customerName, c.projectTitle) }
+        val carried = under.map { it.serverId } +
+            real.filter { c -> mine(c.customerName, localSiteFor(c.customerName, c.projectTitle), c.projectTitle) }.map { it.project }
         val derived = locals().filter { mine(it.client, it.site, it.project) }
-            .map { S5Auth.localKey(it.client, it.site, it.project) }
+            .map { keyOfRow(book, it.client, it.site, it.project) }
         val held = S5Sites.all(appContext)
-        return Renames.onS5(carried, derived) { id -> held.containsKey(id) }
+        val photos = real.any { c ->
+            mine(c.customerName, localSiteFor(c.customerName, c.projectTitle), c.projectTitle) || under.any { p ->
+                (c.project.isNotBlank() && c.project == p.serverId) || (same(c.customerName, p.client) && same(c.projectTitle, p.title))
+            }
+        }
+        return S5Ties(Renames.heldKeys(carried, derived) { id -> held.containsKey(id) }, photos)
     }
 
     /**
@@ -818,7 +858,7 @@ class Catalogue(context: Context) {
      *    whether it is a bootstrap's entry that S5 does not list (`mastersOnly`);
      *  - THE PHONE'S OWN ROW: the S5 project it is, where S5's list has named one -- by the project id a capture of the
      *    row carries (a capture's site read where its key was minted from, [localSiteFor]; never the demo's), else by
-     *    the key the row would have on S5 (S5Auth.localKey). That is the row S5 holds while the masters do not list it
+     *    the key this phone remembers for the row ([keyOfRow]). That is the row S5 holds while the masters do not list it
      *    (signed out; or a phone with a live pair, whose bootstrap replaces the masters). And `onWay`: a capture of the
      *    row carries a phone-minted key that S5's list has NOT named here -- gone up since the list was last read, or
      *    about to.
@@ -836,7 +876,8 @@ class Catalogue(context: Context) {
                 same(c.customerName, p.client) && same(c.projectTitle, p.title) &&
                 same(localSiteFor(c.customerName, c.projectTitle), p.site)
         }?.project.orEmpty()
-        val id = carried.ifEmpty { S5Auth.localKey(p.client, p.site, p.title) }
+        // the key this phone REMEMBERS for the row, never one worked out from names a move has since changed
+        val id = carried.ifEmpty { keyOfRow(S5Keys.learn(appContext, captures), p.client, p.site, p.title) }
         val held = S5Sites.held(appContext, id)
         return MoveFacts(if (held != null) id else "", held, hasRow, mastersOnly = false,
             onWay = held == null && Renames.minted(carried), demo = demo)
@@ -854,8 +895,13 @@ class Catalogue(context: Context) {
         signedIn: Boolean, erpLive: Boolean, listRead: Boolean = false,
     ): RenameRoute {
         val f = moveFacts(masters, captures, p)
+        // ANOTHER project of this client with this title already stands at the site picked (the review of F4): the
+        // move is refused, never a merge of two phone-made rows and never two listed projects of one name at one site.
+        val twin = projects(masters).any {
+            it.key != p.key && same(it.client, p.client) && same(it.site, to) && same(it.title, p.title)
+        }
         return Renames.moveRoute(tx, f.project, f.held, f.hasLocalRow, f.mastersOnly, erpLive, signedIn, f.demo,
-            from = p.site, to = to, onWay = f.onWay, listRead = listRead)
+            from = p.site, to = to, onWay = f.onWay, listRead = listRead, twin = twin)
     }
 
     /**

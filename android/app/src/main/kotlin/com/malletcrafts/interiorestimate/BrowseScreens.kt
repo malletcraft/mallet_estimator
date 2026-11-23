@@ -347,6 +347,11 @@ fun RoomsScreen(
     /** THE PROJECT ALBUM's tile (port 61c slice K3): the grid's LAST child, after the shot rooms, the `+N` / Hide
      *  tile and, with the full list open, the other rooms and + Room (index61c2.html 8137). Null draws none. */
     album: AlbumTileArgs? = null,
+    /** THE PROJECT'S DIALOG, FROM INSIDE THE PROJECT (port 63, the review of F4): the first chip names the site the
+     *  project is listed under and opens the dialog that renames the project, gives it another site and deletes it.
+     *  Until it that dialog opened only by a long press on the site's project list -- which a site with one project
+     *  no longer shows. Null draws no chip. */
+    onSite: (() -> Unit)? = null,
 ) {
     val tx = LocalTx.current
     var showAll by remember { mutableStateOf(false) }
@@ -369,6 +374,12 @@ fun RoomsScreen(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
+            // The site, FIRST, so it is on screen without a sideways scroll: the handle of the project's own dialog.
+            // The name through its master: the bucket reads "(no site)", "Main site" in the language shown.
+            onSite?.let {
+                AssistChip(onClick = it,
+                    label = { Text(tx.app_site_x_open(Masters.site_name(tx, project.site))) })
+            }
             AssistChip(onClick = { }, enabled = false,
                 // "3 rooms shot": the WHOLE template app.x_shot (v57), never pl_room + the fragment app.shot,
                 // which glued "3 खोल्या फोटो" -- the form v57 rejected for "फोटो झाले: 3 खोल्या"

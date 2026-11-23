@@ -64,6 +64,10 @@ package com.malletcrafts.interiorestimate.pano
  *    row, and where a move goes is decided here as a rename's is ([Renames.moveRoute], [Renames.moveShut]): the same
  *    `PUT …/site`, for that one project, with its own base ('' for the bucket's); the phone's own row where nothing
  *    of it is on S5; never the bench.
+ *  - THE REVIEW OF F4 (23 Nov 2026; DESIGN-tree.md §10): the keys a refusal rests on are named ([Renames.heldKeys]) so
+ *    a delete can ask S5 about exactly those; a move into a site that already has a project of the same title is
+ *    refused ([Renames.moveRoute]'s `twin`); and S5's 404 for a move is read as what it is ([Renames.notHeld]). The
+ *    S5 key of a row is remembered, not re-derived: [KeyBook].
  *
  * The same object holds the wire ([Renames.siteRequest], [Renames.siteVerdict], pinned to S5's own answers in
  * `S5Site`), what one Save comes to over several projects ([Renames.outcome], [Renames.text]), the order S5's
@@ -232,7 +236,16 @@ object Renames {
      * signed in and the masters no longer list it.
      */
     fun onS5(carried: List<String>, derived: List<String>, listed: (String) -> Boolean): Boolean =
-        carried.any { it.isNotBlank() && (minted(it) || listed(it)) } || derived.any { it.isNotBlank() && listed(it) }
+        heldKeys(carried, derived, listed).isNotEmpty()
+
+    /**
+     * THE KEYS [onS5] RESTS ON, each once, in the order met: every carried id that S5's list has named or that is a
+     * phone-minted key, then every derived key S5's list has named. [onS5] is "there is one". A delete is asked with
+     * them (Deletes.Tie.keys): where S5's list, read for that delete, names none of them, the row is the phone's own
+     * again and exactly these keys are forgotten (the review of F4; DESIGN-tree.md §10).
+     */
+    fun heldKeys(carried: List<String>, derived: List<String>, listed: (String) -> Boolean): List<String> =
+        (carried.filter { it.isNotBlank() && (minted(it) || listed(it)) } + derived.filter { it.isNotBlank() && listed(it) }).distinct()
 
     /**
      * THE ROW'S CAPTURES FOLLOW ITS NAME ON A LOCAL RENAME (audit R10; port 63 slice F4b). A capture row carries the
@@ -318,8 +331,12 @@ object Renames {
      *  - [moveShut]'s cases -> [RenameRoute.Blocked] with [RenameRoute.Line.SHUT].
      *  - THE TARGET: a blank name, the "(no site)" bucket (a bucket is not a place a project is moved to) and the
      *    site the project is already at are refused, saying to pick another -- never sent, never "moved".
+     *  - A SITE THAT ALREADY HAS A PROJECT OF THIS TITLE ([twin]) is refused, saying so (the review of F4): two
+     *    phone-made rows of one client, site and title are one row, so the move used to merge two projects without a
+     *    word; and two listed projects of one name at one site could not be told apart by anything on the screen.
      *  - Never the bench ([RenameRoute.Legacy]): it is not told of a move, as it is not told of a site's rename.
      *
+     * @param twin     the tree lists ANOTHER project of this client with this title at [to]
      * @param from     the site the tree lists the project under now (the bucket's name for none)
      * @param to       the site picked or typed ([moveTarget])
      * @param signedIn this phone holds something to call S5 with
@@ -331,11 +348,13 @@ object Renames {
     fun moveRoute(
         tx: Tx, project: String, held: Held?, hasLocalRow: Boolean, mastersOnly: Boolean,
         erpLive: Boolean, signedIn: Boolean, demo: Boolean, from: String, to: String,
-        onWay: Boolean = false, listRead: Boolean = false,
+        onWay: Boolean = false, listRead: Boolean = false, twin: Boolean = false,
     ): RenameRoute {
         moveShut(tx, project, held, hasLocalRow, mastersOnly, erpLive, demo)?.let { return RenameRoute.Blocked(it, RenameRoute.Line.SHUT) }
         val site = to.trim()
         if (!named(site) || key(site) == key(from)) return RenameRoute.Blocked(tx.app_not_moved_pick_another_site, RenameRoute.Line.PHONE)
+        // that site has a project of this title already: never merged into it, never listed beside it under one name
+        if (twin) return RenameRoute.Blocked(tx.app_not_moved_site_has_project, RenameRoute.Line.PHONE)
         if (held != null && project.isNotBlank()) {
             if (!signedIn) return RenameRoute.Blocked(tx.refuse_site_signed_out, RenameRoute.Line.S5)
             return RenameRoute.S5(listOf(RenameRoute.Write(project.trim(), held.site)), readFirst = false)
@@ -367,6 +386,14 @@ object Renames {
         val name = typed.trim()
         return sites.firstOrNull { named(it) && key(it) == key(name) }?.trim() ?: name
     }
+
+    /**
+     * Whether [o] is S5 saying it does NOT HOLD the project the one write was sent to: its 404 for `PUT …/site`. For a
+     * move this is S5's own, fresh answer that a project the phone still keeps a name for is gone from S5 (the office
+     * removed it), so the Site row is shut with a true sentence (app.project_s5_gone_site_shut) -- S5's own words for
+     * the 404 are "This project has never been uploaded", which is not true of a project S5 once listed.
+     */
+    fun notHeld(o: Outcome): Boolean = o is Outcome.Failed && o.verdict is Verdict.Refused && o.verdict.code == 404
 
     /** The grey line [route] draws: where the rename is about to go. */
     @JvmStatic

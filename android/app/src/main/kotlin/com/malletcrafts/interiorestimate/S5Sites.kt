@@ -22,8 +22,12 @@ import org.json.JSONObject
  * sync legs; SiteRename.hear, at app start on a phone that still holds an ERP pair), and S5's answer to every
  * `PUT …/site` (SiteRename: a rename, the seed, and a 409's name as stored).
  * Each write goes by S5's own stamp, never by arrival ([Renames.takes]): reads overlap, and a list read that went
- * out before a rename must not put the old name back when it lands after it. Nothing is removed: only staff sign in
- * on the phone, staff see every project, and S5 has no project delete.
+ * out before a rename must not put the old name back when it lands after it. NO READ OF S5'S LIST REMOVES A NAME:
+ * reads overlap, and a list is the list of whoever is signed in. ONE THING DOES (the review of F4, 23 Nov 2026;
+ * android/docs/port63/DESIGN-tree.md §10): the delete of a row made on this phone, which reads S5's list for itself,
+ * as staff, with nothing of the row left on the phone to go up, and forgets exactly the keys that list no longer
+ * names ([forget]; the rule is Deletes.route's). Until then a project the office had taken off S5 read as "on S5" for
+ * ever, and neither it nor its site could be removed from the phone.
  *
  * "NO ENTRY" IS NOT "S5 DOES NOT HOLD IT" UNTIL A LIST READ HAS LANDED (the A2 review, finding 1). This file starts
  * empty on the update that brings it, and stays empty until S5's list is read -- so [heard] records that one has
@@ -72,6 +76,16 @@ object S5Sites {
         val out = HashMap<String, Renames.Held>()
         for ((project, raw) in prefs(context).all) decode(raw)?.let { out[project] = it }
         return out
+    }
+
+    /**
+     * S5'S LIST, READ FOR ONE DELETE, NO LONGER NAMES [project]: its entry goes, and only it (DeleteRoute.Gone). The
+     * one remover of this file -- never called for a list read's sake, never at sign-out. The site's chosen rooms are
+     * left as they are: they are the site's, and other projects may be listed there.
+     */
+    fun forget(context: Context, project: String) {
+        if (project.isBlank()) return
+        synchronized(LOCK) { prefs(context).edit().remove(project).apply() }
     }
 
     /**

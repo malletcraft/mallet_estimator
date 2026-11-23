@@ -333,7 +333,9 @@ class TreeNavTest {
         assertTrue(main.contains("moveTo = t.moveTo,"))
         val row = between(app("TreeShell.kt"), "fun RenameDialog(", "internal const val MM_PER_IN")
         assertTrue(row.contains("var pickSite by remember(current, site) { mutableStateOf(moveTo.isNotBlank()) }") && row.contains("var newSite by remember(current, site) { mutableStateOf(moveTo) }"))
-        assertTrue(row.contains("if (canMove && moveTo.isNotBlank()) Text(tx.app_project_exists_use_site,"))
+        // (THIS PIN MOVED WITH THE REVIEW OF F4: why the dialog opened is said WHENEVER New site opened it, also where the
+        // project's site cannot be changed from this phone -- there with a line that names no button. MoveRouteTest holds both lines.)
+        assertTrue(row.contains("if (moveTo.isNotBlank()) Text(\n                        if (canMove) tx.app_project_exists_use_site else tx.app_project_exists_opened,"))
         val offer = "This client already has this project. To move it to the site you typed, tap Use this site."
         assertEquals(offer, Tx.EN.app_project_exists_use_site)
         assertEquals("Use this site", Tx.EN.app_use_site)

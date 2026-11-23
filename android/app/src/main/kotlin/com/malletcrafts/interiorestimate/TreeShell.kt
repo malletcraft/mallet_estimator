@@ -632,8 +632,9 @@ fun previewCode(client: String, room: String, articleCode: String): String =
  * Amit, 23 Nov 2026, with build 0.3.350: a project of his sat outside its flat's
  * site, and nothing on the phone could put it there. Under the name, a row says
  * the site the project is listed under ([site]); a tap unfolds, in the dialog
- * itself, the client's other sites ([siteChoices]) and a field for a new one, and
- * a pick hands the name to [onMove]. It is a row of its own, live whether or not
+ * itself, the client's other sites ([siteChoices]) and a field for a new one. A
+ * tap on a site only fills that field; the button under it, Use this site, hands
+ * the name to [onMove]. It is a row of its own, live whether or not
  * the NAME can be changed here: every project he has is shut for a rename, and
  * its Site row is what he came for. Where the site cannot be changed from this
  * phone at all the row has no picker and [moveShut] stands under it; a move that
@@ -683,7 +684,8 @@ fun RenameDialog(
     /** For a project: the site the tree lists it under, shown on the Site
      *  row. Null draws no Site row (a client, a site). */
     site: String? = null,
-    /** The client's other named sites, each one tap (Renames.siteChoices). */
+    /** The client's other named sites (Renames.siteChoices): a tap fills the
+     *  field, and Use this site makes the move. */
     siteChoices: List<String> = emptyList(),
     /** Why this project's site cannot be changed from this phone at all
      *  (Renames.moveShut); blank when it can. */
@@ -698,7 +700,8 @@ fun RenameDialog(
     moveTo: String = "",
     /** Another site was typed: the reason goes. */
     onMoveEdit: () -> Unit = {},
-    /** A site was picked, or typed and confirmed: give the project that site. */
+    /** Use this site was tapped, on a site picked or typed: give the project
+     *  that site. */
     onMove: ((String) -> Unit)? = null,
 ) {
     val tx = LocalTx.current
@@ -812,11 +815,14 @@ fun RenameDialog(
                         if (canMove) Icon(painterResource(R.drawable.ic_mcft_down), contentDescription = tx.app_move_project,
                             modifier = Modifier.size(18.dp))
                     }
-                    if (!canMove) Text(moveShut, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // offered from New site: why this dialog opened, and what the button below does
-                    if (canMove && moveTo.isNotBlank()) Text(tx.app_project_exists_use_site,
+                    // OPENED BY NEW SITE: why this dialog opened, said WHENEVER it was (the review of F4) -- with what
+                    // the button below does where the project can be moved, and that nothing new was made where it
+                    // cannot be moved from this phone (the reason for that follows, as for any row with no picker).
+                    if (moveTo.isNotBlank()) Text(
+                        if (canMove) tx.app_project_exists_use_site else tx.app_project_exists_opened,
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!canMove) Text(moveShut, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (moveWhy != null) Text(
                         moveWhy,
@@ -828,10 +834,12 @@ fun RenameDialog(
                         Spacer(Modifier.height(6.dp))
                         Text(tx.app_move_project, style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        // the client's other sites, one tap each
+                        // THE CLIENT'S OTHER SITES. A TAP ONLY FILLS THE FIELD BELOW (the review of F4): the move is
+                        // made by the button, "Use this site", and by nothing else -- one tap on a name used to move
+                        // the project at once, with no way to look at what had been picked first.
                         siteChoices.forEach { s ->
                             Row(
-                                (if (!busy) Modifier.clickableRow { onMove(s) } else Modifier.fillMaxWidth())
+                                (if (!busy) Modifier.clickableRow { newSite = s; onMoveEdit() } else Modifier.fillMaxWidth())
                                     .heightIn(min = 48.dp),
                                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                             ) {
@@ -839,7 +847,7 @@ fun RenameDialog(
                                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                         }
-                        // ...or a site the client does not have yet, typed
+                        // ...or a site the client does not have yet, typed. The field holds the site the button will use.
                         OutlinedTextField(
                             value = newSite,
                             onValueChange = { newSite = it; onMoveEdit() },

@@ -164,6 +164,75 @@ class MoveRouteTest {
         assertEquals(RenameRoute.Blocked(notHere, Line.SHUT), move(demo = true, to = ""))
     }
 
+    @Test fun `a site that already has a project of this title is refused, saying so - never merged into, never listed beside`() {
+        val has = "Not moved: that site already has a project with this name."
+        // whatever kind of project it is: S5's, the phone's own row, a row with a capture on its way, a bootstrap's entry
+        assertEquals(RenameRoute.Blocked(has, Line.PHONE), Renames.moveRoute(en, "PROJ-T1", Held("Flat 9 Tower", t), false, false, false, true, false, "Flat 9 Tower", "Flat 9", twin = true))
+        assertEquals(RenameRoute.Blocked(has, Line.PHONE), Renames.moveRoute(en, "", null, true, false, false, true, false, "Flat 9 Tower", "Flat 9", twin = true))
+        assertEquals(RenameRoute.Blocked(has, Line.PHONE), Renames.moveRoute(en, "", null, true, false, false, true, false, "Flat 9 Tower", "Flat 9", onWay = true, twin = true), "before any list is read")
+        assertEquals(RenameRoute.Blocked(has, Line.PHONE), Renames.moveRoute(en, "PROJ-T1", null, false, true, false, false, false, "Flat 9 Tower", "Flat 9", twin = true))
+        assertEquals(RenameRoute.Blocked(has, Line.PHONE), Renames.moveRoute(en, "PROJ-T1", Held("Flat 9 Tower", t), false, false, false, false, false, "Flat 9 Tower", "Flat 9", twin = true), "signed out or not: nothing is sent")
+        // the row stays live: another site can be picked
+        assertFalse(Renames.shut(Renames.moveRoute(en, "", null, true, false, false, true, false, "Flat 9 Tower", "Flat 9", twin = true)))
+        // a shut project says its own reason first, and a wrong pick its own
+        assertEquals(RenameRoute.Blocked(notHere, Line.SHUT), Renames.moveRoute(en, "PROJ-T1", null, false, false, false, true, true, "Flat 9 Tower", "Flat 9", twin = true))
+        assertEquals(RenameRoute.Blocked(pickAnother, Line.PHONE), Renames.moveRoute(en, "", null, true, false, false, true, false, "Flat 9 Tower", "flat 9 tower", twin = true))
+        // no twin: exactly the route as it was, for every combination
+        for (id in listOf("", "PROJ-T1")) for (held in listOf<Held?>(null, Held("Flat 9 Tower", t))) for (local in listOf(true, false)) for (way in listOf(true, false))
+            assertEquals(move(id, held, local, onWay = way), Renames.moveRoute(en, id, held, local, false, false, true, false, "Flat 9 Tower", "Flat 9", way, false, twin = false))
+        assertEquals(has, en.app_not_moved_site_has_project); assertEquals(has, Tx.MR.app_not_moved_site_has_project)
+    }
+
+    @Test fun `S5's 404 for a move is read as what it is - it does not hold the project - and nothing else is`() {
+        val w = Write("S5-aaaaaaaaaa", "Old flat")
+        assertTrue(Renames.notHeld(Renames.Outcome.Failed(Renames.Verdict.Refused(404, "This project has never been uploaded"), w)))
+        for (code in listOf(400, 401, 403, 413))
+            assertFalse(Renames.notHeld(Renames.Outcome.Failed(Renames.Verdict.Refused(code, "x"), w)), "$code")
+        assertFalse(Renames.notHeld(Renames.Outcome.Failed(Renames.Verdict.Offline, w)))
+        assertFalse(Renames.notHeld(Renames.Outcome.Failed(Renames.Verdict.Stale("Renamed", Renames.Now("New flat", "a@b.test", t)), w)))
+        assertFalse(Renames.notHeld(Renames.Outcome.Done("New flat"))); assertFalse(Renames.notHeld(Renames.Outcome.Part(1, 2)))
+        // what is said then is the phone's own true sentence, never S5's words for the 404
+        val gone = "S5 no longer holds this project, so its site cannot be changed from this phone. Nothing moved."
+        assertEquals(gone, en.app_project_s5_gone_site_shut); assertEquals(gone, Tx.MR.app_project_s5_gone_site_shut)
+        assertFalse(gone.contains("never been uploaded"))
+        // read as source: the move's handler shuts the Site row with it, for this dialog, and says nothing else
+        val main = app("MainActivity.kt")
+        val move = between(main, "fun moveProject(t: RenameTarget, typed: String) {", "// WHERE A RENAME GOES IS DECIDED IN ONE PLACE")
+        val held = between(move, "} else if (Renames.notHeld(outcome)) {", "} else {")
+        assertTrue(held.contains("moveGone = { tx -> tx.app_project_s5_gone_site_shut }") && held.contains("renameBusy = false") && held.contains("moveWhy = null"))
+        assertFalse(held.contains("moveFailed"), "the row is shut with the sentence; S5's own words are not drawn under it")
+        assertTrue(move.indexOf("if (outcome is Renames.Outcome.Done) {") < move.indexOf("} else if (Renames.notHeld(outcome)) {"), "asked only of a move S5 did not take")
+        assertTrue(main.contains("var moveGone by remember { mutableStateOf<Msg?>(null) }"))
+    }
+
+    @Test fun `a move that could not be made says what is true of it - never that S5 does not hold the project and it was not made here`() {
+        val gone = "This project is no longer listed; nothing moved."
+        val stuck = "Nothing moved: this phone could not change the project's row. Close this and try again."
+        assertEquals(gone, en.app_project_not_listed_nothing_moved); assertEquals(stuck, en.app_nothing_moved_try_again)
+        assertEquals(gone, Tx.MR.app_project_not_listed_nothing_moved); assertEquals(stuck, Tx.MR.app_nothing_moved_try_again)
+        val main = app("MainActivity.kt")
+        val move = between(main, "fun moveProject(t: RenameTarget, typed: String) {", "// WHERE A RENAME GOES IS DECIDED IN ONE PLACE")
+        val here = between(main, "fun moveOnPhone(p: Catalogue.Project, to: String) {", "fun moveProject(")
+        // the project went from the tree while its dialog was open -- before the route, and after the list read
+        assertEquals(2, count(move, "moveFailed { tx -> tx.app_project_not_listed_nothing_moved }"))
+        assertTrue(between(move, "if (p == null) {", "return").contains("tx.app_project_not_listed_nothing_moved") && between(move, "if (again == null) {", "return@launch").contains("tx.app_project_not_listed_nothing_moved"))
+        // no row of the phone's changed, and the route that cannot be
+        assertTrue(between(here, "if (!row && !entry) {", "return").contains("moveFailed { tx -> tx.app_nothing_moved_try_again }"))
+        assertTrue(move.contains("is RenameRoute.Legacy -> moveFailed { tx -> tx.app_nothing_moved_try_again }"))
+        // the shut sentence is drawn by the rule alone (Renames.moveShut), where it is true
+        assertEquals(0, count(main, "app_project_site_not_changed_here"), "MainActivity says it nowhere of its own")
+    }
+
+    @Test fun `why New site opened the dialog is said whenever it did - with the button's words where it can move, without them where it cannot`() {
+        val opened = "This client already has this project, so it was opened. No new one was made."
+        assertEquals(opened, en.app_project_exists_opened); assertEquals(opened, Tx.MR.app_project_exists_opened)
+        assertFalse(opened.contains("Use this site"), "a shut row has no such button to name")
+        val dialog = between(app("TreeShell.kt"), "fun RenameDialog(", "internal const val MM_PER_IN")
+        val why = dialog.indexOf("if (moveTo.isNotBlank()) Text("); val shut = dialog.indexOf("if (!canMove) Text(moveShut,")
+        assertTrue(why in 0 until shut, "why it opened first, then why its site cannot be changed")
+        assertFalse(dialog.contains("if (canMove && moveTo.isNotBlank())"), "no longer said only where the row is live")
+    }
+
     @Test fun `a move never goes to the bench, and never sends more than the one project`() {
         for (id in listOf("", "PROJ-T1", "S5-aaaaaaaaaa")) for (held in listOf<Held?>(null, Held("", ""), Held("Flat 9 Tower", t)))
             for (local in listOf(true, false)) for (masters in listOf(true, false)) for (live in listOf(true, false)) for (signed in listOf(true, false))
@@ -247,12 +316,18 @@ class MoveRouteTest {
         assertTrue(between(cat, "private fun bootstrapEntry(", "private fun moveFacts(").contains("return !o.optBoolean(S5Masters.FROM_S5)"), "never an entry S5's own list added")
         // the phone's own row: the id a capture of it carries, else the key it would have on S5 -- and S5's name for that
         assertTrue(facts.contains("same(localSiteFor(c.customerName, c.projectTitle), p.site)") && facts.contains("!TourDemo.isDemoProject(c.customerName, c.projectTitle)"), "the row's captures, never the demo's")
-        assertTrue(facts.contains("val id = carried.ifEmpty { S5Auth.localKey(p.client, p.site, p.title) }") && facts.contains("val held = S5Sites.held(appContext, id)"))
+        // (THIS PIN MOVED WITH THE REVIEW OF F4: the row's key is the one the phone REMEMBERS for it -- Catalogue.keyOfRow over
+        // S5Keys, with the captures in hand taken into the book first -- where it was a hash of names that the very move
+        // being routed changes. KeyBookTest pins what keyOfRow reads.)
+        assertTrue(facts.contains("val id = carried.ifEmpty { keyOfRow(S5Keys.learn(appContext, captures), p.client, p.site, p.title) }") && facts.contains("val held = S5Sites.held(appContext, id)"))
         assertTrue(facts.contains("onWay = held == null && Renames.minted(carried)"), "keyed for S5, and S5's list has not named it here")
         // ONE caller of each rule, both through the gathering
         assertEquals(1, count(cat + app("MainActivity.kt") + app("TreeShell.kt"), "Renames.moveRoute("), "one caller of the route")
         assertEquals(1, count(cat + app("MainActivity.kt") + app("TreeShell.kt"), "Renames.moveShut("), "one caller of the shut")
-        assertTrue(cat.contains("from = p.site, to = to, onWay = f.onWay, listRead = listRead)"), "from is the site the TREE lists it under")
+        // (this pin moved with the review of F4: the call also says whether the site picked already has a project of this title)
+        assertTrue(cat.contains("from = p.site, to = to, onWay = f.onWay, listRead = listRead, twin = twin)"), "from is the site the TREE lists it under")
+        assertTrue(between(cat, "fun moveRoute(", "fun moveLocal(").contains("it.key != p.key && same(it.client, p.client) && same(it.site, to) && same(it.title, p.title)"),
+            "the twin is ANOTHER project of this client with this title at the site picked")
         // the phone's row moved: one row per client, site and project, and no address carried to a site nobody named
         val local = between(cat, "fun moveLocal(client: String, site: String, project: String, to: String): Boolean {", "fun setMastersSite(")
         assertTrue(local.contains("if (!Renames.named(n) || same(site, n)) return false"), "never into the bucket, never onto itself")
@@ -297,7 +372,8 @@ class MoveRouteTest {
         val reload = moved.indexOf("reload()"); val nav = moved.indexOf("navSite = now?.site ?: name"); val said = moved.indexOf("lastResult = { tx -> tx.app_msg_moved_to_x(Masters.site_name(tx, name)) }")
         assertTrue(reload in 0 until nav && nav < said && moved.indexOf("closeRename()") > said, "re-read, followed, said, closed")
         assertTrue(moved.contains("if (navProject != null) navProject = now"), "an open project is the tree's, not its old copy")
-        assertTrue(main.contains("moveWhy = null\n        deleteBlocker = null"), "the reason goes when the dialog closes")
+        // (this pin moved with the review of F4: S5's answer that it no longer holds the project goes with it)
+        assertTrue(main.contains("moveWhy = null\n        moveGone = null\n        deleteBlocker = null"), "the reason goes when the dialog closes")
     }
 
     @Test fun `a project's dialog has a Site row of its own - live whether or not the name can be edited, shut only by its own rule`() {
@@ -306,7 +382,8 @@ class MoveRouteTest {
         assertTrue(open.contains("if (t.kind == \"project\") cat.projectOf(masters, t.serverId, t.client, t.site, t.project) else null"), "a project's dialog only")
         assertTrue(open.contains("moving?.let { cat.moveShut(tx, masters, queue, it, erpLive = S5Masters.erpLive(context)) }"), "why it is shut is asked when the dialog opens")
         assertTrue(open.contains("moving?.let { m -> Renames.siteChoices(cat.sitesOf(masters, m.client).map { it.name }, m.site) }.orEmpty()"))
-        for (arg in listOf("site = moving?.site,", "siteChoices = moveSites,", "moveShut = moveShut.orEmpty(),", "moveWhy = moveWhy?.invoke(tx),",
+        // (the third of these moved with the review of F4: S5's own answer that it no longer holds the project shuts the row too)
+        for (arg in listOf("site = moving?.site,", "siteChoices = moveSites,", "moveShut = moveGone?.invoke(tx) ?: moveShut.orEmpty(),", "moveWhy = moveWhy?.invoke(tx),",
             "onMoveEdit = { moveWhy = null },", "onMove = if (moving == null) null else ({ to: String -> moveProject(t, to) }),"))
             assertTrue(open.contains(arg), "the dialog is handed `$arg`")
         val dialog = between(app("TreeShell.kt"), "fun RenameDialog(", "internal const val MM_PER_IN")
@@ -316,8 +393,10 @@ class MoveRouteTest {
         assertTrue(row.contains("val canMove = moveShut.isEmpty()") && row.contains("if (!canMove) Text(moveShut,"), "shut by Renames.moveShut alone, saying why")
         assertTrue(row.contains("if (canMove) Icon(painterResource(R.drawable.ic_mcft_down)"), "a chevron only where a tap opens something")
         assertTrue(row.contains("Text(Masters.site_name(tx, site),"), "the site as the tree names it, the bucket through its master")
-        // the picker: the client's other sites, one tap each, and a typed new one -- both hand the name to onMove
-        assertTrue(row.contains("siteChoices.forEach { s ->") && row.contains("Modifier.clickableRow { onMove(s) }"))
+        // the picker: the client's other sites and a typed new one. THIS PIN MOVED WITH THE REVIEW OF F4: a tap on a site
+        // only FILLS the field -- it used to move the project at once -- and the button alone hands the name to onMove.
+        assertTrue(row.contains("siteChoices.forEach { s ->") && row.contains("Modifier.clickableRow { newSite = s; onMoveEdit() }"))
+        assertEquals(1, count(row, "onMove("), "one thing makes the move: Use this site")
         assertTrue(row.contains("onClick = { onMove(newSite.trim()) }") && row.contains("TextButton(enabled = newSite.isNotBlank() && !busy,"))
         assertTrue(row.contains("onValueChange = { newSite = it; onMoveEdit() },"), "typing another site clears the reason")
         assertTrue(row.contains("if (moveWhy != null) Text("), "why the last move did not happen, under the row")

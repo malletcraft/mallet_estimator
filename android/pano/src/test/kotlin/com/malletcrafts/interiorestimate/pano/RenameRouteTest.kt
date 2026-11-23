@@ -389,12 +389,18 @@ class RenameRouteTest {
             dialog.contains("RenameRoute.Line.SHUT -> shut") && dialog.contains("TextButton(enabled = changed && !busy && !isShut,"))
         // what S5 holds of a row is gathered in ONE place and judged by :pano
         val cat = app("Catalogue.kt")
+        // THESE FIVE PINS MOVED WITH THE REVIEW OF F4, and hold no less. The gathering is still ONE place, now named
+        // s5Ties because a delete needs the keys themselves and not only "there is one": onS5 is that gathering's
+        // `keys.isNotEmpty()`, the rule asked is Renames.heldKeys (Renames.onS5 IS heldKeys(...).isNotEmpty(), pinned
+        // below), and a phone row's key is the one the phone REMEMBERS for it (keyOfRow) instead of a hash of its names.
         val on = between(cat, "fun onS5(masters: JSONObject?, captures: List<CaptureStore.Capture>, kind: String,", "fun hasUnlistedCapture(")
-        assertTrue(on.contains("projects(masters).filter { mine(it.client, it.site, it.title) }.map { it.serverId }"), "the tree's projects of the row")
+        assertTrue(on.contains("s5Ties(masters, captures, kind, client, site, project).keys.isNotEmpty()"), "onS5 is 'a key the gathering found'")
+        assertTrue(on.contains("val under = projects(masters).filter { mine(it.client, it.site, it.title) }") && on.contains("val carried = under.map { it.serverId } +"), "the tree's projects of the row")
         assertTrue(on.contains("!TourDemo.isDemoProject(c.customerName, c.projectTitle)") && on.contains("mine(c.customerName, localSiteFor(c.customerName, c.projectTitle), c.projectTitle)") && on.contains("}.map { it.project }"), "its captures, never the demo's")
-        assertTrue(on.contains(".map { S5Auth.localKey(it.client, it.site, it.project) }"), "its phone rows' keys")
-        assertTrue(on.contains("return Renames.onS5(carried, derived) { id -> held.containsKey(id) }") && on.contains("val held = S5Sites.all(appContext)"), "judged by Renames.onS5 on what S5's list has named")
-        assertEquals(1, Regex("return Renames\\.onS5\\(").findAll(cat + main).count(), "one caller of the rule")
+        assertTrue(on.contains(".map { keyOfRow(book, it.client, it.site, it.project) }"), "its phone rows' keys, as remembered")
+        assertTrue(on.contains("Renames.heldKeys(carried, derived) { id -> held.containsKey(id) }") && on.contains("val held = S5Sites.all(appContext)"), "judged by :pano on what S5's list has named")
+        assertEquals(1, Regex("Renames\\.heldKeys\\(").findAll(cat + main).count(), "one caller of the rule")
+        assertEquals(0, Regex("Renames\\.onS5\\(").findAll(cat + main).count(), "and no second gathering beside it")
         // THE LOCAL RENAME CARRIES THE CAPTURES, in the same step, before the tree is re-read
         val here = between(main, "fun renameHere(t: RenameTarget, newName: String) {", "renaming?.let { t ->")
         val renamed = here.indexOf("if (!cat.renameLocal(t.kind, t.client, t.site, t.project, newName))")
@@ -630,6 +636,18 @@ class RenameRouteTest {
         assertEquals("Main site", Renames.recordSite(" Main site ")); assertNull(Renames.recordSite("(no site)")); assertNull(Renames.recordSite("")); assertNull(Renames.recordSite(null))
     }
 
+    @Test fun `the keys a refusal rests on are named, each once - and onS5 is 'there is one' (the review of F4)`() {
+        val listed: (String) -> Boolean = { it == "PROJ-T1" || it == "S5-bbbbbbbbbb" }
+        // carried: what S5's list has named, and every phone-minted key; derived: only what S5's list has named
+        assertEquals(listOf("PROJ-T1", "S5-aaaaaaaaaa", "S5-bbbbbbbbbb"),
+            Renames.heldKeys(listOf("", "PROJ-T1", "PROJ-T9", "S5-aaaaaaaaaa", "PROJ-T1"), listOf("S5-cccccccccc", "S5-bbbbbbbbbb", " "), listed))
+        assertEquals(emptyList(), Renames.heldKeys(listOf("", "PROJ-T9"), listOf("S5-cccccccccc"), listed))
+        // onS5 is exactly "a key was found", for every combination
+        for (carried in listOf(emptyList(), listOf(""), listOf("PROJ-T1"), listOf("PROJ-T9"), listOf("S5-aaaaaaaaaa")))
+            for (derived in listOf(emptyList(), listOf("S5-bbbbbbbbbb"), listOf("S5-cccccccccc")))
+                assertEquals(Renames.heldKeys(carried, derived, listed).isNotEmpty(), Renames.onS5(carried, derived, listed), "$carried $derived")
+    }
+
     // ---- :app, read as source (only CI compiles :app) -----------------------------------------------------
 
     private fun app(name: String): String {
@@ -780,7 +798,10 @@ class RenameRouteTest {
         // a site's S5 projects: the tree's S5-listed ones, and a phone-made project S5 holds under its minted key -- so the
         // site stays S5's (and the dialog says "sign in") while sign-out has dropped the S5-only projects from the masters
         val mine = between(cat, "fun s5ProjectsOf(", "fun hasUnlistedCapture(")
-        assertTrue(mine.contains("S5Sites.held(appContext, it) != null") && mine.contains("S5Auth.localKey(it.client, it.site, it.project)"), "both halves")
+        // (THIS PIN MOVED WITH THE REVIEW OF F4: the second half's key is the one the phone REMEMBERS for the row -- Catalogue.keyOfRow,
+        // which reads S5Keys and mints nothing -- where it used to be worked out from the row's names, which a move or a
+        // site rename changes. It holds no less: both halves are still there, and KeyBookTest pins what keyOfRow reads.)
+        assertTrue(mine.contains("S5Sites.held(appContext, it) != null") && mine.contains(".map { keyOfRow(book, it.client, it.site, it.project) }"), "both halves")
         assertTrue(mine.contains("it.site.isBlank() || same(it.site, site)"), "a minted project S5 names as another site is not this site's")
         // R9's capture: under a phone-minted key the MASTERS do not list (the key is re-derived from them), of this client and site
         val r9 = between(cat, "fun hasUnlistedCapture(", "fun renameSiteRows(")

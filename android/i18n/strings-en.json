@@ -1795,6 +1795,19 @@
    "phone-text"
   ]
  },
+ "app.msg.removed_phone_x_s5_gone": {
+  "en": "Removed from this phone — S5 no longer lists {name}.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt goneMessage at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): the banner after a site or a project made on this phone was removed from it because S5's list, read for that delete, no longer names it · the twin of app.msg.removed_phone_x_never, which says the row had never reached the office system · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "the site's or the project's name as the tree lists it (data), shown through Masters.site_name"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.renamed_x": {
   "en": "Renamed to {n}",
   "where": "v53build/app.js:277 · go",
@@ -2109,6 +2122,16 @@
   "en": "Not moved: pick another site, or type a new site's name.",
   "where": [
    "S2 APK phone text · RenameRoute.kt moveRoute at d9d32ab+F4c · Shell · a project's dialog, its Site row (port 63 slice F4c, 23 Nov 2026; DESIGN-tree §7): under the Site row, in red, the dialog staying open: the site typed is blank, is the (no site) bucket, or is the site the project is already at · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.not_moved_site_has_project": {
+  "en": "Not moved: that site already has a project with this name.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt moveRoute at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): under the Site row, in red, the dialog staying open: the site picked or typed already lists another project of this client with this title · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [
@@ -2449,6 +2472,16 @@
    "q": "esc(q)"
   }
  },
+ "app.nothing_moved_try_again": {
+  "en": "Nothing moved: this phone could not change the project's row. Close this and try again.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt moveOnPhone at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): under the Site row, in red, the dialog staying open: the move was to be made on this phone and no row of it changed · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.nothing_waiting": {
   "en": "Nothing waiting",
   "where": "v53build/app.js:441 · h",
@@ -2599,6 +2632,16 @@
    "phone-text"
   ]
  },
+ "app.project_exists_opened": {
+  "en": "This client already has this project, so it was opened. No new one was made.",
+  "where": [
+   "S2 APK phone text · TreeShell.kt RenameDialog at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): under the Site row, when the dialog was opened by New site / New project for a client and a project title the tree already lists, with another site typed, and the project's site cannot be changed from this phone: why the dialog opened · the shut twin of app.project_exists_use_site · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.project_exists_use_site": {
   "en": "This client already has this project. To move it to the site you typed, tap Use this site.",
   "where": [
@@ -2619,10 +2662,40 @@
   "where": "v53build/app.js:457 · shot",
   "kind": "static"
  },
+ "app.project_not_listed_nothing_moved": {
+  "en": "This project is no longer listed; nothing moved.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt moveProject at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): under the Site row, in red, the dialog staying open: the project went from the tree while its dialog was open (a sync, or S5's list read for this move) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.project_office_record_removed": {
+  "en": "This project is the office's record. It is removed at the office, not from this phone.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt officeRecord at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): in the project's dialog, in red where the delete's words stood, no button: the project carries an office (ERP) id and this phone holds no working ERP key · the delete's twin of app.project_office_record_renamed · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.project_office_record_renamed": {
   "en": "This project is the office's record. It is renamed at the office, not from this phone.",
   "where": [
    "S2 APK phone text · RenameRoute.kt officeRecord at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a PROJECT that carries a bench docname on a phone with no live ERP pair · a whole key per kind (the client's twin is app.client_office_record_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.project_s5_gone_site_shut": {
+  "en": "S5 no longer holds this project, so its site cannot be changed from this phone. Nothing moved.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt moveProject at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): under the Site row, which then has no picker: the one write of a move was answered by S5 that it does not hold the project (its 404), of a project S5 once listed · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [
@@ -2643,6 +2716,16 @@
   "en": "This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.",
   "where": [
    "S2 APK phone text · RenameRoute.kt heldByS5 at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a PROJECT S5 lists, one under a phone-minted S5 key, or one a capture of which is keyed for S5 · a whole key per kind (the client's twin is app.client_s5_not_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.project_s5_photos_first": {
+  "en": "Nothing was removed: this project has photos on this phone. Delete its photos first. It is then removed only if S5 does not hold it.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt photosFirst at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): in the project's dialog, in red, no button: S5 holds the project, or held it, or is being sent it, and a photo of it is still on this phone -- so S5's list cannot say it is gone · the photos-first twin of app.project_s5_not_removed · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [
@@ -2983,6 +3066,16 @@
   ],
   "kind": "static"
  },
+ "app.site_office_record_removed": {
+  "en": "This site is the office's record. It is removed at the office, not from this phone.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt officeRecord at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): in the site's dialog, in red where the delete's words stood, no button: the site carries an office (ERP) id and this phone holds no working ERP key · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.site_on_s5_so_new": {
   "en": "This site is on S5, so the new name is saved there and reaches the web and every other phone. Photos already filed under it keep their place — only the label changes.",
   "where": [
@@ -2994,6 +3087,16 @@
   "en": "This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed.",
   "where": [
    "S2 APK phone text · DeleteRoute.kt route at cff09e5+F4b · Shell · the rename dialog's delete half (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): the blocker, in red, with no button, for a SITE S5 holds a project of -- it used to be removed from the phone and said \"Removed from this phone — … had never reached the office system\" while S5 went on listing it · a whole key per kind (the project's twin is app.project_s5_not_removed; a client offers no delete) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.site_s5_photos_first": {
+  "en": "Nothing was removed: this site has photos on this phone. Delete its photos first. It is then removed only if S5 holds no project of it.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt photosFirst at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): in the site's dialog, in red, no button: S5 holds a project of the site, or held one, or is being sent one, and a photo of the site is still on this phone · the photos-first twin of app.site_s5_not_removed · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [
@@ -3017,6 +3120,19 @@
   "en": "Site URL",
   "where": "v53build/app.js:260 · body",
   "kind": "static"
+ },
+ "app.site_x_open": {
+  "en": "Site · {site} ▾",
+  "where": [
+   "S2 APK phone text · BrowseScreens.kt RoomsScreen at 901acb8+F4fix · Shell · the tree's dialogs after the review of F4 (port 63, 23 Nov 2026; DESIGN-tree §10): the first chip of a project's chip row: the site the project is listed under, and the visible way into the project's dialog (Rename, Site, Delete) from inside the project -- until it the dialog opened only by a long press on a list a one-project site no longer shows · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "site": "the site's name as the tree lists it (data), shown through Masters.site_name: the bucket reads (no site)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.sku_code_prefix_appears": {
   "en": "Its SKU code prefix appears here.",

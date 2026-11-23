@@ -164,17 +164,174 @@ class DeleteRouteTest {
         assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.MR, "project", "", serverKnown = false, onS5 = true))
     }
 
+    // ---- the review of F4: what S5 once listed is asked of S5 again, at the delete; and the office's record -------
+
+    private val K = "S5-aaaaaaaaaa"
+    private val projectPhotos = "Nothing was removed: this project has photos on this phone. Delete its photos first. It is then removed only if S5 does not hold it."
+    private val sitePhotos = "Nothing was removed: this site has photos on this phone. Delete its photos first. It is then removed only if S5 holds no project of it."
+    private val signIn = "Not signed in to S5, so not saved — sign in (menu → Server) and Save again"
+    private val offline = "Offline — the name changes only when S5 answers; not saved"
+
+    /** A row made on this phone that S5's list once named under [K]: no docname, not in a bootstrap, no ERP pair. */
+    private fun gone(
+        kind: String = "project", id: String = "", keys: List<String> = listOf(K), captures: Boolean = false, signedIn: Boolean = true,
+        read: Deletes.ListRead = Deletes.ListRead.NOT_READ, fresh: Set<String> = emptySet(), onS5: Boolean = true, live: Boolean = false, known: Boolean = false,
+    ) = Deletes.route(Tx.EN, kind, id, known, onS5 = onS5, erpLive = live, tie = Deletes.Tie(keys, captures, signedIn, read, fresh))
+
+    @Test
+    fun `a photo of the row still on this phone keeps the refusal, and the sentence says to delete the photos first`() {
+        // whatever a read would say: a capture may still be on its way up, so no list can call the row gone
+        for (read in Deletes.ListRead.values()) for (fresh in listOf(emptySet(), setOf(K))) for (signed in listOf(true, false)) {
+            assertEquals(DeleteRoute.Blocked(projectPhotos), gone(captures = true, read = read, fresh = fresh, signedIn = signed), "$read $fresh signedIn=$signed")
+            assertEquals(DeleteRoute.Blocked(sitePhotos), gone(kind = "site", captures = true, read = read, fresh = fresh, signedIn = signed))
+        }
+        // a minted id on the row itself is the same case
+        assertEquals(DeleteRoute.Blocked(projectPhotos), gone(id = K, keys = emptyList(), onS5 = false, captures = true))
+        for (t in listOf(projectPhotos, sitePhotos)) {
+            assertTrue(t.contains("Nothing was removed") && t.contains("Delete its photos first"), t)
+            assertTrue(t.contains("only if S5"), "it does not promise the delete will then work: S5 may still hold it -- $t")
+            assertTrue(t.length <= 150, "too long to read on site: ${t.length}")
+        }
+    }
+
+    @Test
+    fun `with no photo left S5's list is read first - and never when nobody is signed in to S5`() {
+        assertEquals(DeleteRoute.ReadFirst, gone())
+        assertEquals(DeleteRoute.ReadFirst, gone(kind = "site", keys = listOf(K, "S5-bbbbbbbbbb")))
+        assertEquals(DeleteRoute.ReadFirst, gone(id = K, keys = emptyList(), onS5 = false), "a minted id is itself a key the refusal rests on")
+        // signed out is known on the phone: said at once, nothing read
+        for (read in Deletes.ListRead.values())
+            assertEquals(DeleteRoute.Blocked(signIn), gone(signedIn = false, read = read, fresh = emptySet()), "$read")
+        // a refusal that rests on no key has nothing to ask S5 about: it stands as it was
+        assertEquals(DeleteRoute.Blocked(projectOnS5), gone(keys = emptyList()))
+        assertEquals(DeleteRoute.Blocked(projectOnS5), gone(keys = listOf(" ", "")))
+    }
+
+    @Test
+    fun `the read decides - S5 names none of the keys and the row goes, S5 names one and the refusal stands, a read that proves nothing changes nothing`() {
+        // READ by staff, and S5 names NONE of the keys: the row is the phone's own again, and exactly those keys are forgotten
+        assertEquals(DeleteRoute.Gone(listOf(K)), gone(read = Deletes.ListRead.READ, fresh = setOf("PROJ-T1", "S5-cccccccccc")))
+        assertEquals(DeleteRoute.Gone(listOf(K)), gone(read = Deletes.ListRead.READ, fresh = emptySet()), "S5 lists nothing at all")
+        assertEquals(DeleteRoute.Gone(listOf(K, "S5-bbbbbbbbbb")), gone(kind = "site", keys = listOf(K, " S5-bbbbbbbbbb ", K), read = Deletes.ListRead.READ), "each key once, trimmed")
+        assertEquals(DeleteRoute.Gone(listOf("S5-dddddddddd", K)), gone(id = K, keys = listOf("S5-dddddddddd"), read = Deletes.ListRead.READ), "the row's own minted id is one of them")
+        // S5 still names ONE of them: S5 holds it, as the refusal said -- for a site, one project of several is enough
+        assertEquals(DeleteRoute.Blocked(projectOnS5), gone(read = Deletes.ListRead.READ, fresh = setOf(K)))
+        assertEquals(DeleteRoute.Blocked(siteOnS5), gone(kind = "site", keys = listOf(K, "S5-bbbbbbbbbb"), read = Deletes.ListRead.READ, fresh = setOf("S5-bbbbbbbbbb")))
+        // no answer of S5's: the offline line, nothing removed
+        assertEquals(DeleteRoute.Blocked(offline), gone(read = Deletes.ListRead.OFFLINE))
+        assertEquals(DeleteRoute.Blocked(offline), gone(read = Deletes.ListRead.OFFLINE, fresh = emptySet(), kind = "site"))
+        // a list read by a login the phone cannot call staff is short for another reason: it proves nothing, whatever it names
+        for (fresh in listOf(emptySet(), setOf(K)))
+            assertEquals(DeleteRoute.Blocked(projectOnS5), gone(read = Deletes.ListRead.UNPROVEN, fresh = fresh))
+        // Gone is never the answer without a READ, and never while a photo is on the phone or nobody is signed in
+        for (read in Deletes.ListRead.values()) for (cap in listOf(true, false)) for (signed in listOf(true, false)) for (fresh in listOf(emptySet(), setOf(K))) {
+            val r = gone(captures = cap, signedIn = signed, read = read, fresh = fresh)
+            if (r is DeleteRoute.Gone) assertTrue(read == Deletes.ListRead.READ && !cap && signed && K !in fresh, "$read $cap $signed $fresh")
+            assertTrue(r !is DeleteRoute.LocalOnly && r !is DeleteRoute.Server, "a row S5 once listed is never 'never reached the office', and never the bench's: $r")
+        }
+    }
+
+    @Test
+    fun `a row with nothing on S5 is not asked about S5 at all, whatever the tie says`() {
+        for (read in Deletes.ListRead.values()) for (cap in listOf(true, false)) for (signed in listOf(true, false)) {
+            val tie = Deletes.Tie(emptyList(), cap, signed, read, emptySet())
+            assertEquals(DeleteRoute.LocalOnly, Deletes.route(Tx.EN, "project", "", serverKnown = false, onS5 = false, erpLive = false, tie = tie))
+            assertEquals(DeleteRoute.LocalOnly, Deletes.route(Tx.EN, "site", "", serverKnown = false, onS5 = false, erpLive = true, tie = tie))
+            assertTrue(Deletes.route(Tx.EN, "site", "", serverKnown = true, onS5 = false, erpLive = false, tie = tie) is DeleteRoute.Blocked)
+        }
+        // and a caller that gathered no tie routes exactly as before the review, for every combination
+        for (kind in listOf("site", "project")) for (id in listOf("", "PROJ-T3", K)) for (known in listOf(true, false)) for (on in listOf(true, false))
+            assertEquals(Deletes.route(Tx.EN, kind, id, known, onS5 = on), Deletes.route(Tx.EN, kind, id, known, onS5 = on, erpLive = true, tie = null), "$kind '$id' $known $on")
+    }
+
+    @Test
+    fun `a bench docname with no live ERP pair is the office's record - refused at once, never sent out with a dead key`() {
+        val project = "This project is the office's record. It is removed at the office, not from this phone."
+        val site = "This site is the office's record. It is removed at the office, not from this phone."
+        // whatever S5 holds of it, and whatever the phone gathered: the docname decides first, as it does for a rename
+        for (on in listOf(true, false)) for (known in listOf(true, false)) for (tie in listOf(null, Deletes.Tie(listOf(K), false, true), Deletes.Tie(listOf(K), true, false, Deletes.ListRead.READ))) {
+            assertEquals(DeleteRoute.Blocked(project), Deletes.route(Tx.EN, "project", "PROJ-T3", known, onS5 = on, erpLive = false, tie = tie), "onS5=$on known=$known")
+            assertEquals(DeleteRoute.Blocked(site), Deletes.route(Tx.EN, "site", " SITE-T2 ", known, onS5 = on, erpLive = false, tie = tie))
+        }
+        // a LIVE pair: the bench is asked as before, and S5's refusal still comes first
+        assertEquals(DeleteRoute.Server("PROJ-T3"), Deletes.route(Tx.EN, "project", "PROJ-T3", serverKnown = true, onS5 = false, erpLive = true))
+        assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.EN, "project", "PROJ-T3", serverKnown = true, onS5 = true, erpLive = true))
+        // ...and where S5's list, read for the delete, no longer names it, the bench's own record is the bench's to delete
+        assertEquals(DeleteRoute.Server("PROJ-T3"), Deletes.route(Tx.EN, "project", "PROJ-T3", serverKnown = true, onS5 = true, erpLive = true,
+            tie = Deletes.Tie(listOf("PROJ-T3"), false, true, Deletes.ListRead.READ, emptySet())))
+        // a phone-minted key is never the office's record, pair or none; nor is a row with no id
+        for (live in listOf(true, false)) {
+            assertEquals(DeleteRoute.Blocked(projectOnS5), Deletes.route(Tx.EN, "project", K, serverKnown = false, erpLive = live))
+            assertEquals(DeleteRoute.LocalOnly, Deletes.route(Tx.EN, "project", "", serverKnown = false, erpLive = live))
+        }
+        // a client keeps its own refusal
+        assertEquals(Deletes.route(Tx.EN, "client", "", false), Deletes.route(Tx.EN, "client", "CUST-T1", true, erpLive = false))
+        for (t in listOf(project, site)) assertTrue(t.length <= 110 && !t.contains("server") && !t.contains("configured"), t)
+    }
+
+    @Test
+    fun `the banner after a row S5 no longer lists was removed says so - never that it had never reached the office`() {
+        val msg = Deletes.goneMessage(Tx.EN, "test unit")
+        assertEquals("Removed from this phone — S5 no longer lists test unit.", msg)
+        assertFalse(msg.contains("never reached"), msg)
+        assertEquals("Removed from this phone — S5 no longer lists Main site.", Deletes.goneMessage(Tx.EN, "Main site"))
+        // English first (Amit, 16 Nov 2026): under मराठी the new sentences read their English until the Marathi is written
+        assertEquals(DeleteRoute.Blocked(projectPhotos), Deletes.route(Tx.MR, "project", "", false, onS5 = true, erpLive = false, tie = Deletes.Tie(listOf(K), true, true)))
+        assertEquals(Deletes.officeRecord(Tx.EN, "site"), Deletes.officeRecord(Tx.MR, "site"))
+    }
+
+    @Test
+    fun `the delete reads S5's list itself, as staff, and forgets nothing but the keys the rule names - read as source`() {
+        val session = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt").readText()
+        val read = session.substring(session.indexOf("fun listedNow(context: Context): Pair<Deletes.ListRead, Set<String>> = try {")).substringBefore("fun forgetKeys(")
+        // the S5 SESSION, never the legacy key (S5Auth), and staff by the phone's own record of the sign-in
+        assertTrue(read.contains("val cookie = S5Session.liveCookie(context)") && !read.contains("S5Auth.") && !read.contains("FrappeClient"), "the session alone")
+        assertTrue(read.contains("val staff = S5Session.who(context)?.optString(\"kind\") == \"staff\""))
+        assertTrue(read.contains("Pair(if (staff) Deletes.ListRead.READ else Deletes.ListRead.UNPROVEN, named)"))
+        assertTrue(read.contains("val arr = o.getJSONArray(\"projects\")"), "a 200 without the list is no list: it throws, and that is OFFLINE")
+        assertEquals(2, Regex("Pair\\(Deletes\\.ListRead\\.OFFLINE, emptySet<String>\\(\\)\\)").findAll(read).count(), "no session S5 honours, and any failure")
+        // the read writes NOTHING: not the masters, not S5's names, not the keys
+        for (w in listOf("saveMasters", "S5Sites.", "S5Keys.", ".edit()")) assertFalse(read.contains(w), "the delete's read writes nothing ($w)")
+        // the masters' half of Gone: only entries S5's list had added, and only for the keys named
+        val drop = session.substring(session.indexOf("fun forgetKeys(context: Context, keys: List<String>) {")).substringBefore("fun forget(context: Context) {")
+        assertTrue(drop.contains("if (!(p.optBoolean(FROM_S5) && p.optString(\"project\") in keys)) out.put(p)"), "never a bootstrap's entry")
+        // the handler: read first only on the rule's word, the route asked again with the read, and the row dropped only on Gone or LocalOnly
+        val main = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt").readText()
+        val tap = main.substring(main.indexOf("val route = deleteRoute(t)")).substringBefore("FrappeClient.load(context)")
+        val first = tap.indexOf("} else if (route is DeleteRoute.ReadFirst) {"); val listed = tap.indexOf("val listed = withContext(Dispatchers.IO) { S5Masters.listedNow(context) }")
+        val again = tap.indexOf("val go = deleteRoute(t, listed.first, listed.second)"); val drops = tap.indexOf("if (go is DeleteRoute.Gone) removeHere(t, go.keys)")
+        assertTrue(first in 0 until listed && listed < again && again < drops, "ReadFirst, the read, the route again, and only then a removal")
+        assertTrue(tap.contains("deleteBlocker = (go as? DeleteRoute.Blocked)?.reason ?: tx.refuse_site_offline"), "anything else is said in the dialog, nothing removed")
+        assertEquals(1, Regex("S5Masters\\.listedNow\\(").findAll(main).count(), "one reader, the delete's")
+        val sites = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Sites.kt").readText()
+        assertTrue(sites.contains("synchronized(LOCK) { prefs(context).edit().remove(project).apply() }") && Regex("\\.remove\\(").findAll(sites).count() == 1, "S5Sites has one remover: forget")
+    }
+
     @Test
     fun `the phone's delete asks with what S5 holds of the row - read as source, since only CI compiles the app`() {
         val f = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt")
         assertTrue(f.isFile, "the app's MainActivity.kt is beside :pano (${f.absolutePath})")
         val main = f.readText()
         assertEquals(1, Regex("Deletes\\.route\\(").findAll(main.lines().filterNot { it.trim().startsWith("//") }.joinToString("\n")).count(), "one caller of the rule")
-        assertTrue(Regex("""val route = Deletes\.route\(tx, t\.kind, t\.serverId, t\.serverKnown,\s*onS5 = cat\.onS5\(masters, queue, t\.kind, t\.client, t\.site, t\.project\)\)""").containsMatchIn(main),
-            "the same Catalogue.onS5 the rename's route asks")
-        // "Removed from this phone" is said on the LocalOnly route alone
-        val a = main.indexOf("} else if (route is DeleteRoute.LocalOnly) {"); val b = main.indexOf("lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }")
-        assertTrue(a in 0 until b && !main.substring(a, b).contains("} else {"), "the local-only sentence follows the local-only route")
+        // THESE PINS MOVED WITH THE REVIEW OF F4, and hold no less. The one caller is now `deleteRoute`, because the
+        // route is asked twice in one delete (when Delete is tapped, and again with S5's list read for it), and it is
+        // asked with MORE: the same gathering the rename's route asks (Catalogue.s5Ties, whose `keys.isNotEmpty()` IS
+        // Catalogue.onS5), whether the ERP pair is live, and what the phone holds of the row's tie to S5.
+        val ask = main.substring(main.indexOf("fun deleteRoute(t: RenameTarget, read: Deletes.ListRead = Deletes.ListRead.NOT_READ, fresh: Set<String> = emptySet()): DeleteRoute {"))
+            .substringBefore("fun removeHere(")
+        assertTrue(ask.contains("val ties = cat.s5Ties(masters, queue, t.kind, t.client, t.site, t.project)"), "the same gathering the rename's route asks")
+        assertTrue(Regex("""return Deletes\.route\(tx, t\.kind, t\.serverId, t\.serverKnown,\s*onS5 = ties\.keys\.isNotEmpty\(\),""").containsMatchIn(ask))
+        assertTrue(ask.contains("erpLive = S5Masters.erpLive(context),"), "a bench docname goes out only with a LIVE pair")
+        assertTrue(ask.contains("tie = Deletes.Tie(ties.keys, ties.captures, signedIn = S5Session.signedIn(context), listRead = read, freshNames = fresh))"),
+            "the keys, the photos, an S5 sign-in (never the legacy key), and the read made for this delete")
+        // "Removed from this phone ... never reached the office system" is said for the LocalOnly route alone: the one
+        // function that drops a row says it only where no key was forgotten, and the Gone route says its own sentence
+        val here = main.substring(main.indexOf("fun removeHere(t: RenameTarget, gone: List<String>) {")).substringBefore("// ---- ONE PROJECT, ONE SITE")
+        assertTrue(here.contains("if (gone.isEmpty()) lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }") &&
+            here.contains("else lastResult = { tx -> Deletes.goneMessage(tx, t.current) }"), "the sentence follows the route")
         assertEquals(1, Regex("Deletes\\.localOnlyMessage\\(").findAll(main).count())
+        assertEquals(1, Regex("Deletes\\.goneMessage\\(").findAll(main).count())
+        val tap = main.substring(main.indexOf("val route = deleteRoute(t)")).substringBefore("FrappeClient.load(context)")
+        assertTrue(tap.contains("} else if (route is DeleteRoute.LocalOnly) {\n                    removeHere(t, emptyList())"), "the local-only route drops the row and forgets nothing")
     }
 }

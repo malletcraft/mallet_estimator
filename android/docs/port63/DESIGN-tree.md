@@ -36,9 +36,9 @@ His two answers on the selector that followed (~22:15 IST):
 The fix is four slices and a fifth that needs his yes (§5). This file is written with them, each its own commit:
 **F4a** (the plan's Slice 1: what the phone lists, §2), **F4b** (the plan's Slice 4: a rename that cannot work says
 so before Save, and never forks, §3), **F4c** (the plan's Slice 2: one project, one site, §7) and **F4d** (the
-plan's Slice 3: navigation, the "site switch", §8). §9 is one question checked with them and not fixed. Sections 1
-to 6 are the first writer's record of F4a and F4b and are kept as written, but for §5, where a slice built since
-points to its own section.
+plan's Slice 3: navigation, the "site switch", §8). §9 is one question checked with them and not fixed at the time.
+**§10 is the review of the four slices and what was done about it** — one commit over F4d, which also closes §9 and
+several lines of §5. Sections 1 to 9 are kept as written, with a pointer to §10 wherever it changed what they say.
 
 A third sentence of the same message is the one F4c answers. It names one of his projects and the flat it belongs
 to, so it is in the session's notes and not here; what it says is that the project belongs to that flat and no
@@ -339,9 +339,10 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
 - **Slice 5 — S5 keeps the client's name** (V4, V16; S5 QUOTE first, then S2 APK; needs Amit's yes). The client of a
   project made on the phone exists only on that phone: S5 holds customer "" for it, so a reinstall or a second phone
   files it under "(no client)". A `client_name` on the S5 project (first value from the upload while blank, a guarded
-  `PUT …/client`), read by `S5Masters.fetch` before the capture row; the S5 key STORED instead of re-derived. Until
-  then: **do not use Clear storage or reinstall** on a phone that made a client — its capture rows are the only copy
-  of that client's name.
+  `PUT …/client`), read by `S5Masters.fetch` before the capture row; the S5 key STORED instead of re-derived
+  (**the key half is done — §10.1**: the phone remembers each key and the client it is for; S5 itself still holds no
+  client name). Until then: **do not use Clear storage or reinstall** on a phone that made a client — its capture
+  rows, and now the keys remembered from them, are the only copy of that client's name.
 - **Later, small.** Photos joined by project id, else client and title (V15; today the title alone, at eleven
   sites and in `TreeKeep.projectOf`) — before any title rename. A site row takes a bench docname only from a row keyed
   under its own name (V12: on a live-pair phone a site S5 named differently carries the WHOLE ERP site's docname, so
@@ -349,7 +350,7 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
   Rotation and process death reset the tree to Clients; the room chooser is drawn only inside a room (audit R11); the
   rename dialog blanks the tree behind it; S5's customer id is shown as a client's name (V19).
 - **Found while building F4b, and left** (none was in the plan's two slices):
-  - *A bench delete with no live pair.* A row with a bench docname that S5 does not hold still routes to the bench
+  - *A bench delete with no live pair* (**fixed — §10.5**). A row with a bench docname that S5 does not hold still routes to the bench
     (`DeleteRoute.Server`); with no pair the dialog then says "no server configured" in red and offers the cascade
     button, which cannot work either — the delete twin of V6. After F4a the only such rows on a phone with no live
     pair are an ERP-only project kept by an unsent capture, and its site. `Deletes.route` would take `erpLive` as
@@ -365,11 +366,13 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
     ambiguity (photos joined by title), not a new one.
   - *A bench rename (live pair) re-keys nothing on the phone* — V18, unchanged: `Renames.rekey` is called on the Local
     route only.
+  - *A local rename racing a running upload* (found by the review of F4, and left): §10.9 — no longer a fork since the
+    key is remembered; that one upload carries the old title.
 - **Found while building F4c and F4d, and left:**
-  - *A project S5 no longer lists cannot be removed from the phone* — §9, with the rule proposed.
+  - *A project S5 no longer lists cannot be removed from the phone* — §9, with the rule proposed (**built — §10.3**).
   - *The project's dialog has one way in, a long press on its row* — and since F4d the row of a site's ONLY project
     is reached through the site's name in the crumb rail (§8.5, 1). A visible way from inside the project (the Site
-    line on the project's own sheet, say) is a screen change and was not made.
+    line on the project's own sheet, say) is a screen change and was not made (**made — §10.2: the Site chip**).
   - *`QuoteStageSync.refresh` reads S5's list but adds no project to the masters*; only `S5Masters.fetch` does (the
     app's start, a sync's S5 leg, a rename's or a move's read-first). So a project made on the phone stays the
     phone's own row in the tree — shut as "on S5, or on its way there" — until one of those runs after its upload.
@@ -540,6 +543,8 @@ second spelling of it.
    shows at the site S5 holds, and its move says to sign in (run in the harness). What it costs is the known residue
    of a site rename (audit R9's): the row's re-derived key no longer matches the key S5 holds, so with no capture of
    the project left on the phone AND nobody signed in, the row looks like the phone's own. Slice 5 stores the key.
+   (**The review found this was worse than a look — the next capture forked the project — and the key is stored now:
+   §10.1.**)
 7. **The place follows the project.** After a move he is at the project's new site (its project list, or the project
    itself if it was open), not left in a site the project just left — which may no longer exist.
 8. **The move of the phone's row carries the chosen rooms, not the address.** Rooms: as S5's names already move them
@@ -780,6 +785,8 @@ One key, a phone text, English first (`mr-pending.tsv` 41 → 42). No existing t
 
 ## 9. Checked, not fixed: a project made on this phone that S5 no longer lists
 
+(**Fixed since, by the rule proposed at the end of this section — §10.3.** What follows is the check as it was run.)
+
 Asked with this build: a project made on a phone, uploaded, and since removed from S5 by the office (S5 has no
 project delete; the office removes one by a guarded one-off fix of its rows) may still have its row and a sent
 capture on the phone. Since F4b a phone-minted key "counts as S5's, sent or not". Can he remove such a project?
@@ -813,3 +820,239 @@ where a row's only tie to S5 is a key `S5Sites` once heard — no capture of it 
 dialog reads S5's list first, and a key that fresh list does not name is not on S5: the row is then the phone's
 own and is removed here. A capture still on the phone keeps the refusal, and the sentence should then say to
 delete the capture first. `Deletes.route` gains `listRead` and the fresh list's answer; nothing else reads it.
+
+## 10. Review of F4 and what was done
+
+A behaviour reviewer and a compile reviewer read the four slices (the compile reviewer found nothing). The behaviour
+reviewer confirmed nine findings: three major, six minor. Eight are fixed here, as ONE commit over F4d; the ninth is
+closed as a fork by the first and recorded (§10.9). Every rule below is a pure function of `:pano` with tests; `:app`
+draws and calls. New texts are in §10.10.
+
+### 10.1 MAJOR — an S5 key is remembered, never re-derived
+
+**The fault.** `S5Auth.keyFor` answered a masters entry for the client and title, else `localKey(client, site, title)`:
+a hash of the names AS THEY STAND. After a move (F4c moves the phone's own row with its project) or a site rename the
+row carries the new site. While a capture of the project is on the phone the masters still tie it to its client and
+the old key is found. Once the captures have left the phone S5's list names the project with no customer (S5 holds
+none for a project made on a phone), `S5Masters.fetch` files it under "(no client)", no masters entry matches the
+client, and the next capture MINTS A SECOND S5 PROJECT. Run in the harness: after the move the names give another
+key than the one S5 holds.
+
+**The fix: the key is stored when it is minted; one map and two readers** (the verifying pass's V16).
+
+`pano/KeyBook.kt` (new), pure, tested by `KeyBookTest`:
+
+```kotlin
+object KeyBook {
+    data class Names(val client: String, val title: String)
+    data class Book(val byName: Map<String, String>, val byId: Map<String, Names>)
+    fun fold(client: String, title: String): String
+    fun keyFor(book: Book, client: String, title: String): String?
+    fun namesOf(book: Book, project: String): Names?
+    fun wins(stored: String, comer: String, listed: (String) -> Boolean): String
+    fun take(book: Book, project: String, client: String, title: String, listed: (String) -> Boolean = { false }): Book
+    fun learn(book: Book, captures: List<TreeKeep.Cap>, listed: (String) -> Boolean): Book
+    fun renamed(book: Book, kind: String, client: String, title: String, to: String): Book
+    fun forget(book: Book, project: String): Book
+}
+```
+
+- **By name**: the folded client and the folded title -> the S5 project id. NOT the site: the masters are matched the
+  same way (a client's title at any site), and the site is the very part a move or a site rename changes.
+- **By id**: the id -> the client and title it is for, as typed. The phone's only copy of a client's name for a
+  project whose captures have gone.
+- **Two keys claimed for one client and title** (`wins`): the one S5's list has named is S5's project; where both are
+  named, or neither, the one remembered first stays. Captures are read oldest first, so "first" is the key the project
+  was first shot under.
+- **An id has one client and title at a time** (`take`): a capture renamed with its row moves the entry and leaves no
+  stale name behind, so a NEW project typed under the old names is not joined to the renamed one.
+
+`app/S5Keys.kt` (new): the store. Two prefs files (each is keyed by free text), written entry by entry, under a lock.
+
+| Where | What changed |
+|---|---|
+| `app/S5Session.kt` `S5Auth.keyFor` | A masters entry for the client and title; else **the key the book holds** (read with every capture on the phone taken into it first); and only then a mint — **remembered before it is answered**. |
+| `app/S5Session.kt` `S5Masters.fetch` | Reads the book once. A project S5 lists with no customer, and no capture of it on the phone, is filed under **the client its key was remembered for**; only with none of the three is it "(no client)". The title likewise. |
+| `app/Catalogue.kt` `keyOfRow` (new, private) | "What is this phone-made row called on S5": the remembered key, else — for a row no capture has been keyed for yet — the hash its first capture will be given. The ONE such place; `s5ProjectsOf`, `s5Ties` (the old `onS5`'s gathering) and `moveFacts` ask it where each worked a key out for itself. |
+| `app/MainActivity.kt` | The captures are read into the book at the app's start (signal or none), and before a capture row is deleted. `renameHere` moves the entries of a never-sent row it renames (`S5Keys.renamed`), after the captures are re-keyed. |
+
+**Fed by**: the mint; every capture row that carries a project id (so the keys minted by earlier builds are in the book
+from the first run — the verifying pass found one key on his phone that no longer re-derives from its names; it is
+learnt from its capture row); a local rename. **Loses a key only** to the one delete that proved it gone (§10.3). Not
+sign-out: the keys are not a person's.
+
+With that in place the row may move with the project, as F4c built it.
+
+### 10.2 MAJOR — a visible way to the project's dialog from inside the project
+
+Since F4d a one-project site opens its project directly, so the list whose long press opens the dialog (Rename, Site,
+Delete) is never seen. `RoomsScreen` has ONE new chip, `Site · <name> ▾` (the site through `Masters.site_name`: the
+bucket reads "(no site)"), which opens the SAME dialog with the same target the long press builds.
+
+- **It is the FIRST chip of the row** — decided by Claude. The row scrolls sideways and at 360 dp already holds three
+  chips before the dates chip; a handle he has to scroll to is not the visible handle he asked for.
+- **A project renamed from inside stays open.** `renameHere` set `navProject = null`; it now re-reads the project from
+  the tree where one was open (`cat.projectOf`, as a move does). Renamed from the list, none is opened.
+
+### 10.3 MAJOR — a phone-made project that S5 no longer lists can be removed, and its Site row tells the truth
+
+**The fault** is §9's: `S5Sites` never forgets, so a project the office took off S5 read as "on S5" for ever.
+
+**The rule**, in `Deletes.route` (new routes `DeleteRoute.ReadFirst` and `DeleteRoute.Gone`; `Deletes.Tie`,
+`Deletes.ListRead`), tested branch by branch in `DeleteRouteTest`:
+
+1. Asked ONLY at a delete, for the keys the refusal rests on (`Renames.heldKeys`: what the row's projects and
+   captures carry that S5's list has named or the phone minted, and the remembered keys of its phone-made rows that
+   S5's list has named).
+2. **A capture of the row still on the phone keeps the refusal** — keyed or not, sent or not: it may still be on its
+   way up, so no list can call the row gone. The sentence says to delete the photos first, and that the row is then
+   removed only if S5 does not hold it (`app.project_s5_photos_first`, `app.site_s5_photos_first`).
+3. With none: not signed in to S5 -> the sign-in line at once, nothing read. Else `ReadFirst`: S5's list is read NOW
+   (`S5Masters.listedNow`: one GET with the S5 SESSION, never the legacy ERP key) and the route asked again.
+4. The read counts only as `READ`: 200 with a `projects` array, by a login the phone's own record of the sign-in calls
+   staff (`S5Session.who`'s `kind`; the phone only ever stores a staff sign-in, and a legacy key cannot show it). No
+   answer -> `OFFLINE`, the offline line. Not known to be staff -> `UNPROVEN`, the refusal stands.
+5. S5 names one of the keys -> the refusal stands (`app.*_s5_not_removed`). **S5 names none -> `Gone(keys)`**: the
+   phone's row is removed and THOSE keys, only those, are forgotten — `S5Sites.forget`, `S5Keys.forget`, and the
+   masters' entries S5's list had added for them (`S5Masters.forgetKeys`). The banner says why it could go
+   (`app.msg.removed_phone_x_s5_gone`), never "had never reached the office system".
+
+Nothing is sent to S5. No general read of S5's list forgets anything: reads overlap, and a list is the list of whoever
+is signed in (§9's two objections stand; the delete's own read meets neither — the row has nothing left to upload, and
+the login is staff).
+
+**The Site row.** `moveShut` cannot know S5 dropped a project without asking S5. So the answer is taken where S5
+gives it: the move's one PUT comes back as S5's 404, which `Renames.notHeld` reads as "S5 does not hold this project".
+The Site row is then SHUT for that dialog with a true sentence (`app.project_s5_gone_site_shut`) in place of S5's own
+words for the 404 ("This project has never been uploaded" — untrue of a project S5 once listed).
+
+### 10.4 minor — a move into a site that already has a project of the same title is refused
+
+`Renames.moveRoute` takes `twin` (the tree lists ANOTHER project of this client with this title at the site picked;
+gathered in `Catalogue.moveRoute`) and answers `Blocked(app.not_moved_site_has_project, PHONE)`. `moveLocal`'s own
+merge of two rows is now reached only for the phone's hidden row following its own S5 project, where it is right.
+
+### 10.5 minor — a bench docname with no live ERP pair is the office's record
+
+`Deletes.route` takes `erpLive`. A site or a project that carries a bench docname, on a phone with no live pair, is
+`Blocked` at once (`app.project_office_record_removed`, `app.site_office_record_removed`) instead of going out with a
+dead or missing key. **Before S5 is asked anything** — decided by Claude: the docname decides first, as it does for a
+rename, because it is the reason that names where the thing CAN be done. With a live pair the order is F4b's (S5
+first, then the bench). The defaults (`erpLive = true`, `tie = null`) are the route as it was.
+
+### 10.6 minor — the "S5 does not hold the project and it was not made here" sentence only where it is true
+
+`MainActivity` said it in three states it is not true of. Now: the project went from the tree while its dialog was
+open (before the route, and after the list read) -> `app.project_not_listed_nothing_moved`; no row of the phone's
+changed, and the route that cannot be -> `app.nothing_moved_try_again`. The original sentence has one reader left, the
+rule (`Renames.moveShut`).
+
+### 10.7 minor — a tap on a listed site only fills the field
+
+In the Site row's picker a tap on a site moved the project at once. It now fills the field; `Use this site` is the
+one thing that makes the move.
+
+### 10.8 minor — the dialog opened by New site says why, also where the move is shut
+
+The line was drawn only where the row was live. It is drawn whenever New site opened the dialog: with the button's
+words where the project can be moved (`app.project_exists_use_site`), and where it cannot, a line that names no button
+(`app.project_exists_opened`), followed by the reason the row is shut.
+
+### 10.9 minor, recorded — a local rename racing a running upload
+
+An upload job that read a capture's OLD names just before `renameHere` renamed it calls `keyFor` with them. This was a
+fork: the key was a hash of the old names, and every later capture of the renamed row hashed the new ones. **It is not
+one any more, by §10.1**: the job's key is written on the capture row, the row now carries the new names, and the next
+read of the captures remembers that key for the NEW names — so the row's later captures are the same S5 project. What
+is left is cosmetic: that first upload carries the old title to S5, and the next upload sets it again. Cancelling and
+re-queueing the job was not built: a cancel does not stop a blocking request already in flight, so it would not close
+the window it was for. This path was reasoned from the code and not run.
+
+### 10.10 The new texts
+
+Eleven keys, each a phone text, English first: the Marathi value of each is its English, and each is listed in
+`android/i18n/mr-pending.tsv` (42 -> 53). No existing text changed.
+
+| Key | English |
+|---|---|
+| `app.site_x_open` | Site · {site} ▾ |
+| `app.project_office_record_removed` | This project is the office's record. It is removed at the office, not from this phone. |
+| `app.site_office_record_removed` | This site is the office's record. It is removed at the office, not from this phone. |
+| `app.project_s5_photos_first` | Nothing was removed: this project has photos on this phone. Delete its photos first. It is then removed only if S5 does not hold it. |
+| `app.site_s5_photos_first` | Nothing was removed: this site has photos on this phone. Delete its photos first. It is then removed only if S5 holds no project of it. |
+| `app.msg.removed_phone_x_s5_gone` | Removed from this phone — S5 no longer lists {name}. |
+| `app.not_moved_site_has_project` | Not moved: that site already has a project with this name. |
+| `app.project_not_listed_nothing_moved` | This project is no longer listed; nothing moved. |
+| `app.nothing_moved_try_again` | Nothing moved: this phone could not change the project's row. Close this and try again. |
+| `app.project_exists_opened` | This client already has this project, so it was opened. No new one was made. |
+| `app.project_s5_gone_site_shut` | S5 no longer holds this project, so its site cannot be changed from this phone. Nothing moved. |
+
+Reused: `refuse.site.signed_out` and `refuse.site.offline` for a delete that could not read S5's list. They end "not
+saved" and one says "Save again", where a delete has no Save — §5 already records that of a move; it is one key each
+if they read wrongly on the phone.
+
+### 10.11 Tests
+
+`:pano` 116 classes, 1,677 tests -> **117 classes, 1,701 tests**, all green (the totals of
+`pano/build/test-results/test`).
+
+- `KeyBookTest` (new, 12): the rule case by case, the reviewer's case, and four source tests of `:app` (one mint, and
+  only where the masters and the book hold none; S5's list filed under the remembered client; what feeds the book and
+  the one thing that removes a key; the Site chip and the project that stays open).
+- `DeleteRouteTest` (+7): photos first; read first, never signed out; the read decides (Gone, still listed, offline,
+  not staff); a row with nothing on S5 is not asked; the office's record; the banner; the read and the handler, as
+  source.
+- `MoveRouteTest` (+4): the twin; S5's 404; the true sentences; why New site opened the dialog.
+- `RenameRouteTest` (+1): `heldKeys`, and that `onS5` is "there is one".
+- **Pins that moved, each with its reason beside it:** `RenameRouteTest` — a site's second half and the five pins of
+  the gathering (`s5Ties`, `keyOfRow`, `Renames.heldKeys` in place of `onS5`'s inline gathering and `S5Auth.localKey`);
+  `DeleteRouteTest` — the one caller is `deleteRoute` and the local-only sentence is `removeHere`'s; `MoveRouteTest` —
+  the row's key, `twin = twin`, `moveGone` at close and in the dialog's argument, and a pick that fills the field;
+  `TreeNavTest` — the why-it-opened line. No test was deleted or loosened.
+
+### 10.12 Known, and left
+
+- **Rows typed on this phone for other test clients stay until he deletes them.** F4a cuts what an ERP bootstrap
+  left; a row typed on the phone is the phone's own words and is never pruned. Such a client shows with its Offline
+  pill. Each is removed from its dialog — at once where nothing of it is on S5, and by §10.3 where S5 once listed it.
+- **A stored ERP key that is dead but never probed counts as live until the first sync** (§6): for that one app start
+  a bench docname's delete would still go out with it, and fail there.
+- **The delete's refusal still arrives on the tap** (§5): the dialog draws "Deleting removes it from ERP for
+  everyone" and its button first.
+- **A capture row deleted while its upload job is mid-request.** The delete of the capture does not cancel the job. If
+  the project is deleted from the phone within the seconds that job takes, S5 can gain the project after the list
+  that said it was gone; S5's next list then names it with no customer and, the key having been forgotten, it is filed
+  under "(no client)". Not reproduced; it needs two deletes inside one request.
+- **The photos-first sentence is also said of a project S5 still holds** (the usual case). It does not promise the
+  delete will then work ("only if S5 does not hold it"), but a person may delete photos to find that out. Photos a
+  server holds are still on the server; photos never sent are lost with the delete, as with any capture delete.
+- **A bench rename (live pair) moves no remembered key**, and still puts him out of a project renamed from inside it
+  (only the local rename re-reads the project) — V18's twin; no phone holds a live pair.
+- **A project typed again under the client and title of an old capture takes that capture's id** — whatever it is. A
+  capture from the ERP days carries a bench docname, so a project of that client and title made again on the phone
+  goes to S5 under that docname (as the projects S5 already lists for an ERP customer are keyed), and is then "the
+  office's record" for a rename or a delete. It used to get a freshly minted key, beside the ERP project.
+- **S5 still holds no client name.** The remembered keys are on this phone only: Clear storage or a reinstall still
+  loses them (Slice 5).
+
+### 10.13 What is not proven
+
+- **Nothing was seen on a phone**, and `:app` was not compiled: CI is its only compiler.
+- **What stood in for a compiler.** The harness (`f4fix-tree` in the session's scratchpad) compiled the real
+  `Catalogue.kt`, `S5Session.kt`, `S5Sites.kt`, `S5Keys.kt`, `CaptureStore.kt`, `SiteRename.kt` and `JsonRead.kt`
+  against the real `:pano` jar; and the EXACT text of every handler this commit touched in `MainActivity.kt`
+  (`deleteRoute`, `removeHere`, the four move handlers, the whole of `renameHere`, the delete's tap, the chip's
+  `onSite`, the two `S5Keys.learn` lines) was cut from the file and compiled with stand-ins only for Compose's state,
+  `scope.launch` and `withContext` — and then RUN: §10.1's case end to end (move, captures removed, the next capture
+  takes the same key, the project listed once under its client; and a key minted before the book existed), §10.2's
+  rename from inside, every branch of §10.3 (photos first; Gone, with nothing sent to S5 and only that key forgotten;
+  still listed; offline; signed out; not staff; a site; a row never sent), §10.4, §10.5 and §10.6. The Site row's
+  exact text was compiled over stand-ins for the Compose calls it makes. Neither is CI.
+- **The least sure lines** are the three that sit in Compose and were checked only by their shape against a
+  neighbour: the chip in `BrowseScreens.kt` (`onSite?.let { AssistChip(onClick = it, label = { … }) }`, the shape of
+  the Choose rooms chip beside it), the dialog's `moveShut = moveGone?.invoke(tx) ?: moveShut.orEmpty()`, and the
+  delete tap's `else if` chain as the last statement of the `onDelete` lambda.
+- **S5 itself was not called.** The delete's read was run against a stand-in list; that staff see every project in
+  `GET /api/asis` is S5's own rule, read in its notes and not probed here.
+- **How the chip row sits at 360 dp** with a long site name first, and how the 130-character sentences wrap in the
+  dialog, are the phone's to show.

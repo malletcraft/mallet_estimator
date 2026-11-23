@@ -3,6 +3,8 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.Deletes
+import com.malletcrafts.interiorestimate.pano.KeyBook
 import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.TreeKeep
 import com.malletcrafts.interiorestimate.pano.UploadNote
@@ -249,11 +251,22 @@ object S5Auth {
     /**
      * The S5 project for a capture of a site with no project id yet, when there is no ERP leg
      * to mint one: a project the masters already hold for this client and title (normalised
-     * as Catalogue does, at any site -- as ERP's ensureSite matched), else [localKey].
+     * as Catalogue does, at any site -- as ERP's ensureSite matched); else THE KEY THIS PHONE
+     * REMEMBERS for that client and title (S5Keys); and only where it remembers none, a key
+     * minted now ([localKey]) -- and remembered from this moment.
+     *
+     * REMEMBERED, NEVER RE-DERIVED (the review of F4, 23 Nov 2026; DESIGN-tree.md §10). The
+     * minted key is a hash of client|site|title, and it used to be worked out again here every
+     * time: after a project was moved to another site, or its site renamed, the names gave a
+     * DIFFERENT key, so once the project's captures had left the phone (S5 then lists it with no
+     * client, and the masters no longer tie it to one) the next capture made a second S5 project.
+     * The book is read with every capture on this phone taken into it first, so a key minted by a
+     * build before the book existed is found too.
      */
     fun keyFor(context: Context, client: String, title: String): String {
         val want = Catalogue.keyOf(client, "", title)
-        val ps = CaptureStore(context).masters()?.optJSONArray("projects")
+        val store = CaptureStore(context)
+        val ps = store.masters()?.optJSONArray("projects")
         if (ps != null) for (i in 0 until ps.length()) {
             val p = ps.optJSONObject(i) ?: continue
             val id = p.optString("project")
@@ -261,7 +274,10 @@ object S5Auth {
             val c = p.optString("customer_name").ifBlank { p.optString("customer") }
             if (Catalogue.keyOf(c, "", p.optString("title")) == want) return id
         }
-        return localKey(client, Catalogue(context).localSiteFor(client, title), title)
+        KeyBook.keyFor(S5Keys.learn(context, store.all()), client, title)?.let { return it }
+        val minted = localKey(client, Catalogue(context).localSiteFor(client, title), title)
+        S5Keys.remember(context, minted, client, title)
+        return minted
     }
 
     /**
@@ -330,6 +346,9 @@ object S5Masters {
         S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
         val store = CaptureStore(context)
         val captures = store.all()
+        // The keys this phone remembers, with every capture's own taken in first (S5Keys): the client and title of a
+        // project S5 lists with no customer once no capture of it is left here (below).
+        val book = S5Keys.learn(context, captures)
         val base = store.masters()?.let { JSONObject(it.toString()) } ?: JSONObject()
         val had = base.optJSONArray("projects") ?: JSONArray()
         val known = mutableSetOf<String>()
@@ -380,8 +399,13 @@ object S5Masters {
             // drops a project with no client, and an invisible project is worse than an awkward
             // folder. The phone never sends a typed name as the customer: S5 grants a client
             // account access by that id.
-            val client = customer.ifBlank { mine?.customerName.orEmpty() }.ifBlank { NO_CLIENT }
-            val t = title.ifBlank { mine?.projectTitle.orEmpty() }
+            // ...BUT A PROJECT THIS PHONE ONCE SHOT IS STILL ITS CLIENT'S (the review of F4): the client and title its
+            // key was remembered for (S5Keys) stand in where no capture of it is left on the phone. Without them a
+            // phone-made project whose photos had been removed here was listed under "(no client)", beside the
+            // phone's own row of it under its client -- and its next capture minted a second key.
+            val kept = KeyBook.namesOf(book, key)
+            val client = customer.ifBlank { mine?.customerName.orEmpty() }.ifBlank { kept?.client.orEmpty() }.ifBlank { NO_CLIENT }
+            val t = title.ifBlank { mine?.projectTitle.orEmpty() }.ifBlank { kept?.title.orEmpty() }
             val m = JSONObject()
                 .put("project", key)
                 .put("title", t)
@@ -405,6 +429,59 @@ object S5Masters {
      */
     fun erpLive(context: Context): Boolean =
         TreeKeep.erpLive(pair = FrappeClient.load(context) != null, refused = FrappeClient.refused(context))
+
+    /**
+     * S5'S LIST, READ NOW FOR ONE DELETE (the review of F4, 23 Nov 2026; DESIGN-tree.md §10): how the read came out
+     * and every project id it named, as Deletes.route is asked (Deletes.Tie's listRead and freshNames). ONE GET with
+     * the S5 SESSION -- never the legacy ERP key, which S5 also takes but which cannot show that its owner is staff:
+     * a list read by anyone else is short for another reason and proves nothing (UNPROVEN). The phone's own record
+     * of who signed in says staff or not (S5Session.who's `kind`, as S5 answered at sign-in). Blocking; never throws:
+     * no session that S5 still honours, no answer, or a 200 without the list is OFFLINE. NOTHING IS WRITTEN HERE --
+     * not the masters, not S5's names: what a delete forgets is the delete's own step, for the keys the rule names.
+     */
+    fun listedNow(context: Context): Pair<Deletes.ListRead, Set<String>> = try {
+        if (S5Session.signedIn(context)) S5Session.ensureFresh(context)
+        val cookie = S5Session.liveCookie(context)
+        if (cookie == null) Pair(Deletes.ListRead.OFFLINE, emptySet<String>())
+        else {
+            val o = JSONObject(AsIsUpload.send("GET", BuildConfig.WEB_URL.trimEnd('/') + "/api/asis", cookie, null, null))
+            // A 200 without the list is not "S5 lists nothing": it would let every row go.
+            val arr = o.getJSONArray("projects")
+            val named = HashSet<String>()
+            for (i in 0 until arr.length()) {
+                val id = arr.optJSONObject(i)?.optString("project").orEmpty()
+                if (id.isNotBlank()) named.add(id)
+            }
+            val staff = S5Session.who(context)?.optString("kind") == "staff" // text:value S5's own word for the login's kind, compared
+            Pair(if (staff) Deletes.ListRead.READ else Deletes.ListRead.UNPROVEN, named)
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "projects not read from S5 for a delete: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
+        Pair(Deletes.ListRead.OFFLINE, emptySet<String>())
+    }
+
+    /**
+     * The masters' own half of a delete that proved S5 no longer lists [keys] (DeleteRoute.Gone): every entry a read
+     * of S5's list had added for one of them goes -- never a bootstrap's entry, which is the bench's (TreeKeep cuts
+     * those at the next read of S5's list on a phone with no live pair). The next read would drop them anyway; done
+     * here so the row is gone from the tree the moment the delete says so.
+     */
+    fun forgetKeys(context: Context, keys: List<String>) {
+        if (keys.isEmpty()) return
+        runCatching {
+            val store = CaptureStore(context)
+            val base = store.masters() ?: return
+            val had = base.optJSONArray("projects") ?: return
+            val out = JSONArray()
+            for (i in 0 until had.length()) {
+                val p = had.optJSONObject(i) ?: continue
+                if (!(p.optBoolean(FROM_S5) && p.optString("project") in keys)) out.put(p)
+            }
+            if (out.length() == had.length()) return
+            base.put("projects", out)
+            store.saveMasters(base)
+        }
+    }
 
     /** Drop every project an S5 read added (sign-out): the next person sees only their own. */
     fun forget(context: Context) {

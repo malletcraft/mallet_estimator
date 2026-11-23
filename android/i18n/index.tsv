@@ -233,6 +233,7 @@ app.msg.no_camera_app_x	app_msg_no_camera_app_x	template	why: String
 app.msg.no_photos_gallery	app_msg_no_photos_gallery	static	-
 app.msg.photo_filed_x	app_msg_photo_filed_x	template	v: String
 app.msg.removed_phone_x_never	app_msg_removed_phone_x_never	template	name: String
+app.msg.removed_phone_x_s5_gone	app_msg_removed_phone_x_s5_gone	template	name: String
 app.msg.renamed_x	app_msg_renamed_x	template	n: String
 app.msg.room_x_ready	app_msg_room_x_ready	template	n: String
 app.msg.saving_six_faces	app_msg_saving_six_faces	static	-
@@ -273,6 +274,7 @@ app.not_annotated	app_not_annotated	static	-
 app.not_connected	app_not_connected	static	-
 app.not_done_yet_tap	app_not_done_yet_tap	static	-
 app.not_moved_pick_another_site	app_not_moved_pick_another_site	static	-
+app.not_moved_site_has_project	app_not_moved_site_has_project	static	-
 app.not_on_web_x	app_not_on_web_x	template	why: String
 app.not_refiled_web_x	app_not_refiled_web_x	template	why: String
 app.not_signed_in	app_not_signed_in	static	-
@@ -307,6 +309,7 @@ app.note.web_signin_refused_key	app_note_web_signin_refused_key	static	-
 app.note.web_unreachable	app_note_web_unreachable	static	-
 app.nothing_captured_phone_yet	app_nothing_captured_phone_yet	static	-
 app.nothing_matches_x	app_nothing_matches_x	template	q: String
+app.nothing_moved_try_again	app_nothing_moved_try_again	static	-
 app.nothing_waiting	app_nothing_waiting	static	-
 app.nothing_yet	app_nothing_yet	static	-
 app.offline	app_offline	static	-
@@ -327,12 +330,17 @@ app.photos	app_photos	static	-
 app.pick_360_gallery	app_pick_360_gallery	static	-
 app.pinch_zoom_double_tap	app_pinch_zoom_double_tap	static	-
 app.project_capture_on_way_not_moved	app_project_capture_on_way_not_moved	static	-
+app.project_exists_opened	app_project_exists_opened	static	-
 app.project_exists_use_site	app_project_exists_use_site	static	-
 app.project_has_no_skus	app_project_has_no_skus	static	-
 app.project_is_at	app_project_is_at	static	-
+app.project_not_listed_nothing_moved	app_project_not_listed_nothing_moved	static	-
+app.project_office_record_removed	app_project_office_record_removed	static	-
 app.project_office_record_renamed	app_project_office_record_renamed	static	-
+app.project_s5_gone_site_shut	app_project_s5_gone_site_shut	static	-
 app.project_s5_not_removed	app_project_s5_not_removed	static	-
 app.project_s5_not_renamed	app_project_s5_not_renamed	static	-
+app.project_s5_photos_first	app_project_s5_photos_first	static	-
 app.project_site_not_changed_here	app_project_site_not_changed_here	static	-
 app.queued	app_queued	static	-
 app.reading_x_mm_unit	app_reading_x_mm_unit	template	mm: String
@@ -377,11 +385,14 @@ app.since_x	app_since_x	template	stageSince: String
 app.single_photo	app_single_photo	static	-
 app.site_name	app_site_name	static	-
 app.site_not_renamed_here	app_site_not_renamed_here	static	-
+app.site_office_record_removed	app_site_office_record_removed	static	-
 app.site_on_s5_so_new	app_site_on_s5_so_new	static	-
 app.site_s5_not_removed	app_site_s5_not_removed	static	-
+app.site_s5_photos_first	app_site_s5_photos_first	static	-
 app.site_type	app_site_type	static	-
 app.site_type_x_pick	app_site_type_x_pick	template	v: String
 app.site_url	app_site_url	static	-
+app.site_x_open	app_site_x_open	template	site: String
 app.sku_code_prefix_appears	app_sku_code_prefix_appears	static	-
 app.sku_codes_will_read	app_sku_codes_will_read	template	t: String
 app.split_faces_device	app_split_faces_device	static	-

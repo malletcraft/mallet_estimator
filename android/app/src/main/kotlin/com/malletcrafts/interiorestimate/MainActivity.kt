@@ -275,6 +275,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // WHY THE LAST MOVE OF A PROJECT TO ANOTHER SITE DID NOT HAPPEN (port 63 slice F4c): drawn under the dialog's Site
     // row while the dialog stays open, set on failure, cleared when another site is picked or typed and on dismiss.
     var moveWhy by remember { mutableStateOf<Msg?>(null) }
+    // S5 ANSWERED THAT IT DOES NOT HOLD THE PROJECT (the review of F4): the one write of a move came back as S5's 404,
+    // for a project the phone still keeps a name for. The Site row is then shut for this dialog, with a true sentence
+    // in place of S5's "never been uploaded"; cleared on dismiss.
+    var moveGone by remember { mutableStateOf<Msg?>(null) }
     // The server's own words for why a delete was refused — "still has 3
     // capture(s)". Cleared whenever the dialog target changes, so a refusal
     // about one project never arms a cascade on the next.
@@ -734,6 +738,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
     LaunchedEffect(configured) {
         if (configured) {
             withContext(Dispatchers.IO) {
+                // THE S5 KEY OF EVERY PROJECT THIS PHONE HAS SHOT IS REMEMBERED (the review of F4; S5Keys): read from
+                // the capture rows here, signal or none, so the keys minted by earlier builds are kept before any of
+                // those captures can leave the phone.
+                S5Keys.learn(context, store.all())
                 // Whether the pair ANSWERED just now: a bootstrap that landed is a live pair, whatever an earlier
                 // sync recorded about it (the refusal flag is as old as the last sync).
                 val booted = runCatching {
@@ -1300,6 +1308,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         renameWhy = null
         renameIds = null
         moveWhy = null
+        moveGone = null
         deleteBlocker = null
         deleteFatal = false
     }
@@ -1308,6 +1317,40 @@ private fun AppScreenBody(onLang: () -> Unit) {
         renameBusy = false
         renameWhy = why
         renameWhyTick += 1
+    }
+    // WHERE A DELETE GOES IS DECIDED IN ONE PLACE, and it is tested (Deletes.route in :pano). Asked when Delete is
+    // tapped, and again with a read of S5's list where the rule says the list must be read first (the review of F4).
+    fun deleteRoute(t: RenameTarget, read: Deletes.ListRead = Deletes.ListRead.NOT_READ, fresh: Set<String> = emptySet()): DeleteRoute {
+        // What S5 holds of the row, gathered once (Catalogue.s5Ties): the keys the refusal would rest on, and whether
+        // a photo of the row is still on this phone.
+        val ties = cat.s5Ties(masters, queue, t.kind, t.client, t.site, t.project)
+        return Deletes.route(tx, t.kind, t.serverId, t.serverKnown,
+            onS5 = ties.keys.isNotEmpty(),
+            // a bench docname goes to the bench only with a LIVE pair; without one it is the office's record
+            erpLive = S5Masters.erpLive(context),
+            // an S5 sign-in alone: the legacy key S5 also takes cannot show that its owner is staff
+            tie = Deletes.Tie(ties.keys, ties.captures, signedIn = S5Session.signedIn(context), listRead = read, freshNames = fresh))
+    }
+    // THE ROW LEAVES THIS PHONE -- the LocalOnly route's delete, and the Gone route's with the keys S5's list, read
+    // for this delete, no longer names: those keys are forgotten first (the masters' entries S5's list had added for
+    // them, S5's names for them, the keys remembered for them), and only those. S5 is sent nothing.
+    fun removeHere(t: RenameTarget, gone: List<String>) {
+        if (gone.isNotEmpty()) {
+            S5Masters.forgetKeys(context, gone)
+            for (k in gone) {
+                S5Sites.forget(context, k)
+                S5Keys.forget(context, k)
+            }
+        }
+        cat.removeLocal(t.kind, t.client, t.site, t.project)
+        reload()
+        when (t.kind) {
+            "site" -> { navSite = null; navProject = null }
+            else -> navProject = null
+        }
+        if (gone.isEmpty()) lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }
+        else lastResult = { tx -> Deletes.goneMessage(tx, t.current) }
+        closeRename()
     }
     // ---- ONE PROJECT, ONE SITE (port 63 slice F4c; android/docs/port63/DESIGN-tree.md §7) ------------------------
     // A project's dialog carries a Site row, and picking a site there gives THAT project the site. Until this slice
@@ -1336,7 +1379,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val row = cat.moveLocal(p.client, p.site, p.title, to)
         val entry = store.masters()?.let { m -> cat.setMastersSite(m, p.serverId, to).also { if (it) store.saveMasters(m) } } == true
         if (!row && !entry) {
-            moveFailed { tx -> tx.app_project_site_not_changed_here }
+            // no row of this phone's changed: said as that, never as "S5 does not hold the project and it was not made here"
+            moveFailed { tx -> tx.app_nothing_moved_try_again }
             return
         }
         // The rooms chosen for the site it leaves go with it where the site it joins has none of its own, and the
@@ -1350,7 +1394,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // the project as the tree lists it NOW: an answer of S5's to an earlier try may have moved it since the dialog opened
         val p = cat.projectOf(masters, t.serverId, t.client, t.site, t.project)
         if (p == null) {
-            moveFailed { tx -> tx.app_project_site_not_changed_here }
+            // it went from the tree while the dialog was open: its own true sentence (the review of F4)
+            moveFailed { tx -> tx.app_project_not_listed_nothing_moved }
             return
         }
         val to = Renames.moveTarget(typed, cat.sitesOf(masters, p.client).map { it.name })
@@ -1380,7 +1425,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         reload()
                         val again = cat.projectOf(fresh, t.serverId, t.client, t.site, t.project)
                         if (again == null) {
-                            moveFailed { tx -> tx.app_project_site_not_changed_here }
+                            moveFailed { tx -> tx.app_project_not_listed_nothing_moved }
                             return@launch
                         }
                         at = again
@@ -1406,6 +1451,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         val rowSite = cat.localSiteFor(at.client, at.title)
                         if (rowSite.isNotEmpty()) withContext(Dispatchers.IO) { cat.moveLocal(at.client, rowSite, at.title, name) }
                         moved(at, name)
+                    } else if (Renames.notHeld(outcome)) {
+                        // S5'S OWN ANSWER IS THAT IT DOES NOT HOLD THIS PROJECT (its 404; the review of F4): the office
+                        // has taken it off S5 since the phone last heard of it. The Site row is shut for this dialog
+                        // with that said -- S5's words for the 404 are "never been uploaded", untrue of this project.
+                        renameBusy = false
+                        moveWhy = null
+                        moveGone = { tx -> tx.app_project_s5_gone_site_shut }
                     } else {
                         // S5 did not take it: the dialog stays open and says why. What S5 DID answer (a 409's
                         // stored name) is already on the phone, so the tree is redrawn from it.
@@ -1419,7 +1471,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 moveFailed { _ -> said }
             }
             // never: a move is not told to the bench (Renames.moveRoute has no such route)
-            is RenameRoute.Legacy -> moveFailed { tx -> tx.app_project_site_not_changed_here }
+            is RenameRoute.Legacy -> moveFailed { tx -> tx.app_nothing_moved_try_again }
         }
     }
     // WHERE A RENAME GOES IS DECIDED IN ONE PLACE, and it is tested (Renames.route in :pano, beside Deletes.route).
@@ -1479,6 +1531,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 val now = rekey(was)
                 if (now != was) store.setNames(c.deviceId, now.client, now.title)
             }
+            // ...and so do the S5 keys this phone remembers for the row (the review of F4; S5Keys): the key stays, the
+            // names it is for move, so the renamed row's next capture is the same S5 project and not a new one.
+            S5Keys.renamed(context, t.kind, t.client, t.project, newName)
         }
         // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
         // for a phone-only project, so it follows the new name -- or the chip reads
@@ -1493,7 +1548,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
         when (t.kind) {
             "client" -> { navClient = newName; navSite = null; navProject = null }
             "site" -> { navSite = newName; navProject = null }
-            else -> navProject = null
+            // A PROJECT RENAMED FROM INSIDE IT STAYS OPEN (the review of F4): its dialog now opens from the project's
+            // own Site chip, and he used to be put out of the project he had just named. Re-read from the tree, as a
+            // move re-reads it; renamed from the list, no project is open and none is opened.
+            else -> if (navProject != null) navProject = cat.projectOf(store.masters(), "", t.client, t.site, newName)
         }
         lastResult = { tx -> tx.app_msg_renamed_x(newName) }
         closeRename()
@@ -1520,7 +1578,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
             what = t.kind, current = t.current,
             site = moving?.site,
             siteChoices = moveSites,
-            moveShut = moveShut.orEmpty(),
+            // S5's own answer that it no longer holds the project shuts the row for this dialog (moveGone)
+            moveShut = moveGone?.invoke(tx) ?: moveShut.orEmpty(),
             moveWhy = moveWhy?.invoke(tx),
             moveTo = t.moveTo,
             onMoveEdit = { moveWhy = null },
@@ -1670,20 +1729,34 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 // made on a phone and uploaded through S5 has no docname and was never in a bootstrap,
                 // so it took the local branch below and was "removed from this phone" while S5 went on
                 // listing it. S5 has no delete for a project: such a row is refused, and says so.
-                val route = Deletes.route(tx, t.kind, t.serverId, t.serverKnown,
-                    onS5 = cat.onS5(masters, queue, t.kind, t.client, t.site, t.project))
+                // AND WHAT S5 ONCE LISTED IS ASKED OF S5 AGAIN, AT THIS DELETE (the review of F4): a row whose only tie
+                // to S5 is a key the phone still keeps, with no photo of it left here, has S5's list read for it first
+                // (ReadFirst) and goes only if that list no longer names it (Gone). And a bench docname with no live
+                // ERP pair is refused as the office's record instead of being sent out with a dead key.
+                val route = deleteRoute(t)
                 if (route is DeleteRoute.Blocked) {
                     deleteBlocker = route.reason
                     deleteFatal = true
                 } else if (route is DeleteRoute.LocalOnly) {
-                    cat.removeLocal(t.kind, t.client, t.site, t.project)
-                    reload()
-                    when (t.kind) {
-                        "site" -> { navSite = null; navProject = null }
-                        else -> navProject = null
+                    removeHere(t, emptyList())
+                } else if (route is DeleteRoute.Gone) {
+                    // never on the first asking (Gone needs a read); handled as what it says should it ever be
+                    removeHere(t, route.keys)
+                } else if (route is DeleteRoute.ReadFirst) {
+                    renameBusy = true
+                    scope.launch {
+                        // S5's list, read NOW, by the S5 session (S5Masters.listedNow): nothing is written by the read
+                        val listed = withContext(Dispatchers.IO) { S5Masters.listedNow(context) }
+                        renameBusy = false
+                        val go = deleteRoute(t, listed.first, listed.second)
+                        if (go is DeleteRoute.Gone) removeHere(t, go.keys)
+                        else if (go is DeleteRoute.LocalOnly) removeHere(t, emptyList())
+                        else {
+                            // still S5's, or the read proved nothing: refused, with the rule's own sentence
+                            deleteBlocker = (go as? DeleteRoute.Blocked)?.reason ?: tx.refuse_site_offline
+                            deleteFatal = true
+                        }
                     }
-                    lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }
-                    closeRename()
                 } else {
                     renameBusy = true
                     scope.launch(Dispatchers.IO) {
@@ -2508,6 +2581,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     WishList.keyOf(proj.serverId, proj.client, proj.title)))
                             },
                             onDetail = { showDetail = true },
+                            // THE VISIBLE WAY TO THE PROJECT'S DIALOG FROM INSIDE THE PROJECT (the review of F4): the
+                            // Site chip opens the SAME dialog the list's long press builds -- Rename, Site, Delete.
+                            // Since F4d a one-project site opens its project directly, so that list is not seen.
+                            onSite = { renaming = RenameTarget(
+                                "project", proj.title, proj.client, proj.site, proj.title,
+                                proj.serverId, serverKnown = !proj.local) },
                             album = albumTile)
                         site != null && client != null -> ProjectsScreen(
                             onRename = { p -> renaming = RenameTarget(
@@ -2844,6 +2923,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         // the delete were interrupted; the row first leaves an
                         // orphan file, which costs disk and nothing else.
                         val q = queue.firstOrNull { it.deviceId == cap.deviceId }
+                        // its project's S5 key and client are remembered before the row goes (S5Keys; the review of F4)
+                        S5Keys.learn(context, queue)
                         store.delete(cap.deviceId)
                         // a single photo's album op, not sent yet, goes with it from whichever login's outbox holds it,
                         // with its shot (port 61c slice K5); one already on S5 stays there (no delete on S5: Q4). AFTER

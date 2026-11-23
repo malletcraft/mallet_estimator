@@ -41,6 +41,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/PhaseStrip.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/QuoteStageSync.kt	1
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	1
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Keys.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	4
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Sites.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ScopeSheet.kt	0
@@ -87,6 +88,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Features.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/GestureClassifier.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/KeyBook.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LabelAngle.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Landing.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserChip.kt	0

@@ -718,6 +718,10 @@
  "app.msg.removed_phone_x_never": {
   "mr": "या फोनवरून काढले — {name} कधीच ऑफिस सिस्टमवर पोहोचले नव्हते."
  },
+ "app.msg.removed_phone_x_s5_gone": {
+  "mr": "Removed from this phone — S5 no longer lists {name}.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.msg.renamed_x": {
   "mr": "नवीन नाव: {n}"
  },
@@ -842,6 +846,10 @@
   "mr": "Not moved: pick another site, or type a new site's name.",
   "note": "port 63 F4c: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
+ "app.not_moved_site_has_project": {
+  "mr": "Not moved: that site already has a project with this name.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.not_on_web_x": {
   "mr": "वेबवर नाही: {why}"
  },
@@ -944,6 +952,10 @@
  "app.nothing_matches_x": {
   "mr": "“{q}” शी काहीही जुळत नाही."
  },
+ "app.nothing_moved_try_again": {
+  "mr": "Nothing moved: this phone could not change the project's row. Close this and try again.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.nothing_waiting": {
   "mr": "काहीही बाकी नाही"
  },
@@ -1006,6 +1018,10 @@
   "mr": "A photo of this project has not reached S5 yet — move it once it has; not moved",
   "note": "port 63 F4c: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
+ "app.project_exists_opened": {
+  "mr": "This client already has this project, so it was opened. No new one was made.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.project_exists_use_site": {
   "mr": "This client already has this project. To move it to the site you typed, tap Use this site.",
   "note": "port 63 F4d: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
@@ -1016,9 +1032,21 @@
  "app.project_is_at": {
   "mr": "प्रोजेक्टचा टप्पा"
  },
+ "app.project_not_listed_nothing_moved": {
+  "mr": "This project is no longer listed; nothing moved.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "app.project_office_record_removed": {
+  "mr": "This project is the office's record. It is removed at the office, not from this phone.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.project_office_record_renamed": {
   "mr": "This project is the office's record. It is renamed at the office, not from this phone.",
   "note": "port 63 F4b: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "app.project_s5_gone_site_shut": {
+  "mr": "S5 no longer holds this project, so its site cannot be changed from this phone. Nothing moved.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "app.project_s5_not_removed": {
   "mr": "This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed.",
@@ -1027,6 +1055,10 @@
  "app.project_s5_not_renamed": {
   "mr": "This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.",
   "note": "port 63 F4b: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "app.project_s5_photos_first": {
+  "mr": "Nothing was removed: this project has photos on this phone. Delete its photos first. It is then removed only if S5 does not hold it.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "app.project_site_not_changed_here": {
   "mr": "This project's site cannot be changed from this phone: S5 does not hold the project and it was not made here.",
@@ -1170,12 +1202,20 @@
  "app.site_not_renamed_here": {
   "mr": "या फोनवरून या साइटचे नाव बदलता येत नाही: ती S5 वर नाही आणि इथे बनवलेलीही नाही."
  },
+ "app.site_office_record_removed": {
+  "mr": "This site is the office's record. It is removed at the office, not from this phone.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.site_on_s5_so_new": {
   "mr": "ही साइट S5 वर आहे, त्यामुळे नवीन नाव तिथे सेव्ह होते आणि वेबवर व इतर प्रत्येक फोनवर पोहोचते. आधीच त्याखाली ठेवलेले फोटो जागीच राहतात — फक्त नाव बदलते."
  },
  "app.site_s5_not_removed": {
   "mr": "This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed.",
   "note": "port 63 F4b: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "app.site_s5_photos_first": {
+  "mr": "Nothing was removed: this site has photos on this phone. Delete its photos first. It is then removed only if S5 holds no project of it.",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "app.site_type": {
   "mr": "साइटचा प्रकार"
@@ -1186,6 +1226,10 @@
  },
  "app.site_url": {
   "mr": "साइट URL"
+ },
+ "app.site_x_open": {
+  "mr": "Site · {site} ▾",
+  "note": "port 63, the review of F4: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "app.sku_code_prefix_appears": {
   "mr": "त्याचा SKU कोड प्रीफिक्स इथे दिसतो."
