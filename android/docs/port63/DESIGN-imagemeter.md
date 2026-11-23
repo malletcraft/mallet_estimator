@@ -1349,10 +1349,12 @@ had no reader before are untouched). 1,931 keys; `mr-pending.tsv` 34 → 24 keys
 2. **`MeasureText.sidesSay` and its key went too** — the four-corner closing check's sentence (Q1), which carried the
    photo's `≈` figure and so cannot be said under §18. Q2 needs a sentence of its own for that check; none is written.
 3. **A locked item cannot be held, so its padlock is not in a row.** Unlocking is the long-press menu's Unlock (as the
-   held row needs a held item, Pick row 17). One tap more than 0.3.345 for a locked mark.
+   held row needs a held item, Pick row 17). One tap more than 0.3.345 for a locked mark. **Reversed by the review
+   (§22, finding 1): the picked item's row is drawn held or not, and a locked item's padlock is in it again.**
 4. **A double tap is still two taps** until I4 brings the zoom (Pick row 13 is built and not called).
 5. **A NEW capture's Save says the autosave's line**, not "writing its pictures…": it writes none (`SaveStay.saved(…,
-   pictures = false)`), and a line waiting for an answer that never comes would stay for ever.
+   pictures = false)`), and a line waiting for an answer that never comes would stay for ever. **Amended by the review
+   (§22, finding 2): it now says "Survey prep saved — the capture is filed when you go back".**
 6. **The haptics are played as pulses** (`Landing.pulses`: one light tick, two light ticks 140 ms apart, one strong
    buzz), because Compose's haptic API has only two kinds; the double is a second light tick, not a distinct effect.
 7. **The tests that pinned `:app` lines were moved, not loosened**: every source pin that named a deleted line now
@@ -1520,3 +1522,84 @@ answer it had; its tests are untouched but for one line (§21.5).
 
 No key is added, changed or deleted. P2's bar reuses the room screen's own four lines. `mr-pending.tsv` is
 unchanged, `unkeyed.tsv` stays empty, and the literal ratchet entered the two new files at 0.
+
+## 22. The review of I1 (23 Nov 2026)
+
+Two reviewers read slice I1 (`2b0f7bf` I1a, `4311e1e` I1c, `dc80b56` I1b) and reported six findings. (This is the
+section the review task calls "§20, The review of I1"; §20 was already I1b as built, so it is §22 here.) Each was
+checked in the code before anything was changed. **All six are CONFIRMED; none is declined.** One (finding 2) is fixed
+only in its minimal half, and the other half is said plainly below. `:pano` after the fixes: 108 test classes, 1,525
+tests, 0 failures (before: 107 and 1,518 — `OnFaceTest` back with its 4, and 3 new tests). `:app` is compiled only by
+CI; nothing has been seen on a phone.
+
+### 22.1 The findings, the verdicts and the fixes
+
+1. **The Mark sheet could not be opened for an item that cannot be held — CONFIRMED (major).** `Pick.row` answered null
+   unless the item was HELD, and `Pick.mayHold` is false for every mark at Estimation and Client approved, a surveyed
+   mark at the Wish list, Vendor review and Revisions, and every locked item; the long-press menu has no sheet row. So
+   at the Wish list a tapped surveyed window had no row, and its Mark sheet — the only place `→ Client wish` and the
+   acts are — could not be reached. 0.3.345 drew the picked mark's row for ANY picked mark ("the label stays, and still
+   opens its Mark sheet"). **Fixed:** `Pick.row` answers a row for any PICKED item; its nudges only while it is held
+   (`mark && held && mayHold` — only a held item moves); its padlock where the phase has one (`PhaseTools.lockOk`),
+   held or not. `StepRoute.underMark(toolRow, row, keypad)` (the parameter renamed from `held`) gains `Under.ROW`: the
+   picked item's row ALONE where the phase has no tool row (Estimation, Client approved), 48 dp in portrait, 34 in
+   landscape; `markPanel` draws the row for `HELD` and `ROW`. Tests: `PickTest` "a picked item that cannot be held
+   still has its row" (a surveyed window at the Wish list, every mark at Estimation and Client approved with
+   `Under.ROW`, a locked mark with its padlock); `OneStepTest` and `MeasureScreenTest` moved with it. **This reverses
+   §20.3 departure 3**: a locked item's padlock is in its row again, as in 0.3.345 (a tap on it is `Pick.locked`, row 17:
+   picked, not held).
+2. **A NEW capture's ✓ Save did nothing he could see and filed nothing until ← — CONFIRMED (major).** `SaveStay.bar`
+   answered the autosave's own line for a press that writes no pictures, so the bar read exactly as before the press.
+   **Fixed, minimally:** such a press is `SaveStay.Pictures.ON_LEAVE`, and the bar says **"Survey prep saved — the
+   capture is filed when you go back"** (`sp.msg.saved_filed_on_back`, a new key, English first and listed in
+   `mr-pending.tsv`) until the next change, then the autosave's line. `SaveStayTest` pins it. **NOT BUILT, AND SAID
+   PLAINLY: filing the capture on the first press.** P2 asks that every effect of a save happen on the press; on a new
+   capture the filing (`FaceWriter.commit` + `store.insert`), the upload and the pictures still wait for ←. Doing them
+   on the press means splitting `NewCaptureSurvey`'s `onKeep` — which files on a background coroutine and then clears
+   `pending`, closing the dialog — into a keep-once that stays, after which survey prep must switch to the KEPT flow
+   whose `onSaved` needs the capture's `CaptureStore` row (its `panoPath`, `deviceId`, `room`, `stage`) that exists only
+   once that coroutine has returned. Built blind (MainActivity is not even type-checked here), a wrong order files the
+   capture twice or rewrites pictures for a row not yet inserted. It is the next S2 change to make for P2, with
+   MainActivity under a compiler.
+3. **A read figure with no free spot became a 6 dp dot — CONFIRMED (minor).** In `DimLayout.lay` only `Rank.ACTIVE` was
+   forced onto a plate; a read figure on an unpicked mark (`Rank.MEASURED`) was the first to lose its number, and P3
+   now hands the layout every read figure of every mark. **Fixed:** on the one step (`slant`) a READ figure is never a
+   dot: with no free spot it steps further off on a longer leader (`farCands`: 3 to 6 plate heights out, at ½, ¼ and ¾
+   along, either side, turned along its line; a figure with no line 2 to 5 plate heights round its point), and with
+   none free there either it takes its first spot, as the gold one does. A read compact pair steps out the same way.
+   An unread `?` may still be a dot. Test: `DimLayoutTest` "a read figure is never a dot on the one step" — a door, a
+   window beside it, a second window over it and a point, every figure read, nothing picked, on the round canvas and
+   at the phone's numbers — red before the fix.
+4. **`OnFaceTest` was deleted though `SurveyPrep.onFace` and `placeMiss` are live — CONFIRMED (minor).** I1b mistook it
+   for a test of the deleted `MeasureFlow.onFace`. **Fixed:** restored unchanged (4 tests).
+5. **After Survey the picked mark still showed `?` that cannot be acted on — CONFIRMED (minor).** `PhotoFigures.ofMark`
+   had no stage. **Fixed:** `ofMark`, `onFace`, `layout`, `items`, `DimLayout.markShown` take `ask` (default true), and
+   `line`, `chainSeg`, `chainTotal` take `asks`; false, the picked item shows its READ figures only and no `?`. The
+   painter's `Marks` carries `ask`, which survey prep sets to `MeasureFlow.canRead(quoteStage)`. Test: `PhotoFiguresTest`
+   "after Survey the picked item asks nothing" at every stage past Survey, for a mark held and not, a Line and a chain.
+6. **A Line, Tape or chain picked but not held was named nowhere — CONFIRMED (minor).** **Fixed by finding 1's change:**
+   the picked item's row is drawn held or not, and for a Line, an area, a Tape or a chain it carries its code
+   (`PhotoFigures.nameOf`). Pinned in the new `PickTest` (a Line the walk reached has a row and is named `F-M1`).
+
+### 22.2 What this changes on the phone, against §20.1
+
+- Under the photo in 2 · Mark: the PICKED item's row (not only the held one's) over the tool row — so a mark the walk
+  reached keeps its row while he lasers along the wall, and the photo does not change height at the first reading; at
+  Estimation and Client approved the picked item's row stands alone.
+- The nudges are still only on a HELD mark; the row still has no value and no Delete.
+- After Survey no `?` is drawn anywhere.
+- On a crowded wall every reading is a number on the photo, some on longer leaders.
+- ✓ Save on a new capture says that it was saved and that ← files it.
+
+### 22.3 Texts
+
+One key added: `sp.msg.saved_filed_on_back` (English as its Marathi value, listed in `mr-pending.tsv`, now 25 keys).
+1,932 keys; `unkeyed.tsv` stays empty; Tx regenerated, the ratchet lowered nothing.
+
+### 22.4 Where to look first if CI's `:app` compile is red
+
+1. `SurveyPrepScreen.kt` `markPanel`: `StepRoute.underMark(toolRow, row = row != null, keypad = …)` (the named argument
+   is now `row`) and `under == StepRoute.Under.HELD || under == StepRoute.Under.ROW`.
+2. `SurveyPrepScreen.kt`, the editing photo's `SurveyPrepDraw.Marks(…, ring = ring, ask = MeasureFlow.canRead(quoteStage))`.
+3. `SurveyPrepDraw.kt`: the new last `Marks` field `ask: Boolean = true`, and
+   `PhotoFigures.layout(…, o.live, o.ready, ask = o.ask)`.

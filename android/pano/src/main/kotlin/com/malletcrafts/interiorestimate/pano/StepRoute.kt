@@ -182,10 +182,13 @@ object StepRoute {
     enum class Under {
         /** No tool row at all: Estimation and Client approved, where nothing is placed. */
         NOTHING,
-        /** The tool row alone: nothing held -- nothing picked, or a mark the walk reached. */
+        /** The tool row alone: nothing picked. */
         TOOLS,
-        /** The held item's row over the tool row (slice I1 only). */
+        /** The picked item's row over the tool row (slice I1 only) -- held or not (the review of I1, findings 1 and 6). */
         HELD,
+        /** The picked item's row ALONE, where the phase has no tool row (Estimation, Client approved): its label is the
+         *  way to its Mark sheet there (the review of I1, finding 1). */
+        ROW,
         /** The keypad, in the tool row's place -- and in the held item's row's place too. */
         KEYPAD,
     }
@@ -195,20 +198,22 @@ object StepRoute {
         Under.NOTHING -> 0
         Under.TOOLS -> toolRowDp(land)
         Under.HELD -> heldRowDp(land) + toolRowDp(land)
+        Under.ROW -> heldRowDp(land)
         Under.KEYPAD -> keypadDp(land)
     }
 
     /**
      * WHAT 2 · MARK STANDS UNDER THE PHOTO (DESIGN-imagemeter §2.3): the keypad while it is open -- it takes the tool
-     * row's place AND the held item's row's, so the photo never loses both; else the held item's row over the tool
-     * row while an item is [held]; else the tool row; and where the phase has no tool row ([toolRow] false:
-     * Estimation and Client approved, [PhaseTools.can] of the palette) nothing at all -- but for a keypad, which is
-     * never open there. NOTHING HERE SHOWS A MEASUREMENT: no bar, no figure box, no number.
+     * row's place AND the picked item's row's, so the photo never loses both; else the picked item's row ([row]:
+     * [Pick.row] answered one -- held or not) over the tool row; else the tool row; and where the phase has no tool row
+     * ([toolRow] false: Estimation and Client approved, [PhaseTools.can] of the palette) the picked item's row alone
+     * ([Under.ROW] -- its label opens its Mark sheet, the review of I1, finding 1), else nothing at all -- but for a
+     * keypad, which is never open there. NOTHING HERE SHOWS A MEASUREMENT: no bar, no figure box, no number.
      */
-    fun underMark(toolRow: Boolean, held: Boolean, keypad: Boolean): Under = when {
+    fun underMark(toolRow: Boolean, row: Boolean, keypad: Boolean): Under = when {
         keypad -> Under.KEYPAD
-        !toolRow -> Under.NOTHING
-        held -> Under.HELD
+        !toolRow -> if (row) Under.ROW else Under.NOTHING
+        row -> Under.HELD
         else -> Under.TOOLS
     }
 

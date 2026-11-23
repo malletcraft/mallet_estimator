@@ -164,6 +164,36 @@ class PhotoFiguresTest {
         assertEquals(setOf(MarkDims.State.MEASURED, MarkDims.State.UNKNOWN), fs.map { it.state }.toSet())
     }
 
+    @Test fun `after Survey the picked item asks nothing - its read figures only, no question mark, at every stage past Survey`() {
+        // the review of I1, finding 5: "not read is shown only where it can be acted on" (rule 2), and after Survey nothing
+        // can be read -- Pick.figure refuses a tap on it and Landing refuses every reading. So the painter passes
+        // ask = MeasureFlow.canRead(stage), and the picked mark, Line and chain show what was read and nothing else.
+        val p = wall(); p.actual["FW1.w"] = 912.0; p.actual["FW1.s"] = 900.0; p.actual["F-M1.len"] = 1000.0
+        val toPx = { x: Double, y: Double -> doubleArrayOf(x * 340 / W, 340 - y * 340 / H) }
+        val textW = { t: String, fs: Double, _: Boolean -> t.length * fs * 0.6 }
+        for (stage in listOf(PhaseTools.WISH_LIST, PhaseTools.VENDOR_REVIEW, PhaseTools.ESTIMATION, PhaseTools.REVISIONS, PhaseTools.APPROVED)) {
+            val ask = MeasureFlow.canRead(stage)
+            assertFalse(ask, "$stage keys no readings")
+            for (pick in listOf(State(W1, false, null), State(W1, true, null))) {
+                val fs = PhotoFigures.ofMark(Tx.EN, p.actual, "front", mark(p, W1), W, H, true, null, ask = ask)
+                assertEquals(listOf("FW1.w" to "912", "FW1.s" to "900"), texts(fs), "$stage")
+                assertTrue(fs.all { it.look == Look.READ }, "$stage")
+                val ms = PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW, ask = ask)
+                assertEquals(listOf("912", "900"), ms.first { it.id == W1 }.figs.map { it.text }, "$stage $pick")
+                assertTrue(ms.flatMap { it.figs }.none { "?" in it.text }, "$stage $pick: a question mark after Survey")
+            }
+            // a picked Line: its reading, never `?`; an unread picked Line and a picked chain show nothing at all
+            assertEquals("1000", PhotoFigures.line(p.measById("m1")!!.second, p.actual, State("m1", false, null), asks = ask).text)
+            assertEquals("", PhotoFigures.line(p.measById("m2")!!.second, p.actual, State("m2", false, null), asks = ask).text)
+            val c = p.chainById("k1")!!.second; val v = SurveyChain.vals(c, p.actual, W, H)
+            assertNull(PhotoFigures.chainSeg(c, v, 0, State("k1", false, null), asks = ask))
+            assertEquals("", PhotoFigures.chainTotal(c, v, State("k1", false, null), asks = ask).text)
+        }
+        // at Survey the same picked window asks, as before
+        assertTrue(MeasureFlow.canRead(PhaseTools.SURVEY))
+        assertEquals(listOf("912", "?", "?", "900", "⊥ ?"), PhotoFigures.ofMark(Tx.EN, p.actual, "front", mark(p, W1), W, H, true, null, ask = true).map { it.text })
+    }
+
     @Test fun `the one being measured is the gold plate - its glyph hollow until the laser is ready, the digits typed on it as they are typed`() {
         val p = wall()
         fun gold(live: String? = null, ready: Boolean = true) = figs(p, W1, true, "FW1.h", live, ready).first { it.code == "FW1.h" }

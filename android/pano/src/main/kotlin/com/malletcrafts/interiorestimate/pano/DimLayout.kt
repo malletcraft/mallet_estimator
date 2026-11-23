@@ -325,10 +325,11 @@ object DimLayout {
     fun markShown(tx: Tx, actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, a: Double, b: Double, picked: Boolean, held: Boolean,
                   gold: String?, toPx: (Double, Double) -> DoubleArray, u: Double, dp: Double,
                   textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null, free: Boolean = false,
-                  ready: Boolean = true): Mark {
+                  ready: Boolean = true, ask: Boolean = true): Mark {
         val pt = SurveyPrep.isPoint(e.t) || Quad.of(e) != null; val fs = textSize(picked, dp)
-        // WHICH figures, their texts and their looks are PhotoFigures' -- the one place rule 2 is written
-        val figs = PhotoFigures.ofMark(tx, actual, s, e, a, b, picked, gold, live, ready).map { f ->
+        // WHICH figures, their texts and their looks are PhotoFigures' -- the one place rule 2 is written ([ask]: the
+        // phase keys readings; false after Survey, where the picked mark shows no `?`)
+        val figs = PhotoFigures.ofMark(tx, actual, s, e, a, b, picked, gold, live, ready, ask).map { f ->
             val d = f.dim
             Fig(d.code, d.role, line(d, pt, toPx, LINE_FS_U * u, u), if (d.line) null else anchor(d, toPx),
                 plateW(textW(f.text + (if (f.check) MarkDims.CHECK_GLYPH else ""), fs, f.style.bold), dp), fs,
@@ -634,6 +635,38 @@ object DimLayout {
         return out
     }
 
+    /** How many plate heights further out a READ figure with no free spot may step on the one step ([farCands]). */
+    private const val FAR_STEPS = 4
+
+    /**
+     * WHERE A READ FIGURE MAY GO WHEN NOTHING [alongCands] OR [pointCands] OFFERED IS FREE (the review of I1, finding 3):
+     * further off its line, square to it, on a leader -- 3 to 3 + [FAR_STEPS] - 1 plate heights out, at ½, ¼ and ¾ along,
+     * either side, turned along its line as every plate is; a figure with no line steps 2 to 1 + [FAR_STEPS] plate
+     * heights above, below, right and left of its point, level, on a leader back to it.
+     */
+    private fun farCands(f: Fig, width: Double, height: Double, u: Double, dp: Double): List<Cand> {
+        val ph = plateH(f.fs, dp); val pw = f.w
+        val out = ArrayList<Cand>()
+        val ln = f.line
+        if (ln != null) {
+            val deg = turnOf(f); val across = LabelAngle.across(deg)
+            for (k in 3 until 3 + FAR_STEPS) for (t in doubleArrayOf(0.5, 0.25, 0.75)) for (sd in doubleArrayOf(1.0, -1.0)) {
+                val c = ln.at(t)
+                val r = turnedAt(c[0] + across[0] * sd * k * ph, c[1] + across[1] * sd * k * ph, pw, ph, deg, width, height, u)
+                val near = r.nearest(c[0], c[1])
+                out += cand(r, How.OFF_LINE, Seg(c[0], c[1], near[0], near[1]))
+            }
+            return out
+        }
+        val at = f.at ?: return out
+        for (k in 2 until 2 + FAR_STEPS) for ((dx, dy) in listOf(0.0 to -1.0, 0.0 to 1.0, 1.0 to 0.0, -1.0 to 0.0)) {
+            val r = turnedAt(at[0] + dx * (pw / 2 + k * ph), at[1] + dy * k * ph, pw, ph, LabelAngle.LEVEL, width, height, u)
+            val near = r.nearest(at[0], at[1])
+            out += cand(r, How.OFF_LINE, Seg(at[0], at[1], near[0], near[1]))
+        }
+        return out
+    }
+
     /** Where a figure with NO line may go on the one step: a mark's `p` as [chipCands] puts it; a Tape's, a Line's or
      *  a chain's figure that has none -- an area's perimeter, a chain's total -- centred on its point, then above it,
      *  below it, right of it and left of it, one plate height off. Level. */
@@ -792,7 +825,16 @@ object DimLayout {
                 val cands = listOf(
                     boxAt(b.r + g + cw / 2, cy, cw, ch, width, height, u), boxAt(b.l - g - cw / 2, cy, cw, ch, width, height, u),
                     boxAt(cx, b.t - g - ch / 2, cw, ch, width, height, u), boxAt(cx, b.b + g + ch / 2, cw, ch, width, height, u))
-                val whole = cands.firstOrNull { free(it) } ?: if (j.rank == Rank.ACTIVE) cands[0] else null
+                // A READ PAIR IS NEVER TWO DOTS on the one step (the review of I1, finding 3; P3, "all measurements ...
+                // always visible"): further out first, then the first spot even if it is not free -- as the gold one is
+                val whole = cands.firstOrNull { free(it) }
+                    ?: if (j.rank == Rank.ACTIVE) cands[0]
+                    else if (slant && j.figs.any { it.measured }) (1..FAR_STEPS).asSequence().flatMap { k ->
+                        val o = g + k * ch
+                        sequenceOf(boxAt(b.r + o + cw / 2, cy, cw, ch, width, height, u), boxAt(b.l - o - cw / 2, cy, cw, ch, width, height, u),
+                            boxAt(cx, b.t - o - ch / 2, cw, ch, width, height, u), boxAt(cx, b.b + o + ch / 2, cw, ch, width, height, u)) }
+                        .firstOrNull { free(it) } ?: cands[0]
+                    else null
                 if (whole == null) {
                     for (f in j.figs) dotOf(f, mk, true)
                     continue
@@ -810,7 +852,14 @@ object DimLayout {
             val tooShort = if (slant) shortAlong(f, dp) else short(f, dp)
             val cands = if (slant) { if (f.line != null) alongCands(mk, f, j.hand, width, height, u, dp) else pointCands(f, j.hand, width, height, u, dp) }
                         else if (f.line != null) lineCands(mk, f, j.hand, width, height, u, dp) else chipCands(f, j.hand, width, height, u, dp)
-            val c = cands.firstOrNull { freeC(it) } ?: if (j.rank == Rank.ACTIVE) cands.firstOrNull() else null
+            // A READ FIGURE IS NEVER A DOT on the one step (the review of I1, finding 3; P3, "i want to see all
+            // measurements in its units always visible"): with no free spot on or beside its line it steps further off on
+            // a longer leader ([farCands]), and with none there either it takes its first spot, free or not, as the gold
+            // one does -- a reading he took is a number on the photo, never a 6 dp dot. An unread `?` may still be one.
+            val c = cands.firstOrNull { freeC(it) }
+                ?: if (j.rank == Rank.ACTIVE) cands.firstOrNull()
+                else if (slant && f.measured) farCands(f, width, height, u, dp).firstOrNull { freeC(it) } ?: cands.firstOrNull()
+                else null
             if (c == null) { dotOf(f, mk, tooShort); continue }
             put(c.box, c.rect)
             val r = c.rect

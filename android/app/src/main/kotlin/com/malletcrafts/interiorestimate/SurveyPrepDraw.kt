@@ -244,6 +244,9 @@ internal object SurveyPrepDraw {
         val ready: Boolean = true,
         /** The reading key whose plate has just taken a reading: it rings gold for a second (Landing.RING_MS). */
         val ring: String? = null,
+        /** The phase keys readings (MeasureFlow.canRead): false after Survey, where the picked item shows its READ figures
+         *  only and no `?` -- nothing there can be read (the review of I1, finding 5; PhotoFigures.layout's `ask`). */
+        val ask: Boolean = true,
     )
 
     /**
@@ -927,7 +930,7 @@ internal object SurveyPrepDraw {
         val toPx: (Double, Double) -> DoubleArray = { x, y -> m(sq.x(x), sq.y(y)).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } }
         val textW: (String, Double, Boolean) -> Double = { t, fs, heavy -> pen(fs, heavy).measureText(t).toDouble() }
         val pk = o.pick ?: Pick.State(o.selId, false, o.active)
-        val laid = PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)
+        val laid = PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)
         val times = textW(TIMES, DimLayout.textSize(false, dp), false)
         val out = DimLayout.placeShown(laid, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)
         o.tags?.addAll(out.tags)

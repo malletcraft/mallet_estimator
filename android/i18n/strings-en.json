@@ -11860,6 +11860,16 @@
    "fragment"
   ]
  },
+ "sp.msg.saved_filed_on_back": {
+  "en": "Survey prep saved — the capture is filed when you go back",
+  "where": [
+   "S2 APK phone text · SaveStay.kt bar at 3c377c3+I1 review · Survey prep · ✓ Save saves and stays (port 63 slice I1, the review of I1, finding 2; DESIGN-imagemeter §21 P2): the top bar's saved state after ✓ Save on a NEW capture -- straight after the shutter -- which ← files · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.msg.saved_x_downloads": {
   "en": "Saved {file} to Downloads",
   "where": [

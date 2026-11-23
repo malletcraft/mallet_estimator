@@ -74,15 +74,16 @@ class OneStepTest {
 
     // ------------------------------------------------------------------ what stands under the photo
 
-    @Test fun `under the photo in 2 Mark - the tool row, the held item's row over it, or the keypad in their place - never a measurement`() {
-        assertEquals(Under.TOOLS, StepRoute.underMark(toolRow = true, held = false, keypad = false))
-        assertEquals(Under.HELD, StepRoute.underMark(toolRow = true, held = true, keypad = false))
-        // the keypad takes the tool row's place AND the held row's: the photo never loses both
-        assertEquals(Under.KEYPAD, StepRoute.underMark(toolRow = true, held = true, keypad = true)); assertEquals(Under.KEYPAD, StepRoute.underMark(true, false, true))
-        // Estimation and Client approved: no tool row at all, and nothing is held there
-        assertEquals(Under.NOTHING, StepRoute.underMark(toolRow = false, held = false, keypad = false)); assertEquals(Under.NOTHING, StepRoute.underMark(false, true, false))
-        // there are four things it can be, and none is a bar, a box or a list
-        assertEquals(listOf("NOTHING", "TOOLS", "HELD", "KEYPAD"), Under.values().map { it.name })
+    @Test fun `under the photo in 2 Mark - the tool row, the picked item's row over it, or the keypad in their place - never a measurement`() {
+        assertEquals(Under.TOOLS, StepRoute.underMark(toolRow = true, row = false, keypad = false))
+        assertEquals(Under.HELD, StepRoute.underMark(toolRow = true, row = true, keypad = false))
+        // the keypad takes the tool row's place AND the picked row's: the photo never loses both
+        assertEquals(Under.KEYPAD, StepRoute.underMark(toolRow = true, row = true, keypad = true)); assertEquals(Under.KEYPAD, StepRoute.underMark(true, false, true))
+        // Estimation and Client approved: no tool row at all -- the PICKED item's row alone (the review of I1, finding 1:
+        // its label is the way to its Mark sheet there), else nothing
+        assertEquals(Under.NOTHING, StepRoute.underMark(toolRow = false, row = false, keypad = false)); assertEquals(Under.ROW, StepRoute.underMark(false, true, false))
+        // there are five things it can be, and none is a bar, a box or a list
+        assertEquals(listOf("NOTHING", "TOOLS", "HELD", "ROW", "KEYPAD"), Under.values().map { it.name })
     }
 
     @Test fun `the photo's height in portrait - 514 with the row, 466 held, 388 with the keypad, 570 with no row`() {
@@ -103,8 +104,8 @@ class OneStepTest {
     @Test fun `in landscape everything 2 Mark can stand under the photo fits the column, and the photo keeps its height`() {
         assertEquals(212, StepRoute.landUnderDp())
         for (u in Under.values()) assertTrue(StepRoute.landFits(u), "$u: ${StepRoute.underDp(u, true)} dp")
-        assertEquals(listOf(0, 52, 86, 150), Under.values().map { StepRoute.underDp(it, true) })
-        assertEquals(listOf(0, 56, 104, 182), Under.values().map { StepRoute.underDp(it, false) })
+        assertEquals(listOf(0, 52, 86, 34, 150), Under.values().map { StepRoute.underDp(it, true) })
+        assertEquals(listOf(0, 56, 104, 48, 182), Under.values().map { StepRoute.underDp(it, false) })
         // the keypad and the tool row do NOT both fit under a held row there (150 + 52 + 34): which is why the keypad takes their place
         assertTrue(StepRoute.keypadDp(true) + StepRoute.toolRowDp(true) + StepRoute.heldRowDp(true) > StepRoute.landUnderDp())
     }

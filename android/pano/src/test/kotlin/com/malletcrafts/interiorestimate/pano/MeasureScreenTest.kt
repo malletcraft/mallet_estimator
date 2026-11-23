@@ -151,7 +151,7 @@ class MeasureScreenTest {
         val c = code(sps)
         val panel = body(c, "val markPanel: @Composable () -> Unit =")
         // what stands there is StepRoute's answer: the keypad, the held item's row over the tool row, the tool row, or nothing
-        assertEquals(1, count(panel, "val under = StepRoute.underMark(toolRow, held = row != null, keypad = padOpen && pick.gold != null)"))
+        assertEquals(1, count(panel, "val under = StepRoute.underMark(toolRow, row = row != null, keypad = padOpen && pick.gold != null)"))
         // none of it reads a reading, a figure, an estimate or the keypad's digits
         for (figure in listOf("prep.actual", "rowValue", "MarkDims", "MeasurePad.live", "SurveyChain.vals", "SurveyMeas.plen", "MeasureText",
             "PhotoFigures.ofMark", "padNow()"))
@@ -168,7 +168,9 @@ class MeasureScreenTest {
         val p = wall(); p.actual["FD1.w"] = 905.0
         for (st in listOf(Pick.NONE, State("d1", true, "FD1.h"), State("d1", false, "FD1.h"), State("m1", true, "F-M1.len"))) {
             val row = Pick.row(sc(p), st)
-            if (st.held) assertTrue(row != null, "$st: the held item has its row") else assertEquals(null, row, "$st: nothing held, no row")
+            // the PICKED item has its row, held or not (the review of I1, findings 1 and 6); nothing picked, none
+            if (st.picked != null) assertTrue(row != null, "$st: the picked item has its row") else assertEquals(null, row, "$st: nothing picked, no row")
+            if (row != null && !st.held) assertFalse(row.nudges, "$st: only a held item moves")
             val next = SurveyPrepPalette.nextSlot(Tx.EN, p, "front", st.gold, 0, StepRoute.MARK, ::ab)
             assertFalse(next.label.orEmpty().isEmpty() && next.shown, "$st")
         }
@@ -212,7 +214,7 @@ class MeasureScreenTest {
     @Test fun `no estimate reaches the editing photo or the 360 - the painter asks PhotoFigures and placeShown alone`() {
         val c = code(spd); val t = text(spd)
         val figs = body(c, "private fun figures(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float,")
-        assertEquals(1, count(figs, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)"))
+        assertEquals(1, count(figs, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)"))
         assertEquals(1, count(figs, "DimLayout.placeShown(laid, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)"))
         assertEquals(0, count(c, "DimLayout.mark("), "the old builder printed estimates"); assertEquals(0, count(c, "OldPlace"))
         assertEquals(1, count(c, "MarkDims.plate(f.state, f.active)"), "a plate's look is READ, ASK or GOLD")
@@ -246,7 +248,9 @@ class MeasureScreenTest {
         // picked, the unread ones are the quiet `?`; the screen hands the painter the pick as it is, never a scope
         val picked = PhotoFigures.ofMark(Tx.EN, p.actual, "front", p.markById("d1")!!.second, W, H, picked = true, gold = null)
         assertTrue(picked.any { it.look == PhotoFigures.Look.ASK && it.text == MarkDims.ASK_TEXT })
-        assertEquals(1, count(code(sps), "live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring), mm, u)"))
+        assertEquals(1, count(code(sps), "live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,"))
+        // ... and after Survey it asks nothing: the phase's own rule, never a `?` that cannot be acted on (the review of I1, finding 5)
+        assertEquals(1, count(code(sps), "ask = MeasureFlow.canRead(quoteStage)), mm, u)"))
     }
 
     @Test fun `a Line's label is the number alone - its code only on its row - and runs along a slanted Line`() {

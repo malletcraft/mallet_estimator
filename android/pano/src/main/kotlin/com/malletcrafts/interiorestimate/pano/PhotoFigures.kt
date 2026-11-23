@@ -74,16 +74,19 @@ object PhotoFigures {
      *    reading's own style and with no `!` -- nothing has been checked yet. A gold `⊥` chip carries its own name,
      *    in [tx]'s language, while it is gold: `▶⊥ reveal depth ?` ([MarkDims.figureText]);
      *  - a mark that is NOT IN THE ROOM ([MarkDims.asked] false: born a Client wish or Vendor added, or a Note): NONE,
-     *    picked or not (§18 rule 6).
+     *    picked or not (§18 rule 6);
+     *  - [ask] false -- the phase keys no readings ([MeasureFlow.canRead]: after Survey): the picked mark shows its READ
+     *    figures only, and no `?` -- "not read is shown only where it can be acted on" (rule 2), and nothing can be read
+     *    there (the review of I1, finding 5).
      */
     fun ofMark(tx: Tx, actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, a: Double, b: Double, picked: Boolean, gold: String?,
-               live: String? = null, ready: Boolean = true): List<Figure> {
+               live: String? = null, ready: Boolean = true, ask: Boolean = true): List<Figure> {
         if (!MarkDims.asked(e)) return emptyList()
         return MarkDims.of(s, e, a, b).mapNotNull { d ->
             val stored = MarkDims.read(actual, s, e, d, a, b)
             val on = d.code == gold
             val measured = stored.state == MarkDims.State.MEASURED
-            if (!(picked || on || measured)) return@mapNotNull null
+            if (!((picked && ask) || on || measured)) return@mapNotNull null
             val typing = on && !live.isNullOrEmpty()
             val v = if (typing) MarkDims.Value(live!!, MarkDims.State.MEASURED, false) else stored
             Figure(d, if (on) Look.GOLD else if (measured) Look.READ else Look.ASK, MarkDims.figureText(v, d.role, on, ready, d.what(tx)), v.check, measured, typing)
@@ -96,9 +99,9 @@ object PhotoFigures {
      * names, on whichever face that is.
      */
     fun onFace(tx: Tx, prep: SurveyPrep.Prep, s: String, a: Double, b: Double, pick: Pick.State, live: String? = null,
-               ready: Boolean = true): List<Pair<SurveyPrep.Mark, List<Figure>>> =
+               ready: Boolean = true, ask: Boolean = true): List<Pair<SurveyPrep.Mark, List<Figure>>> =
         (prep.surfaces[s]?.marks ?: emptyList<SurveyPrep.Mark>()).filter { !MarkLife.isNote(it) }
-            .map { e -> e to ofMark(tx, prep.actual, s, e, a, b, pick.picked == e.id, pick.gold, live, ready) }
+            .map { e -> e to ofMark(tx, prep.actual, s, e, a, b, pick.picked == e.id, pick.gold, live, ready, ask) }
 
     /**
      * THE FACE AS [DimLayout.placeShown] TAKES IT: every mark of [onFace] with ONLY the figures rule 2 shows, so an
@@ -109,14 +112,17 @@ object PhotoFigures {
      *
      * THEN EVERY TAPE, LINE, AREA AND CHAIN OF THE FACE ([items], port 63 slice I1c, P5), after the marks: their figures
      * are placed with the marks' plates, so no label lies on another, each turned along its own line.
+     *
+     * [ask]: the phase keys readings ([MeasureFlow.canRead]) -- false after Survey, where the picked item shows its READ
+     * figures only and no `?` anywhere (the review of I1, finding 5).
      */
     fun layout(tx: Tx, prep: SurveyPrep.Prep, s: String, a: Double, b: Double, pick: Pick.State, toPx: (Double, Double) -> DoubleArray,
                u: Double, dp: Double, textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null,
-               ready: Boolean = true, free: (SurveyPrep.Mark) -> Boolean = { false }): List<DimLayout.Mark> =
+               ready: Boolean = true, free: (SurveyPrep.Mark) -> Boolean = { false }, ask: Boolean = true): List<DimLayout.Mark> =
         (prep.surfaces[s]?.marks ?: emptyList<SurveyPrep.Mark>()).filter { !MarkLife.isNote(it) }.map { e ->
             val on = pick.picked == e.id
-            DimLayout.markShown(tx, prep.actual, s, e, a, b, on, on && pick.held, pick.gold, toPx, u, dp, textW, live, free(e), ready)
-        } + items(prep, s, a, b, pick, toPx, dp, textW, ready)
+            DimLayout.markShown(tx, prep.actual, s, e, a, b, on, on && pick.held, pick.gold, toPx, u, dp, textW, live, free(e), ready, ask)
+        } + items(prep, s, a, b, pick, toPx, dp, textW, ready, ask)
 
     /**
      * EVERY FIGURE OF THE FACE [s] THAT IS NOT A MARK'S, as [DimLayout.placeShown] takes it ([DimLayout.item]; port 63
@@ -129,12 +135,12 @@ object PhotoFigures {
      * A figure that shows nothing ("", or a chain segment with none) is not handed in: it costs the layout nothing.
      */
     fun items(prep: SurveyPrep.Prep, s: String, a: Double, b: Double, pick: Pick.State, toPx: (Double, Double) -> DoubleArray, dp: Double,
-              textW: (text: String, fs: Double, bold: Boolean) -> Double, ready: Boolean = true): List<DimLayout.Mark> {
+              textW: (text: String, fs: Double, bold: Boolean) -> Double, ready: Boolean = true, ask: Boolean = true): List<DimLayout.Mark> {
         val sf = prep.surfaces[s] ?: return emptyList()
         val out = ArrayList<DimLayout.Mark>()
         fun px(p: DoubleArray) = toPx(p[0], p[1])
         for (m in sf.meas) if ((m.kind == SurveyMeas.LINE || m.kind == SurveyMeas.AREA) && m.pts.isNotEmpty()) {
-            val t = line(m, prep.actual, pick, ready)
+            val t = line(m, prep.actual, pick, ready, ask)
             val key = SurveyMeas.key(m)
             val read = key != null && prep.actual[key] != null
             val (from, to) = if (m.kind == SurveyMeas.LINE && m.pts.size >= 2) px(m.pts.first()) to px(m.pts.last())
@@ -145,9 +151,9 @@ object PhotoFigures {
             DimLayout.item(m.id, null, tape(m), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)?.let { out += it }
         for (c in sf.chains) if (c.nodes.size >= 2) {
             val v = SurveyChain.vals(c, prep.actual, a, b)
-            for (i in 0 until c.nodes.size - 1) chainSeg(c, v, i, pick, ready)?.let { t ->
+            for (i in 0 until c.nodes.size - 1) chainSeg(c, v, i, pick, ready, ask)?.let { t ->
                 DimLayout.item(c.id, t.key, t.text, px(c.nodes[i]), px(c.nodes[i + 1]), pick.picked == c.id, t.gold, v.meas.getOrNull(i) != null, dp, textW)?.let { out += it } }
-            chainTotal(c, v, pick, ready).let { t ->
+            chainTotal(c, v, pick, ready, ask).let { t ->
                 DimLayout.item(c.id, t.key, t.text, px(c.nodes.last()), null, pick.picked == c.id, t.gold, v.src == SurveyChain.MEASURED || v.src == SurveyChain.LASER, dp, textW)?.let { out += it } }
         }
         return out
@@ -179,11 +185,12 @@ object PhotoFigures {
     /**
      * A PLOTTED LINE'S OR AREA'S FIGURE ON ITS FACE, THE NUMBER ALONE ([SurveyMeas.shownTag]; P4): `1240` once read --
      * whether or not it is picked; NOTHING until then; `?` while it is the picked item; `▶?` while its reading is the
-     * gold one. An area never shows its m². A TAPE answers an empty tag here: its own is [tape].
+     * gold one. An area never shows its m². A TAPE answers an empty tag here: its own is [tape]. [asks] false (after
+     * Survey): no `?`, the reading alone (the review of I1, finding 5).
      */
-    fun line(m: SurveyPrep.Meas, actual: Map<String, Double>, pick: Pick.State, ready: Boolean = true): Tag {
+    fun line(m: SurveyPrep.Meas, actual: Map<String, Double>, pick: Pick.State, ready: Boolean = true, asks: Boolean = true): Tag {
         val key = SurveyMeas.key(m) ?: return Tag("", null, false)
-        val read = actual[key]; val ask = pick.picked == m.id; val on = pick.gold == key
+        val read = actual[key]; val ask = asks && pick.picked == m.id; val on = pick.gold == key
         val t = SurveyMeas.shownTag(m.code, m.kind, read, ask || on)
         return Tag(glyph(on, ready) + t, key.takeIf { SurveyMeas.tagTaps(read, ask || on) }, on)
     }
@@ -203,23 +210,24 @@ object PhotoFigures {
     /**
      * SEGMENT [i] OF THE CHAIN [c] ON ITS FACE ([SurveyChain.segShown]): its reading, white; `?` while the chain is the
      * picked item; the gold glyph before it while it is the one being measured; NULL -- nothing drawn -- for an unread
-     * segment of a chain that is not picked. No derived figure and no photo figure. [v] is [SurveyChain.vals].
+     * segment of a chain that is not picked. No derived figure and no photo figure. [v] is [SurveyChain.vals]. [asks]
+     * false (after Survey): no `?` (the review of I1, finding 5).
      */
-    fun chainSeg(c: SurveyPrep.Chain, v: SurveyChain.Vals, i: Int, pick: Pick.State, ready: Boolean = true): Tag? {
+    fun chainSeg(c: SurveyPrep.Chain, v: SurveyChain.Vals, i: Int, pick: Pick.State, ready: Boolean = true, asks: Boolean = true): Tag? {
         val key = c.code + "." + (i + 1)
         val on = pick.gold == key
-        val (t, ink) = SurveyChain.segShown(v, i, pick.picked == c.id || on) ?: return null
+        val (t, ink) = SurveyChain.segShown(v, i, (asks && pick.picked == c.id) || on) ?: return null
         return Tag(glyph(on, ready) + t, key, on, ink)
     }
 
     /**
      * THE CHAIN'S TOTAL UNDER ITS LAST POINT ([SurveyChain.totalShown]; P4): `Σ 3310` read or where the laser gives it,
      * else nothing -- `Σ ?` while the chain is picked. It takes a tap under its key unless the laser gives it
-     * ([SurveyChain.totalReadOnly]) or it shows no figure and no `?`.
+     * ([SurveyChain.totalReadOnly]) or it shows no figure and no `?`. [asks] false (after Survey): no `Σ ?`.
      */
-    fun chainTotal(c: SurveyPrep.Chain, v: SurveyChain.Vals, pick: Pick.State, ready: Boolean = true): Tag {
+    fun chainTotal(c: SurveyPrep.Chain, v: SurveyChain.Vals, pick: Pick.State, ready: Boolean = true, asks: Boolean = true): Tag {
         val key = c.code + "." + SurveyChain.TOTAL
-        val on = pick.gold == key; val ask = pick.picked == c.id || on
+        val on = pick.gold == key; val ask = (asks && pick.picked == c.id) || on
         val taps = !SurveyChain.totalReadOnly(v) && (v.src == SurveyChain.MEASURED || ask)
         val t = SurveyChain.totalShown(v, ask)
         return Tag(if (t.isEmpty()) "" else glyph(on, ready) + t, key.takeIf { taps }, on, SurveyChain.totalColour(v))

@@ -415,22 +415,29 @@ object Pick {
     }
 
     /**
-     * THE HELD ITEM'S ROW, REDUCED TO WHAT MOVES IT (slice I1 only; slice I2 deletes it): [sheet] its label opens its
-     * Mark sheet, [nudges] it has the four nudges, [padlock] it has its padlock. NO VALUE AND NO DELETE: nothing
-     * under the photo shows a measurement, and nothing destructive stands over `▸`.
+     * THE PICKED ITEM'S ROW, REDUCED TO ITS NAME AND WHAT MOVES IT (slice I1 only; slice I2's chip and panel replace
+     * it): [sheet] its label opens its Mark sheet, [nudges] it has the four nudges, [padlock] it has its padlock. NO
+     * VALUE AND NO DELETE: nothing under the photo shows a measurement, and nothing destructive stands over `▸`.
      */
     class Row(val sheet: Boolean, val nudges: Boolean, val padlock: Boolean)
 
     /**
-     * The row of the held item, or null -- nothing is held, so nothing is drawn under the photo but the tool row. A
-     * MARK: its label (which opens its sheet), its nudges and its padlock. A TAPE, A LINE, AN AREA, A CHAIN: its code
-     * (a Line's and an area's opens the sheet: [MarkSheet.opens]) and its padlock. The padlock is the phase's
-     * ([PhaseTools.lockOk]).
+     * The row of the PICKED item, held or not, or null -- nothing is picked, so nothing is drawn under the photo but the
+     * tool row. A MARK: its label (which opens its sheet, at every stage: MarkSheet decides what may change in it), its
+     * nudges ONLY WHILE IT IS HELD (only a held item moves) and its padlock. A TAPE, A LINE, AN AREA, A CHAIN: its code
+     * -- the one place it is named, P4 -- (a Line's and an area's opens the sheet: [MarkSheet.opens]) and its padlock.
+     * The padlock is the phase's ([PhaseTools.lockOk]), held or not: a LOCKED item is picked and never held, and its
+     * padlock is how it is unlocked ([locked], row 17).
+     *
+     * PICKED, NOT ONLY HELD (the review of I1, findings 1 and 6): 0.3.345 drew the picked mark's row for ANY picked mark,
+     * and its label was the one way to its Mark sheet on a mark the phase holds read-only -- a surveyed mark at the Wish
+     * list (Existing → Client wish, its acts), any mark at Estimation and Client approved, a locked mark. And a Line, a
+     * Tape or a chain the walk reached is named nowhere else once its figure is the number alone.
      */
     fun row(sc: Scene, st: State): Row? {
-        val id = st.picked?.takeIf { st.held } ?: return null
+        val id = st.picked ?: return null
         val mark = sc.prep.markById(id) != null
         if (!mark && sc.prep.itemById(id) == null) return null
-        return Row(mark || MarkSheet.opens(sc.prep, id), mark, PhaseTools.lockOk(sc.prep, id, sc.stage))
+        return Row(mark || MarkSheet.opens(sc.prep, id), mark && st.held && mayHold(sc, id), PhaseTools.lockOk(sc.prep, id, sc.stage))
     }
 }

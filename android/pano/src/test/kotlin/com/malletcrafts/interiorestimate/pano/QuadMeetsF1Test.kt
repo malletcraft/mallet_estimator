@@ -354,7 +354,7 @@ class QuadMeetsF1Test {
         // the 360's tabs: the eight
         assertEquals(2, count(p3, "Pano360.tabsOf(e)")); assertEquals(2, count(p3, "tabsOf("))
         // the plates: PhotoFigures.layout with no `free` (port 63 slice I1b: it replaced DimLayout.mark in the painter)
-        assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)")); assertEquals(0, count(draw, "DimLayout.mark("))
+        assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)")); assertEquals(0, count(draw, "DimLayout.mark("))
         for (name in dir.list()!!.filter { it.endsWith(".kt") }) {
             val text = code(name)
             assertFalse(Regex("""\bQuad\.""").containsMatchIn(text), "$name names Quad")
@@ -391,7 +391,7 @@ class QuadMeetsF1Test {
                 "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())"),   // gains `free`
             "SurveyPrepDraw.kt" to listOf(
                 "val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->",                 // the hole is the shape's
-                "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)"))   // gains `free` (I1b)
+                "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)"))   // gains `free` (I1b)
         val sources = tests.listFiles()!!.filter { it.name.endsWith("Test.kt") }.associate { it.name.removeSuffix(".kt") to it.readText() }
         assertTrue(sources.size > 90, "the tests are where this test reads them")
         val named = mutableSetOf<String>()

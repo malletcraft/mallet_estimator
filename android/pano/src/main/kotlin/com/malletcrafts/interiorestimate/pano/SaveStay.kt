@@ -69,8 +69,9 @@ object SaveStay {
         else -> listOfNotNull(Effect.SAVE, Effect.UPLOAD.takeIf { readBack }, Effect.KEEP_SIZE, Effect.PICTURES)
     }
 
-    /** Where the last press's pictures are. */
-    enum class Pictures { NONE, WRITING, WRITTEN, NOT_WRITTEN }
+    /** Where the last press's pictures are. [ON_LEAVE]: a NEW capture's press -- its pictures, and its filing, are the
+     *  keep's, on ← ([Flow.NEW]). */
+    enum class Pictures { NONE, WRITING, WRITTEN, NOT_WRITTEN, ON_LEAVE }
 
     /**
      * WHAT SURVEY PREP REMEMBERS OF ITS LAST SAVE: the change count it saved ([at]: the screen's `dirty` then; null --
@@ -87,7 +88,7 @@ object SaveStay {
      *  unless [pictures] is false: a NEW capture's press writes none ([effects], [Flow.NEW]), its pictures being the
      *  keep's own. The press is the next [Mem.seq]. */
     fun saved(m: Mem, rev: Int, readBack: Boolean, pictures: Boolean = true): Mem =
-        Mem(rev, readBack, if (pictures) Pictures.WRITING else Pictures.NONE, 0, null, m.seq + 1)
+        Mem(rev, readBack, if (pictures) Pictures.WRITING else Pictures.ON_LEAVE, 0, null, m.seq + 1)
 
     /** Press [seq]'s pictures were written, [n] of them. An older press's answer changes nothing. */
     fun written(m: Mem, seq: Int, n: Int): Mem = if (seq != m.seq) m else m.copy(pictures = Pictures.WRITTEN, written = n, why = null)
@@ -109,9 +110,11 @@ object SaveStay {
         if (m.at == null || m.at != rev) return auto(tx)
         if (!m.readBack) return tx.sp_msg_not_saved_did_not
         return when (m.pictures) {
-            // a press that writes no pictures (a NEW capture's, [saved]): the save's own line is the autosave's -- "Saved
-            // ✓ 14:05" -- never "writing its pictures…", which would wait for ever
             Pictures.NONE -> auto(tx)
+            // A PRESS THAT WRITES NO PICTURES (a NEW capture's, [saved]) SAYS WHAT IT DID AND WHAT WAITS FOR ← (the review
+            // of I1, finding 2): the autosave's own "Saved ✓ 14:05" from before the press changed nothing he could see,
+            // and "writing its pictures…" would wait for ever
+            Pictures.ON_LEAVE -> tx.sp_msg_saved_filed_on_back
             Pictures.WRITING -> tx.app_msg_survey_prep_saved_writing
             Pictures.WRITTEN -> tx.app_msg_survey_prep_saved_x(m.written.toString())
             Pictures.NOT_WRITTEN -> tx.app_msg_survey_prep_saved_not_written_x(m.why ?: "")

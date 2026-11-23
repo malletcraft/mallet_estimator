@@ -1043,6 +1043,36 @@ class DimLayoutTest {
         }
     }
 
+    @Test fun `a read figure is never a dot on the one step - a crowded wall of read marks shows every reading as a number`() {
+        // the review of I1, finding 3; P3, Amit: "i want to see all measurements in its units always visible". A window and a
+        // door side by side, and a second window close over the door, EVERY figure each asks read -- size and position
+        // alike -- nothing picked: on the round canvas and at the phone's own numbers, not one reading is a dot.
+        val d = mk("D", 1, 150.0, 1050.0, 0.0, 2100.0)
+        val w = mk("W", 1, 1150.0, 2350.0, 900.0, 2100.0)
+        val w2 = mk("W", 2, 1150.0, 2350.0, 2200.0, 2600.0)
+        val e1 = mk("E", 1, 1075.0, 1125.0, 1000.0, 1050.0)
+        val els = listOf(d, w, w2, e1)
+        val read = els.flatMap { e -> MarkDims.of("front", e, W, H).map { it.code to (it.est ?: 120.0) } }.toMap()
+        assertTrue(read.keys.containsAll(listOf("FD1.w", "FD1.h", "FD1.l", "FW1.w", "FW1.h", "FW1.s")), read.keys.toString())
+        for ((r, what) in listOf(fit to "fit", phone to "phone")) {
+            val ms = r.shown(Pick.NONE, read, els)
+            assertEquals(read.size, ms.sumOf { it.figs.size }, "$what: every reading is handed in")
+            val out = r.placeShown(ms, r.keep(els))
+            assertEquals(read.keys, out.plates.map { it.code }.toSet(), "$what: every reading is placed")
+            val dots = out.plates.filter { it.dot }
+            assertTrue(dots.isEmpty(), "$what: read figures shown as dots: ${dots.map { it.code }}")
+            // and every plate is a number: no `?`, no estimate
+            assertTrue(out.plates.all { it.measured && "?" !in it.fig.text && "≈" !in it.fig.text && it.fig.text.any { c -> c.isDigit() } }, "$what: ${out.plates.map { it.fig.text }}")
+        }
+        // an UNREAD `?` of the picked mark may still be a dot where there is no room: the rule is for readings
+        val wallOff = listOf(Box(0.0, 0.0, SIZE, 149.0), Box(0.0, 151.0, SIZE, SIZE))
+        val q = DimLayout.placeShown(one(fig("A.0", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.UNMEASURED)), SIZE, SIZE, wallOff, U, DP, TIMES)
+        assertTrue(q.of("A.0")!!.dot)
+        // ... while a READ one boxed in the same way is still placed as a plate
+        val m = DimLayout.placeShown(one(fig("A.1", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.MEASURED, measured = true)), SIZE, SIZE, wallOff, U, DP, TIMES)
+        assertFalse(m.of("A.1")!!.dot)
+    }
+
     private companion object {
         /** How many of the example wall's 19 figures shrink to a dot with `all` on at fit, nothing picked: on the round
          *  canvas (340 px, 1 px a dp, 1 px a unit), and at the phone's own numbers (680 px, 2 px a dp, 680 / 480 px a unit). */

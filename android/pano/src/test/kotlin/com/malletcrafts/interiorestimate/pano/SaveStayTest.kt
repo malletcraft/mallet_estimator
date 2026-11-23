@@ -102,13 +102,17 @@ class SaveStayTest {
         }
     }
 
-    @Test fun `a NEW capture's press writes no pictures - its bar says the autosave's line, never writing its pictures for ever`() {
+    @Test fun `a NEW capture's press writes no pictures - its bar says it was saved and that back files it, never writing its pictures for ever`() {
         // port 63 slice I1b: the screen passes pictures = (PICTURES in effects), false on Flow.NEW, where the keep on back
-        // writes them; an answer that never comes must not leave "writing its pictures..." on the bar
+        // writes them; an answer that never comes must not leave "writing its pictures..." on the bar -- and (the review
+        // of I1, finding 2) the press must change what the bar says: the autosave's own line from before it said nothing
         assertFalse(Effect.PICTURES in SaveStay.effects(6, readBack = true, flow = SaveStay.Flow.NEW))
         val m = SaveStay.saved(SaveStay.OPENED, 4, readBack = true, pictures = false)
-        assertEquals(SaveStay.Pictures.NONE, m.pictures)
-        assertEquals("Saved ✓ 14:05", SaveStay.bar(Tx.EN, m, 4, auto)); assertFalse(SaveStay.changedSince(m, 4))
+        assertEquals(SaveStay.Pictures.ON_LEAVE, m.pictures)
+        assertEquals("Survey prep saved — the capture is filed when you go back", SaveStay.bar(Tx.EN, m, 4, auto)); assertFalse(SaveStay.changedSince(m, 4))
+        assertFalse(SaveStay.bar(Tx.EN, m, 4, auto) == auto(Tx.EN), "the press says something the autosave did not")
+        // until the next change: then the autosave's line again
+        assertEquals("Saved ✓ 14:05", SaveStay.bar(Tx.EN, m, 5, auto))
         assertEquals("Not saved: did not read back", SaveStay.bar(Tx.EN, SaveStay.saved(m, 5, readBack = false, pictures = false), 5, auto))
     }
 }

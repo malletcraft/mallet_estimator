@@ -557,14 +557,46 @@ class PickTest {
         assertTrue(Pick.trash(sc(p, 1), State(D2, true, null), toolArmed = false))
     }
 
+    @Test fun `a picked item that cannot be held still has its row - its label opens its Mark sheet at every stage`() {
+        // the review of I1, finding 1: 0.3.345 drew the picked mark's row for ANY picked mark, and its label was the one
+        // way to the Mark sheet's moves (Existing -> Client wish at the Wish list, the acts) on a mark the phase holds
+        // read-only. Each of these is picked by a tap on its body and NOT held -- and each has a row whose label opens it.
+        val p = wall()
+        // a SURVEYED window at the Wish list: not held (the Wish list edits only what was born a wish) ...
+        val ws = sc(p, PhaseTools.WISH_LIST)
+        val tapped = Pick.body(ws, Pick.NONE, W1).state
+        assertEquals(W1, tapped.picked); assertFalse(tapped.held)
+        Pick.row(ws, tapped)!!.let { assertTrue(it.sheet, "its label opens its sheet"); assertFalse(it.nudges); assertFalse(it.padlock, "an earlier phase's padlock is hidden") }
+        // ... and that sheet is where "-> Client wish" is: the move the stage is for
+        assertTrue(MarkLife.MOVE_TABLE.any { it.from == MarkLife.EXIST && it.to == MarkLife.WISH && PhaseTools.moveOk(it.from, it, PhaseTools.WISH_LIST) })
+        // EVERY mark at Estimation and at Client approved -- 2 · Mark is the view there, nothing is held
+        for (st in listOf(PhaseTools.ESTIMATION, PhaseTools.APPROVED)) for (id in listOf(D1, W1, D2, W2)) {
+            val s = sc(p, st); val t = Pick.body(s, Pick.NONE, id).state
+            assertFalse(t.held, "$id at $st"); Pick.row(s, t)!!.let { assertTrue(it.sheet, "$id at $st"); assertFalse(it.nudges, "$id at $st") }
+            // ... and with no tool row there, the row stands ALONE under the photo, not nothing
+            assertEquals(StepRoute.Under.ROW, StepRoute.underMark(PhaseTools.can(PhaseTools.Tool.PALETTE, st), row = true, keypad = false), "$st")
+        }
+        // a LOCKED mark at Survey: picked, never held -- its label opens its sheet, and its padlock unlocks it
+        lock(p, D1)
+        val lk = Pick.body(sc(p), Pick.NONE, D1).state
+        assertFalse(lk.held); Pick.row(sc(p), lk)!!.let { assertTrue(it.sheet); assertFalse(it.nudges); assertTrue(it.padlock) }
+        // a LINE the walk reached is named in its row (P4: its code is shown nowhere else)
+        val q = wall(); read(q, *WALL.takeWhile { it != "F-M1.len" }.toTypedArray())
+        val walked = Pick.next(sc(q), Pick.NONE, "front").state
+        assertEquals("m1", walked.picked); assertFalse(walked.held)
+        assertNotNull(Pick.row(sc(q), walked)); assertEquals("F-M1", PhotoFigures.nameOf(q, walked))
+    }
+
     @Test fun `the held item's row is what moves it - a label that opens its sheet, nudges, a padlock - no value and no Delete`() {
         val p = wall()
         Pick.row(sc(p), State(D1, true, "FD1.w"))!!.let { assertTrue(it.sheet); assertTrue(it.nudges); assertTrue(it.padlock) }
         // a Line's and an area's code opens the sheet; a Tape's and a chain's do not; none has nudges
         Pick.row(sc(p), State("m1", true, null))!!.let { assertTrue(it.sheet); assertFalse(it.nudges); assertTrue(it.padlock) }
         for (id in listOf("t1", "k1")) Pick.row(sc(p), State(id, true, null))!!.let { assertFalse(it.sheet, id); assertFalse(it.nudges, id); assertTrue(it.padlock, id) }
-        // nothing held: no row at all, so the photo keeps its height while he lasers along the wall
-        assertNull(Pick.row(sc(p), State(D1, false, "FD1.w"))); assertNull(Pick.row(sc(p), Pick.NONE))
+        // PICKED, NOT HELD (the review of I1, findings 1 and 6): still its row -- its label, which opens its sheet, and
+        // its padlock -- but NO nudges: only a held item moves. Nothing picked: no row at all.
+        Pick.row(sc(p), State(D1, false, "FD1.w"))!!.let { assertTrue(it.sheet); assertFalse(it.nudges); assertTrue(it.padlock) }
+        assertNull(Pick.row(sc(p), Pick.NONE)); assertNull(Pick.row(sc(p), State("no-such-id", false, null)))
         // the row has two things to say and neither is a figure or a delete: its class has no such field
         assertEquals(setOf("sheet", "nudges", "padlock"), Pick.Row::class.java.declaredFields.map { it.name }.toSet())
     }

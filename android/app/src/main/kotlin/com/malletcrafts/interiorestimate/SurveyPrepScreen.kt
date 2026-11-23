@@ -1907,21 +1907,24 @@ internal fun SurveyPrepDialog(
     // ---- under the photo in 2 · Mark and 3 · 360 (port 63 slice I1; DESIGN-imagemeter §2.1, §2.3, §14 I1). NOTHING HERE
     // SHOWS A MEASUREMENT -- no bar, no figure box, no number, no word about a dimension -- NOTHING HERE DELETES, and
     // nothing here fires the laser. What stands here is StepRoute.underMark's answer: the KEYPAD while it is open, in the
-    // tool row's place and the row's; else -- for this one build, slice I2 deletes it -- THE HELD ITEM'S ROW, reduced to
-    // what moves it (Pick.row: its label, which opens its Mark sheet, its nudges, its padlock), over the tool row; else
-    // the tool row alone; and where the phase has no tool row, nothing but that row.
+    // tool row's place and the row's; else -- for this one build, slice I2 deletes it -- THE PICKED ITEM'S ROW, held or
+    // not, reduced to its name and what moves it (Pick.row: its label, which opens its Mark sheet, its nudges while it is
+    // held, its padlock), over the tool row; else the tool row alone; and where the phase has no tool row, that row alone.
     val markPanel: @Composable () -> Unit = {
         rev    // read: the held item, its lock and the gold follow every change
         val toolRow = PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)
         val sl = selNow()?.takeIf { marking && it.s == tab && it.id != null }
         val row = if (sl != null) Pick.row(scene(), pick) else null
-        val under = StepRoute.underMark(toolRow, held = row != null, keypad = padOpen && pick.gold != null)
+        val under = StepRoute.underMark(toolRow, row = row != null, keypad = padOpen && pick.gold != null)
         if (under == StepRoute.Under.KEYPAD) {
             // THE KEYPAD (DESIGN-imagemeter §5): no display line -- the digits are on the gold plate. Next ▸ stores and
             // moves the gold on as a reading does; ⌄ stores and hides it.
             SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { nextFigure() }, onHide = { commitPad(); padOpen = false; rev++ })
         } else {
-            if (row != null && sl != null && under == StepRoute.Under.HELD) {
+            // the PICKED item's row, held or not (the review of I1, findings 1 and 6): its label is the way to its Mark
+            // sheet at every stage -- over the tool row, or alone where the phase has none (Under.ROW) -- and a Line's,
+            // a Tape's or a chain's code is named here and nowhere else (P4)
+            if (row != null && sl != null && (under == StepRoute.Under.HELD || under == StepRoute.Under.ROW)) {
                 val sm = prep.surface(tab).marks.firstOrNull { it.id == sl.id }
                 val sq = prep.surface(tab).meas.firstOrNull { it.id == sl.id }
                 val sk = prep.surface(tab).chains.firstOrNull { it.id == sl.id }
@@ -1958,7 +1961,7 @@ internal fun SurveyPrepDialog(
                         else Spacer(Modifier.weight(1f))
                         if (row.padlock) SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
                     } else {
-                        // A HELD TAPE, LINE, AREA OR CHAIN: its code -- a Line's and an area's opens its Mark sheet, for its
+                        // A PICKED TAPE, LINE, AREA OR CHAIN, held or not: its code -- a Line's and an area's opens its Mark sheet, for its
                         // trade and its note (slice L3); a Tape and a chain have none -- and its padlock. NO VALUE: its
                         // figure is on the photo and nowhere else.
                         // its NAME is its code (P4: an item's code is shown only where it is named, never on its line)
@@ -3329,7 +3332,9 @@ private fun SpPhoto(
                             ends = mode == StepRoute.MARK && !SurveyPrepPalette.armed(tool) && pick.held,
                             chain = chain?.takeIf { it.s == tab }, frame = frame,
                             tabs = mode == StepRoute.MARK && pick.held,
-                            live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring), mm, u)
+                            live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,
+                            // after Survey nothing is read here, so the picked item asks nothing: no `?` (the review of I1, finding 5)
+                            ask = MeasureFlow.canRead(quoteStage)), mm, u)
                     }
                 }
                 tags.clear()
