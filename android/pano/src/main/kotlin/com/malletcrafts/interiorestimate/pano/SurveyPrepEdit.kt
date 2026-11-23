@@ -352,17 +352,21 @@ object SurveyPrepEdit {
      * is not in the room would leave the office as a surveyed one (DESIGN-port62 Q-list 8).
      *
      * AND NO DUPLICATE ON A CHAIN WHILE [chains] IS OFF (port 63 slice F1; [Features.CHAINS], through
-     * [PhaseTools.copyOk]): a copy of a chain is a new chain, and none can be made. The switch is the DEFAULT of the
-     * last parameter but one; [shape] (port 63 slice Q1, off by default) is the last, and each is named where it is given.
+     * [PhaseTools.copyOk]): a copy of a chain is a new chain, and none can be made. The switch is the DEFAULT of its
+     * parameter; [shape] (port 63 slice Q1, off by default) follows it, and each is named where it is given.
+     *
+     * NOR ON A TAPE WHILE [tapes] IS OFF (port 63 slice F3; [Features.TAPES], through [PhaseTools.copyOk]): a copy of a
+     * Tape is a new Tape. The switch is the DEFAULT of the last parameter.
      */
     fun menuItemsOf(
         tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false,
+        tapes: Boolean = Features.TAPES,
     ): List<Pair<String, String>> {
         val cut = menuItemsOf(tx, p, id).filter { (k, _) ->
             when (k) {
                 DELETE -> PhaseTools.delOk(p, id, stage)
                 LOCK -> PhaseTools.lockOk(p, id, stage)
-                DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains)
+                DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains, tapes)
                 LOCK_ALL -> PhaseTools.editable(p, id, stage)
                 else -> true
             }

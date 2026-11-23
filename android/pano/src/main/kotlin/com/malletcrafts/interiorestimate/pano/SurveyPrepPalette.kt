@@ -26,6 +26,11 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * Chain is still one of the drawing [TOOLS] -- its key is never a mark type -- and its code is all kept: one line in
  * Features brings the slot back.
  *
+ * AND THE TAPE'S SLOT IS GONE TOO (port 63 slice F3, 23 Nov 2026; Amit, with build 0.3.350 on his phone: "does tape tool
+ * make any sense now? as we don't want any foto measured dimensions on fone."): while [Features.TAPES] is off [offered]
+ * is the Line alone, and the row Line, three types, More ▸ and `▸` -- SIX slots, each a sixth of the row. The Tape is
+ * still one of the drawing [TOOLS], with its code all kept; a room that already has one keeps it.
+ *
  * Pure, so the slots, the More order, the labels and the sticky rule are tested here; SpPalette only draws.
  */
 object SurveyPrepPalette {
@@ -47,11 +52,14 @@ object SurveyPrepPalette {
     val TOOLS: List<String> = listOf(TAPE, LINE, CHAIN)
 
     /**
-     * THE DRAWING TOOLS THE PALETTE OFFERS, in its order: Tape and Line -- and the Chain only while [chains] is on
-     * (port 63 slice F1; [Features.CHAINS], off: Amit, 16 Nov 2026, "chain mark is rarely used. get rid of it."). The
-     * switch is the DEFAULT of the last parameter, so both sides stay tested whichever way it stands.
+     * THE DRAWING TOOLS THE PALETTE OFFERS, in its order: the Line -- the Chain only while [chains] is on (port 63
+     * slice F1; [Features.CHAINS], off: Amit, 16 Nov 2026, "chain mark is rarely used. get rid of it.") and THE TAPE
+     * ONLY WHILE [tapes] IS ON (port 63 slice F3; [Features.TAPES], off: Amit, 23 Nov 2026, "does tape tool make any
+     * sense now? as we don't want any foto measured dimensions on fone."). Each switch is the DEFAULT of its
+     * parameter, so both sides of each stay tested whichever way it stands.
      */
-    fun offered(chains: Boolean = Features.CHAINS): List<String> = if (chains) TOOLS else TOOLS - CHAIN
+    fun offered(chains: Boolean = Features.CHAINS, tapes: Boolean = Features.TAPES): List<String> =
+        TOOLS.filter { (it != CHAIN || chains) && (it != TAPE || tapes) }
 
     /** Tape or Line -- the two that pull a figure by a drag (SurveyMeas); the Chain is tapped point by point. */
     fun isMeasTool(tool: String) = tool == TAPE || tool == LINE
@@ -311,10 +319,11 @@ object SurveyPrepPalette {
     const val NEXT_GLYPH = "▸" // text:value the next-figure glyph, the same in every language
 
     /**
-     * THE ROW UNDER THE PHOTO FROM SLICE I1 UNTIL I3, left to right: the drawing [tools] it offers ([offered]: Tape,
-     * Line), the three types, More ▸, and `▸` LAST -- seven equal slots, where today's row is Select and six. `▸` is
-     * ALWAYS a slot of the row: when it is not drawn ([nextSlot]) its place stays empty and no other slot moves.
-     * Nothing in the row fires the laser and nothing in it deletes.
+     * THE ROW UNDER THE PHOTO FROM SLICE I1 UNTIL I3, left to right: the drawing [tools] it offers ([offered]: the
+     * Line -- and the Tape and the Chain while their switches are on), the three types, More ▸, and `▸` LAST -- SIX
+     * equal slots with both switches off (seven with the Tape, eight with the Chain too), each the same share of the
+     * row, so nothing is left where a slot stood. `▸` is ALWAYS a slot of the row: when it is not drawn ([nextSlot])
+     * its place stays empty and no other slot moves. Nothing in the row fires the laser and nothing in it deletes.
      */
     fun row(kind: String, tools: List<String> = offered()): List<RowSlot> {
         val p = paletteFor(kind)

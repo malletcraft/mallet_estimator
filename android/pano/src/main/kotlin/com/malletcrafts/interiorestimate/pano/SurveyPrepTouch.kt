@@ -129,6 +129,10 @@ object SurveyPrepTouch {
          *  slides up ([Pick.options], row 7). Where it stands is [codeChip]; it is the picked item's, whichever that
          *  is ([Pick.State.picked]), so it carries no id -- as [Body] carries none. */
         object Code : Hit()
+        /** THE PANEL'S GRIP AT THE FOOT OF THE PHOTO PANE (port 63 slice F3a; [PanelGrip]; DESIGN-imagemeter §24): a tap
+         *  on it opens the picked item's panel exactly as a tap on its code chip does ([Pick.options], row 7), and so
+         *  does a pull up from it ([PanelGrip.press]). The picked item's, so it carries no id -- as [Code] carries none. */
+        object Grip : Hit()
     }
 
     /** A chain's points as drawn: its id and each point on the canvas, px (v52 slice 11). */
@@ -172,16 +176,29 @@ object SurveyPrepTouch {
      * [codeChip] never puts the chip within their reach -- and IT BEATS A FIGURE AND A BODY: a tag under the same finger
      * (step 3), the picked Tape's band (step 4) and every mark (step 5), the picked SPOT's own middle included, which is
      * its body and no handle. Null, which is what every caller before slice I2 hands, changes nothing in this order.
+     *
+     * THE PANEL'S GRIP ([grip]: its touch box as [PanelGrip.at] placed it, or null -- none is shown; port 63 slice F3a,
+     * DESIGN-imagemeter §24): WHERE THE CHIP IS IN THIS ORDER, AND BEFORE IT -- after the handles (steps 1 and 2: the
+     * held mark's tabs or corners, a held chain's points), before everything else. IT BEATS A FIGURE, A BODY AND AN
+     * EMPTY TAP inside its box: a tag (step 3), the picked Tape's band (step 4), every mark (step 5) -- the picked
+     * spot's own middle included -- and the nothing a press on bare photo is, which would otherwise let the pick go.
+     * A HANDLE OF THE HELD ITEM NEVER LIES UNDER IT: [PanelGrip.at] keeps its box [PanelGrip.CLEAR_DP] (16 dp, this
+     * order's `tol`) from every one of them, and `< tol` is the reach a handle is pressed within -- so the two never
+     * compete; were a caller to hand a grip on a handle all the same, the handle keeps the press, as it keeps it from
+     * the chip. The chip and the grip never overlap either ([PanelGrip.at] is handed the chip's tap box). Null, which
+     * is what every caller before slice F3b hands, changes nothing in this order.
      */
     fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16,
-            nodes: List<Nodes> = emptyList(), nodeR: Double = tol, body: Boolean = false, chip: Box? = null): Hit? {
+            nodes: List<Nodes> = emptyList(), nodeR: Double = tol, body: Boolean = false, chip: Box? = null, grip: Box? = null): Hit? {
         val under = tags.filter { it.box.contains(x, y) }.minByOrNull { it.box.centreDist(x, y) }
         val onChip = chip != null && chip.contains(x, y)
+        val onGrip = grip != null && grip.contains(x, y)
         val sel = selId?.let { id -> marks.lastOrNull { it.id == id } }
         if (sel != null) {
             val sp = sel.spot
             if (sp != null) {
-                // a spot has no handle: a press round its middle is its BODY, and the chip beats a body
+                // a spot has no handle: a press round its middle is its BODY, and the grip and the chip beat a body
+                if (onGrip) return Hit.Grip
                 if (onChip) return Hit.Code
                 val d = hypot(x - sel.cx, y - sel.cy)
                 if (d <= spotReachPicked(sp, dp) && tabOrTag(d, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, "body")
@@ -191,6 +208,7 @@ object SurveyPrepTouch {
             }
         }
         SurveyChain.nodeAt(nodes.map { it.id to it.pts }, x, y, nodeR)?.let { (id, i) -> return Hit.Node(id, i) }
+        if (onGrip) return Hit.Grip
         if (onChip) return Hit.Code
         if (under != null) return Hit.Tag(under.code)
         if (body) return Hit.Body

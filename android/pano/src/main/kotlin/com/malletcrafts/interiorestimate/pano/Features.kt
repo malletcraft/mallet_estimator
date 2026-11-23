@@ -104,4 +104,40 @@ object Features {
      * tours once Amit has approved the journey drops the word.
      */
     const val CHAINS: Boolean = false
+
+    /**
+     * THE TAPE TOOL IS OFF (Amit, 23 Nov 2026, ~22:00 IST, with build 0.3.350 on his phone: "does tape tool make any
+     * sense now? as we don't want any foto measured dimensions on fone."; port 63 slice F3). A Tape's figure IS what the
+     * photo says -- that was the tool -- so it has no place on a phone that shows no figure nobody measured
+     * (DESIGN-imagemeter §18, whose rule 4 kept the Tape "until he rules"; he has now asked, and the answer here is
+     * CLAUDE'S, to be turned round by this one line: §24). A length the surveyor wants is a Line, which takes a reading.
+     *
+     * What it hides, each at its entry (FeaturesTest pins every one; every rule is a pure function of :pano that takes
+     * this constant as the default of its last parameter, and :app asks them with no answer of its own):
+     *  - NO WAY TO LAY A NEW TAPE: [SurveyPrepPalette.offered] leaves the Tape out, so 2 · Mark's row is Line, three
+     *    types, More ▸ and `▸` -- six slots sharing the width ([SurveyPrepPalette.row]); More ▸ lists mark types only
+     *    and never held it; [PhaseTools.toolFor] answers Select for the Tape's key, whatever was last picked, so on
+     *    2 · Mark and on 3 · 360 no drag pulls one, no chip names one and none of the words of pulling one is said; and
+     *    Duplicate on a Tape is refused and its act not drawn ([PhaseTools.copyOk], [SurveyPrepEdit.menuItemsOf],
+     *    [MarkSheet.acts]) -- a copy of a Tape is a new Tape;
+     *  - NOTHING MEASURED FROM THE PHOTO IS DRAWN ON A TAPE A ROOM ALREADY HAS, on the screen's own painters -- the
+     *    editing photo and the 360: no length figure ([PhotoFigures.tape], [SurveyMeas.tapeFigure]: nothing is handed
+     *    to the figures' layout, [PhotoFigures.items]) and no graduations ([SurveyMeas.ticksOf]: a tick every 100 mm
+     *    and "500", "1000" beside it are the photo's figures as much as the length is). What is left is its plain
+     *    band; its code is where every picked item's is, on its chip.
+     *
+     * What it does NOT touch -- A ROOM THAT ALREADY HAS A TAPE KEEPS IT. The file reads and writes it unchanged
+     * (SurveyPrepFile); it is drawn; a tap picks it; it moves by its band and by its ends, and under Fine move's pad;
+     * its panel opens (Lock, Lock all, Fine move, Delete); it locks; it is DELETED, and one ↶ brings it back. Nothing
+     * is deleted from the code: SurveyMeas' Tape, its drag, its ticks, its tag, its icon and its texts are all still
+     * there, compiled on every build, and reached again by the ONE line here.
+     *
+     * NOT CHANGED BY THIS SWITCH: a SAVED PICTURE'S old painter (the `dims` mode of drawMeas: band, graduations and
+     * "F-T1 1234 mm", [SurveyMeas.tapeTicks] and [SurveyMeas.tapeTag] as they were) -- it goes with the saved pictures'
+     * own slice, M3 ("Measured figures only"); and S5, which draws a Tape's band and its photo length for the office.
+     *
+     * STILL WRITTEN, AND NOT SHOWN: the guided tours' flow `existing` lists the palette as "Select, Tape, Line, Chain,
+     * …" (tour.existing.1.body). The tours are off ([HELP_TOURS]) and that flow never shipped.
+     */
+    const val TAPES: Boolean = false
 }

@@ -2945,8 +2945,10 @@ private fun SpPhoto(
         is SurveyPrepTouch.Hit.Mark -> h.id
         is SurveyPrepTouch.Hit.Node -> h.id
         is SurveyPrepTouch.Hit.Body -> pickS.picked
-        // the picked item's code chip: the picked item's -- a long press on it is a long press on the item
-        is SurveyPrepTouch.Hit.Code -> pickS.picked
+        // the picked item's code chip: the picked item's -- a long press on it is a long press on the item; and the
+        // panel's grip at the photo's foot is the picked item's too (PanelGrip; port 63 slice F3a: nothing hands
+        // SurveyPrepTouch.hit a grip yet, so this branch is the sealed class's and cannot be reached until F3b)
+        is SurveyPrepTouch.Hit.Code, is SurveyPrepTouch.Hit.Grip -> pickS.picked
         is SurveyPrepTouch.Hit.Tag -> prepS.ownerOf(h.code)?.id
         null -> line
     }
@@ -2961,8 +2963,9 @@ private fun SpPhoto(
     fun markGrab(h: SurveyPrepTouch.Hit?, sx: Float, sy: Float): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         return when (h) {
-            // a press on the code chip grabs nothing, as one on a figure: a drag from it pans
-            null, is SurveyPrepTouch.Hit.Tag, is SurveyPrepTouch.Hit.Code -> null
+            // a press on the code chip grabs nothing, as one on a figure: a drag from it pans -- and one on the panel's
+            // grip grabs no item either (port 63 slice F3a: the sealed class's branch, unreachable until F3b hands a grip)
+            null, is SurveyPrepTouch.Hit.Tag, is SurveyPrepTouch.Hit.Code, is SurveyPrepTouch.Hit.Grip -> null
             is SurveyPrepTouch.Hit.Body -> bodyGrab(sx, sy)
             is SurveyPrepTouch.Hit.Node -> if (Pick.handles(pickS, h.id)) nodeGrab(h.id, h.i) else null
             is SurveyPrepTouch.Hit.Mark -> {

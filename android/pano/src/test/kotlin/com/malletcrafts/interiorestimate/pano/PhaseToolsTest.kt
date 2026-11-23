@@ -536,8 +536,16 @@ class PhaseToolsTest {
         for (st in STAGES) for (m in StepRoute.ROUTE) for (mk in listOf(true, false))
             assertTrue(PhaseTools.routeMode(m, st) { mk } in PhaseTools.routeSteps(st), "$m at $st")
         // the tool: a type, a Tape, a Line and a Chain all go back to Select where there is no palette
-        for (t in listOf("W", "E", "T", "M")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it) }, t)
-        for (t in listOf("W", "E", "T", "M", "K")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it, chains = true) }, t)
+        // (port 63 slice F3a moved "T" out of the first list: the Tape has its own switch now, off -- with both switches
+        // named ON, every tool follows the phase as it did)
+        for (t in listOf("W", "E", "M")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it) }, t)
+        for (t in listOf("W", "E", "T", "M", "K")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it, chains = true, tapes = true) }, t)
+        // THE TAPE TOOL IS NEVER ON WHILE ITS SWITCH IS OFF (port 63 slice F3; Features.TAPES): at every stage it is
+        // Select, whatever was picked -- and the default of the rule IS the switch
+        assertEquals(List(7) { "sel" }, STAGES.map { PhaseTools.toolFor("T", it, tapes = false) })
+        assertEquals(STAGES.map { PhaseTools.toolFor("T", it, tapes = Features.TAPES) }, STAGES.map { PhaseTools.toolFor("T", it) })
+        for (t in listOf("W", "E", "M", "K", "sel")) for (st in STAGES) for (ch in listOf(true, false))
+            assertEquals(PhaseTools.toolFor(t, st, chains = ch, tapes = true), PhaseTools.toolFor(t, st, chains = ch, tapes = false), "$t at $st: the switch moves the Tape alone")
         assertEquals(List(7) { "sel" }, STAGES.map { PhaseTools.toolFor("sel", it) })
         // THE CHAIN TOOL IS NEVER ON WHILE THE SWITCH IS OFF (port 63 slice F1; Features.CHAINS): at every stage it is
         // Select, whatever was picked -- and the default of the rule IS the switch

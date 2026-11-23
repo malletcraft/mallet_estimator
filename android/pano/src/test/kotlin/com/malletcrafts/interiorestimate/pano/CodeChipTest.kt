@@ -313,7 +313,8 @@ class CodeChipTest {
         val tags = listOf(SurveyPrepTouch.Tag("FW1.w", box(175.0, 160.0, 215.0, 192.0)), SurveyPrepTouch.Tag("FD1.h", box(142.0, 280.0, 174.0, 330.0)))
         val c = assertNotNull(chip(bb, lift = 40 * dp))
         fun said(h: Hit?): String = when (h) {
-            null -> "-"; is Hit.Code -> "code"; is Hit.Tag -> "tag ${h.code}"; is Hit.Body -> "body"
+            // (Hit.Grip, port 63 slice F3a: the sealed class's new case -- no call here hands `hit` a grip, so none is said)
+            null -> "-"; is Hit.Code -> "code"; is Hit.Grip -> "grip"; is Hit.Tag -> "tag ${h.code}"; is Hit.Body -> "body"
             is Hit.Mark -> "mark ${h.id} ${h.part}"; is Hit.Node -> "node ${h.id} ${h.i}"
         }
         var on = 0; var off = 0

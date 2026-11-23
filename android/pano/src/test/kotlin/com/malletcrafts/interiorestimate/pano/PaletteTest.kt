@@ -72,16 +72,20 @@ class PaletteTest {
     @Test fun `F1 - the chain tool is gone - seven slots, no Chain on the palette, in More or on any chip, and nothing left where it stood`() {
         // Amit, 16 Nov 2026, with build 0.3.337 on his phone: "chain mark is rarely used. get rid of it."
         assertFalse(Features.CHAINS, "Features.CHAINS is on: the palette draws the Chain's slot again")
-        // WHAT THE PALETTE OFFERS: Tape and Line -- and its default IS the switch
-        assertEquals(listOf("T", "M"), SurveyPrepPalette.offered(chains = false))
-        assertEquals(listOf("T", "M", "K"), SurveyPrepPalette.offered(chains = true))
+        // WHAT THE PALETTE OFFERS: Tape and Line -- and its default IS the switch.
+        // (Port 63 slice F3a moved this test's rows: the Tape tool has a switch of its own now, Features.TAPES, off. What
+        // F1 took away -- the Chain, and nothing else -- is shown here WITH THE TAPE'S SWITCH ON, `offered(tapes = true)`,
+        // so the seven slots F1 left are still pinned; the six the phone draws with both off are the next test's.)
+        assertEquals(listOf("T", "M"), SurveyPrepPalette.offered(chains = false, tapes = true))
+        assertEquals(listOf("T", "M", "K"), SurveyPrepPalette.offered(chains = true, tapes = true))
         assertEquals(SurveyPrepPalette.offered(chains = Features.CHAINS), SurveyPrepPalette.offered())
-        // THE ROW AS DRAWN (port 63 slice I1b): Tape · Line · three types · More ▸ · `▸` -- seven, on every kind of surface
-        assertEquals("Tape|Line|Window|Door|Electric|More ▸|▸", names(SurveyPrepPalette.row("wall")))
-        assertEquals("Tape|Line|Column|Step|Electric|More ▸|▸", names(SurveyPrepPalette.row("floor"), "floor"))
-        assertEquals("Tape|Line|Beam|Electric|Bulb|More ▸|▸", names(SurveyPrepPalette.row("ceil"), "ceil"))
+        val withTape = SurveyPrepPalette.offered(chains = false, tapes = true)
+        // THE ROW F1 LEFT (port 63 slice I1b): Tape · Line · three types · More ▸ · `▸` -- seven, on every kind of surface
+        assertEquals("Tape|Line|Window|Door|Electric|More ▸|▸", names(SurveyPrepPalette.row("wall", withTape)))
+        assertEquals("Tape|Line|Column|Step|Electric|More ▸|▸", names(SurveyPrepPalette.row("floor", withTape), "floor"))
+        assertEquals("Tape|Line|Beam|Electric|Bulb|More ▸|▸", names(SurveyPrepPalette.row("ceil", withTape), "ceil"))
         for (kind in listOf("wall", "floor", "ceil")) {
-            val sl = SurveyPrepPalette.row(kind)
+            val sl = SurveyPrepPalette.row(kind, withTape)
             assertEquals(7, sl.size, kind)
             assertEquals(listOf("T", "M"), sl.filter { it.kind == SurveyPrepPalette.RowKind.TOOL }.map { it.key }, kind)
             assertTrue(sl.none { it.key == SurveyPrepPalette.CHAIN }, "$kind: no slot turns the Chain on")
@@ -115,16 +119,71 @@ class PaletteTest {
         assertNull(SurveyPrepPalette.moreArmed("wall", "K")); assertNull(SurveyPrepPalette.chipText(Tx.EN, "front", "K"))
     }
 
+    @Test fun `F3 - the Tape tool is gone - six slots, no Tape on the palette, in More or on any chip, and nothing left where it stood`() {
+        // Amit, 23 Nov 2026, with build 0.3.350 on his phone: "does tape tool make any sense now? as we don't want any
+        // foto measured dimensions on fone."
+        assertFalse(Features.TAPES, "Features.TAPES is on: the palette draws the Tape's slot again")
+        // WHAT THE PALETTE OFFERS: the Line alone -- and its default IS the switch, for both switches at once
+        assertEquals(listOf("M"), SurveyPrepPalette.offered(chains = false, tapes = false))
+        assertEquals(listOf("M", "K"), SurveyPrepPalette.offered(chains = true, tapes = false))
+        assertEquals(listOf("T", "M"), SurveyPrepPalette.offered(chains = false, tapes = true))
+        assertEquals(SurveyPrepPalette.offered(chains = Features.CHAINS, tapes = Features.TAPES), SurveyPrepPalette.offered())
+        assertEquals(SurveyPrepPalette.offered(tapes = Features.TAPES), SurveyPrepPalette.offered())
+        // THE ROW AS DRAWN: Line · three types · More ▸ · `▸` -- six, on every kind of surface
+        assertEquals("Line|Window|Door|Electric|More ▸|▸", names(SurveyPrepPalette.row("wall")))
+        assertEquals("Line|Column|Step|Electric|More ▸|▸", names(SurveyPrepPalette.row("floor"), "floor"))
+        assertEquals("Line|Beam|Electric|Bulb|More ▸|▸", names(SurveyPrepPalette.row("ceil"), "ceil"))
+        for (kind in listOf("wall", "floor", "ceil")) {
+            val sl = SurveyPrepPalette.row(kind)
+            assertEquals(6, sl.size, kind)
+            assertEquals(listOf("M"), sl.filter { it.kind == SurveyPrepPalette.RowKind.TOOL }.map { it.key }, kind)
+            assertTrue(sl.none { it.key == SurveyPrepPalette.TAPE }, "$kind: no slot turns the Tape on")
+            // NOTHING IS LEFT AS A DEAD CONTROL: every slot is a tool that works, a type of the surface, More ▸ or `▸`
+            // -- the screen weighs them alike (FeaturesTest pins its one weight), so six slots are a sixth of the row each
+            assertEquals(listOf(SurveyPrepPalette.RowKind.TOOL, SurveyPrepPalette.RowKind.TYPE, SurveyPrepPalette.RowKind.TYPE,
+                SurveyPrepPalette.RowKind.TYPE, SurveyPrepPalette.RowKind.MORE, SurveyPrepPalette.RowKind.NEXT), sl.map { it.kind }, kind)
+            // the switch moves the Tape's slot alone: every other slot is the one it was, in the same order
+            assertEquals(SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(tapes = true)).map { it.key }.drop(1), sl.map { it.key }, kind)
+        }
+        // More ▸ lists MARK TYPES and nothing else: no row, no tile and no name is the Tape's, on any surface
+        for (s in SurveyPrep.SURFACES) for (tx in listOf(Tx.EN, Tx.MR)) {
+            val rows = SurveyPrepPalette.moreRows(tx, s)
+            assertEquals(SurveyPrep.types(s).map { it.letter }.toSet(), rows.flatMap { it.tiles }.map { it.letter }.toSet(), "$s: every tile is a type of the surface")
+            for (word in listOf(tx.common_tape, "Tape"))
+                assertTrue(rows.none { r -> word in r.label || r.tiles.any { word in SurveyPrepPalette.short(tx, it.name) } }, "$s: More names $word")
+            assertFalse(tx.common_tape in SurveyPrepPalette.sheetTitle(tx, s))
+        }
+        assertTrue(SurveyPrep.SURFACES.none { s -> SurveyPrep.types(s).any { it.letter == SurveyPrepPalette.TAPE } }, "T is never a mark type")
+        // THE TOOL THAT IS ON is never the Tape (PhaseTools.toolFor, the one answer the photo, the 360 and the chip draw
+        // from): so no chip says "Tape · drag along the face · the photo gives its length", and no drag pulls one
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) {
+            assertEquals(SurveyPrepPalette.SEL, PhaseTools.toolFor(SurveyPrepPalette.TAPE, st), "at $st")
+            assertNull(SurveyPrepPalette.chip(Tx.EN, "front", PhaseTools.toolFor(SurveyPrepPalette.TAPE, st), st, null))
+            assertNull(SurveyMeas.chipText(Tx.EN, PhaseTools.toolFor(SurveyPrepPalette.TAPE, st), null, 0))
+            assertFalse(SurveyPrepPalette.isMeasTool(PhaseTools.toolFor(SurveyPrepPalette.TAPE, st)), "at $st: the photo's drag pulls nothing")
+            assertFalse(SurveyPrepPalette.armed(PhaseTools.toolFor(SurveyPrepPalette.TAPE, st)), "at $st: a touch selects")
+        }
+        assertEquals("Tape · drag along the face · the photo gives its length", SurveyMeas.chipText(Tx.EN, PhaseTools.toolFor("T", 0, tapes = true), null, 0), "on, its chip as it was")
+        // the tools that stay are untouched by the switch
+        for (t in listOf("M", "K", "W", SurveyPrepPalette.SEL)) for (ch in listOf(true, false))
+            assertEquals(PhaseTools.toolFor(t, 0, chains = ch, tapes = true), PhaseTools.toolFor(t, 0, chains = ch, tapes = false), t)
+        // the Tape is still a DRAWING TOOL to every rule that tells a tool from a type: its key is never a mark type
+        assertTrue(SurveyPrepPalette.TAPE in SurveyPrepPalette.TOOLS); assertFalse(SurveyPrepPalette.isType("T"))
+        assertNull(SurveyPrepPalette.moreArmed("wall", "T")); assertNull(SurveyPrepPalette.chipText(Tx.EN, "front", "T"))
+        assertEquals("Tape", SurveyPrepPalette.toolName(Tx.EN, "T")); assertEquals(0xfacc15, SurveyPrepPalette.toolColour("T"))
+    }
+
     @Test fun `the row with the chain tool on - eight slots, Tape, Line, Chain, three types, More and the next slot (ct52 T, v52 slice 11)`() {
         // the other side of Features.CHAINS, kept whole: one line in Features brings the Chain's slot back
-        val now = SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(chains = true))
+        // (port 63 slice F3a: and the other side of Features.TAPES with it -- both switches are named ON here)
+        val now = SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(chains = true, tapes = true))
         assertEquals(8, now.size)
         assertEquals("Tape|Line|Chain|Window|Door|Electric|More ▸|▸", names(now))
         assertEquals(0xfacc15, SurveyPrepPalette.toolColour("T"))
         assertEquals(0x7dd3fc, SurveyPrepPalette.toolColour("M"))
         assertEquals(0xfb7185, SurveyPrepPalette.toolColour("K"))
         for (kind in listOf("wall", "floor", "ceil")) {
-            val sl = SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = true))
+            val sl = SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = true, tapes = true))
             assertEquals(8, sl.size, kind)
             assertEquals(listOf("T", "M", "K"), sl.filter { it.kind == SurveyPrepPalette.RowKind.TOOL }.map { it.key }, kind)
         }
@@ -152,10 +211,14 @@ class PaletteTest {
     }
 
     @Test fun `at most one slot is lit - none with no tool on, and the next slot never`() {
-        for ((kind, tool) in listOf("wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "wall" to "T", "floor" to "M")) {
+        // (port 63 slice F3a moved "wall" to "T" out of this list: the Tape has no slot while its tool is off -- below)
+        for ((kind, tool) in listOf("wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "floor" to "M")) {
             val lit = SurveyPrepPalette.row(kind).filter { SurveyPrepPalette.rowOn(it, kind, tool) }
             assertEquals(1, lit.size, "$kind $tool")
         }
+        // the Tape's slot lights with the Tape tool on -- and with it off there is no such slot to light (slice F3)
+        assertEquals(1, SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(tapes = true)).count { SurveyPrepPalette.rowOn(it, "wall", "T") })
+        assertEquals(0, SurveyPrepPalette.row("wall").count { SurveyPrepPalette.rowOn(it, "wall", "T") })
         // no tool on: nothing is lit -- there is no Select slot to light (port 63 slice I1b)
         for (kind in listOf("wall", "floor", "ceil")) assertEquals(0, SurveyPrepPalette.row(kind).count { SurveyPrepPalette.rowOn(it, kind, SurveyPrepPalette.SEL) })
         // the Chain's slot lights with the chain tool on -- and with it off there is no such slot to light (slice F1)

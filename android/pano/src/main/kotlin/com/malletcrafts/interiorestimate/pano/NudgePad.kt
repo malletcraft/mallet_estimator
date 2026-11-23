@@ -325,7 +325,7 @@ object NudgePad {
     /**
      * WHETHER A TAP WAS ON AN ITEM'S BODY -- [hit] and [line] as the screen hands them to [Pick.tap]: a mark pressed
      * whole, the picked Tape's, Line's or area's band, or the Tape, Line, area or chain whose line the finger was on.
-     * Not a handle, a figure, the code chip, or empty photo.
+     * Not a handle, a figure, the code chip, the panel's grip, or empty photo.
      */
     fun onBody(hit: SurveyPrepTouch.Hit?, line: String?): Boolean = when (hit) {
         is SurveyPrepTouch.Hit.Mark -> hit.part == BODY

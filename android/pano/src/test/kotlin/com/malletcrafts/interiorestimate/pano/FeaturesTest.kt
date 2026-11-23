@@ -13,6 +13,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -36,7 +37,15 @@ import kotlin.test.assertTrue
  * rarely used. get rid of it."): [Features.CHAINS] is off; every entry that could start a new chain reads it -- three
  * pure rules of :pano, each taking it as the default of its last parameter, which :app asks with no answer of its own;
  * a room that already has a chain keeps it, drawn, picked, measured, counted and deletable; and every file of the
- * chain is still there. The last tests.
+ * chain is still there.
+ *
+ * (6) THE TAPE TOOL'S SWITCH (port 63 slice F3a, 23 Nov 2026; Amit, with build 0.3.350 on his phone: "does tape tool
+ * make any sense now? as we don't want any foto measured dimensions on fone."): [Features.TAPES] is off; every entry
+ * that could lay a new Tape reads it, and so does every pure rule that gives a Tape a figure or a graduation on the
+ * screen's own painters -- each taking it as the default of its last parameter, which :app asks with no answer of its
+ * own; a room that already has a Tape keeps it, drawn, picked, moved, opened, locked and deletable; and every file of
+ * the Tape is still there. What :app's two painters still ask by themselves until slice F3b switches them over is
+ * pinned as a list, so the hand-over is four named lines. The last tests.
  */
 class FeaturesTest {
 
@@ -252,7 +261,9 @@ class FeaturesTest {
         assertEquals(1, count(features, "const val SITE_PROGRESS: Boolean = false"), "the switch is a constant, and it is off")
         assertEquals(1, count(features, "const val HELP_TOURS: Boolean = false"), "the tours' switch has its home, and is off (port 63 slice M2)")
         assertEquals(1, count(features, "const val CHAINS: Boolean = false"), "the chain tool's switch has its home, and is off (port 63 slice F1)")
-        assertEquals(3, count(features, "const val "), "three switches and nothing else")
+        // (port 63 slice F3a moved this pin from three to four: the Tape tool's switch joined, off)
+        assertEquals(1, count(features, "const val TAPES: Boolean = false"), "the Tape tool's switch has its home, and is off (port 63 slice F3)")
+        assertEquals(4, count(features, "const val "), "four switches and nothing else")
         // no second switch, anywhere a screen is built from: nothing else declares or assigns one
         val all = LiteralScan.ROOTS.flatMap { sources(it) }
         assertTrue(all.size > 100, "the three main trees were walked (${all.size} sources)")
@@ -586,14 +597,18 @@ class FeaturesTest {
         ).toSortedMap(), found.toSortedMap(), "the sources that read Features.CHAINS, and how often")
         val declared = all.filter { Regex("""\bCHAINS\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
         assertEquals(listOf(pano + "Features.kt"), declared, "CHAINS is given a value in one place")
-        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun offered(chains: Boolean = Features.CHAINS): List<String> = if (chains) TOOLS else TOOLS - CHAIN"))
+        // (port 63 slice F3a moved the seven signature pins below: each rule gained the Tape tool's switch, `tapes`, as the
+        // default of its LAST parameter -- the chain switch is where it was in each, and still its own default)
+        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun offered(chains: Boolean = Features.CHAINS, tapes: Boolean = Features.TAPES): List<String> ="))
+        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "TOOLS.filter { (it != CHAIN || chains) && (it != TAPE || tapes) }"))
         assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun row(kind: String, tools: List<String> = offered()): List<RowSlot> {"))
-        assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS): String ="))
-        assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS): Boolean ="))
-        assertEquals(1, count(code(pano + "SurveyPrepEdit.kt"), "DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains)"))
-        assertEquals(1, count(code(pano + "MarkSheet.kt"), "fun acts(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false): Acts {"))
-        assertEquals(1, count(code(pano + "MarkSheet.kt"), "val rows = SurveyPrepEdit.menuItemsOf(tx, p, id, stage, picked, chains, shape)"))
-        assertEquals(3, count(code(pano + "MarkSheet.kt"), "chains: Boolean = Features.CHAINS, shape: Boolean = false)"))
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS, tapes: Boolean = Features.TAPES): String ="))
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS,"))
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "!chains && p.chainById(id) != null -> false"))
+        assertEquals(1, count(code(pano + "SurveyPrepEdit.kt"), "DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains, tapes)"))
+        assertEquals(1, count(code(pano + "MarkSheet.kt"), "fun acts(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false,"))
+        assertEquals(1, count(code(pano + "MarkSheet.kt"), "val rows = SurveyPrepEdit.menuItemsOf(tx, p, id, stage, picked, chains, shape, tapes)"))
+        assertEquals(3, count(code(pano + "MarkSheet.kt"), "chains: Boolean = Features.CHAINS, shape: Boolean = false,"), "acts, panel and actStep")
         // :app NEVER OVERRIDES IT: no app source names the switch or hands a rule its own answer
         val apps = all.filter { it.startsWith("app/") || it.startsWith("camera/") }
         assertTrue(apps.size > 40, "the app's sources were walked (${apps.size})")
@@ -668,5 +683,258 @@ class FeaturesTest {
             assertTrue(tx.common_chain.isNotBlank()); assertTrue(SurveyChain.chipText(tx, 2).isNotBlank()); assertTrue(SurveyChain.doneLabel(tx).isNotBlank())
         }
         assertEquals("Chain", Tx.EN.common_chain)
+    }
+
+    // ---- (6) the Tape tool's switch (port 63 slice F3a) -----------------------------------------------------
+
+    /** A front wall a surveyor already laid a Tape on -- and a door, a Line he read, and an area. */
+    private fun roomWithTape(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(L, W, H)
+        p.surface("front").marks.add(SurveyPrep.Mark("d1", "D", "FD1", 300.0, 1200.0, 0.0, 2100.0))
+        p.addMeas("front", SurveyMeas.TAPE, listOf(pt(200.0, 1000.0), pt(1434.0, 1000.0)), "t1")
+        p.addMeas("front", SurveyMeas.LINE, listOf(pt(500.0, 1600.0), pt(1300.0, 2200.0)), "m1")
+        p.addMeas("front", SurveyMeas.AREA, listOf(pt(1800.0, 300.0), pt(2400.0, 300.0), pt(2400.0, 800.0)), "m2")
+        p.actual["F-M1.len"] = 1240.0
+        return p
+    }
+
+    private val toPx: (Double, Double) -> DoubleArray = { x, y -> doubleArrayOf(x / 8, 340 - y / 8) }
+    private val textW: (String, Double, Boolean) -> Double = { t, fs, _ -> t.length * fs * 0.6 }
+
+    @Test fun `the tape tool is off - no slot offers it, the tool that is on is never it, and a tape is never copied`() {
+        // Amit, 23 Nov 2026, ~22:00 IST, with build 0.3.350 on his phone: "does tape tool make any sense now? as we don't
+        // want any foto measured dimensions on fone."
+        val tapes: Boolean = Features.TAPES
+        assertFalse(tapes, "Features.TAPES is on: the palette offers the Tape again and a new Tape can be laid")
+        // ENTRY 1, THE PALETTE: its default IS the switch; off, no slot's key is the Tape's on any kind of surface
+        assertEquals(SurveyPrepPalette.offered(tapes = Features.TAPES), SurveyPrepPalette.offered())
+        for (kind in listOf("wall", "floor", "ceil")) for (ch in listOf(true, false)) {
+            assertFalse(SurveyPrepPalette.TAPE in SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = ch, tapes = false)).map { it.key }, kind)
+            assertTrue(SurveyPrepPalette.TAPE in SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = ch, tapes = true)).map { it.key }, "$kind: the other side is whole")
+            // the Line stays, whichever way either switch stands: a length the surveyor wants is a Line
+            assertTrue(SurveyPrepPalette.LINE in SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = ch, tapes = false)).map { it.key }, kind)
+        }
+        for (kind in listOf("wall", "floor", "ceil")) assertFalse(SurveyPrepPalette.TAPE in SurveyPrepPalette.row(kind).map { it.key }, "$kind, as the screen asks")
+        // ... and More lists mark types only, on every surface: the Tape was never there, and is not now
+        for (s in SurveyPrep.SURFACES) assertTrue(SurveyPrepPalette.moreRows(Tx.EN, s).flatMap { it.tiles }.none { it.letter == SurveyPrepPalette.TAPE }, s)
+        // ENTRY 2, THE TOOL THAT IS ON: whatever was picked, at every stage and unread
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) {
+            assertEquals(SurveyPrepPalette.SEL, PhaseTools.toolFor(SurveyPrepPalette.TAPE, st, tapes = false), "at $st")
+            assertEquals(PhaseTools.toolFor(SurveyPrepPalette.TAPE, st, tapes = Features.TAPES), PhaseTools.toolFor(SurveyPrepPalette.TAPE, st))
+        }
+        assertEquals(SurveyPrepPalette.TAPE, PhaseTools.toolFor(SurveyPrepPalette.TAPE, 0, tapes = true), "on, Survey lays tapes as before")
+        // ... so the 360's press never reaches the pull's own step with the Tape's key, 2 - Mark's never starts a drag, no
+        // guide is drawn for one, and a press on the end of a Tape that is there starts no new Tape from it
+        val room = roomWithTape(); val t1 = room.measById("t1")!!.second
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) {
+            val tool = PhaseTools.toolFor(SurveyPrepPalette.TAPE, st)
+            for (drafting in listOf(false, true)) assertFalse(Pano360.Step.MEAS in Pano360.order(tool, drafting), "at $st")
+            assertFalse(SurveyPrepPalette.isMeasTool(tool)); assertNull(SurveyMeas.chipText(Tx.EN, tool, null, 0))
+            assertNull(SurveyGuide.now(null, null, null, null, tool, null), "at $st: no guide with nothing being drawn")
+            val scr = t1.pts.map { toPx(it[0], it[1]) }
+            assertFalse(SurveyGuide.endPress(true, tool, t1, false, scr, scr[1][0], scr[1][1], 28.0) is SurveyGuide.EndPress.StartNew, "at $st: an end is grabbed, never a new Tape's start")
+        }
+        assertTrue(Pano360.Step.MEAS in Pano360.order(PhaseTools.toolFor(SurveyPrepPalette.TAPE, 0, tapes = true), false), "on, the 360 pulls one as before")
+        // ENTRY 3, DUPLICATE ON A TAPE: a copy would be a new Tape -- a Line and an area are copied as before
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) for (picked in listOf(null, "exist", "wish", "vadd")) {
+            assertFalse(PhaseTools.copyOk(room, "t1", st, picked, tapes = false), "at $st, $picked")
+            assertEquals(PhaseTools.copyOk(room, "t1", st, picked, tapes = Features.TAPES), PhaseTools.copyOk(room, "t1", st, picked))
+            assertFalse(SurveyPrepEdit.DUPLICATE in SurveyPrepEdit.menuItemsOf(Tx.EN, room, "t1", st, picked).map { it.first }, "the menu at $st, $picked")
+            assertFalse(MarkSheet.acts(Tx.EN, room, "t1", st, picked).has(SurveyPrepEdit.DUPLICATE), "the panel at $st, $picked")
+            assertTrue(MarkSheet.actStep(Tx.EN, room, MarkSheet.openPanel(room, "t1", 0L)!!, SurveyPrepEdit.DUPLICATE, st, picked) is MarkSheet.ActStep.Refused, "the act at $st, $picked")
+            for (id in listOf("m1", "m2", "d1")) for (on in listOf(true, false))
+                assertEquals(PhaseTools.copyOk(room, id, st, picked, tapes = true), PhaseTools.copyOk(room, id, st, picked, tapes = on), "$id at $st: the switch moves the Tape alone")
+        }
+        assertTrue(PhaseTools.copyOk(room, "t1", 0, null, tapes = true), "on, a Tape is copied wherever it may be edited")
+        assertTrue(SurveyPrepEdit.DUPLICATE in SurveyPrepEdit.menuItemsOf(Tx.EN, room, "t1", 0, null, tapes = true).map { it.first })
+        assertTrue(PhaseTools.copyOk(room, "m1", 0, null) && PhaseTools.copyOk(room, "m2", 0, null), "a Line and an area are copied")
+        // NO HELP LINE NAMES IT among the tours that would ship -- none does while the tours are off -- in either language
+        for (tx in listOf(Tx.EN, Tx.MR)) for (f in TourFlows.shipped(tx, tours = true)) for (st in f.steps)
+            for (word in listOf("Tape", "tape", tx.common_tape))
+                assertFalse(word in st.title || word in st.body || word in f.name || word in f.line, "${f.id} ${st.id} names $word")
+    }
+
+    @Test fun `with the tape tool off nothing measured from the photo is drawn on a tape - no figure, no graduation - on the screen's painters`() {
+        val p = roomWithTape(); val t1 = p.measById("t1")!!.second
+        val len = SurveyMeas.plen(t1.pts)
+        assertEquals(1234.0, len)
+        // ITS FIGURE: nothing, picked or not, held or not; on, the number alone, as it was
+        assertEquals("", PhotoFigures.tape(t1, tapes = false)); assertEquals("1234", PhotoFigures.tape(t1, tapes = true))
+        assertEquals(PhotoFigures.tape(t1, tapes = Features.TAPES), PhotoFigures.tape(t1))
+        assertEquals("", SurveyMeas.tapeFigure(len, tapes = false)); assertEquals("1234", SurveyMeas.tapeFigure(len, tapes = true))
+        assertEquals(SurveyMeas.tapeFigure(len, tapes = Features.TAPES), SurveyMeas.tapeFigure(len))
+        // ... one being pulled has none either (unreachable while the tool is off; the rule does not depend on that)
+        assertEquals("", SurveyMeas.tapeFigure(640.0, tapes = false))
+        // THE FIGURES' LAYOUT IS NOT HANDED IT: with the switch off no plate of the face is the Tape's
+        for (pick in listOf(Pick.NONE, Pick.State("t1", false, null), Pick.State("t1", true, null))) {
+            val off = PhotoFigures.items(p, "front", W, H, pick, toPx, 1.0, textW, tapes = false)
+            val on = PhotoFigures.items(p, "front", W, H, pick, toPx, 1.0, textW, tapes = true)
+            assertTrue(off.none { it.id == "t1" }, "$pick"); assertEquals(listOf("1234"), on.filter { it.id == "t1" }.flatMap { m -> m.figs.map { it.text } }, "$pick")
+            // the switch moves the Tape's figure alone: the Line's reading is there on both sides
+            assertEquals(on.filter { it.id != "t1" }.map { m -> m.id to m.figs.map { it.text } }, off.map { m -> m.id to m.figs.map { it.text } }, "$pick")
+            assertTrue(off.any { it.id == "m1" && it.figs.any { f -> f.text == "1240" } }, "$pick: a Line's reading is a measured figure")
+            assertEquals(off.map { it.id }, PhotoFigures.items(p, "front", W, H, pick, toPx, 1.0, textW).map { it.id }, "the default IS the switch")
+            val lay = PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW)
+            assertTrue(lay.none { it.id == "t1" }, "$pick: the layout the painter asks")
+            assertTrue(PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW, tapes = true).any { it.id == "t1" })
+        }
+        // ITS GRADUATIONS: none on the screen's own painters; a saved picture's old painter keeps them, whichever way the
+        // switch stands (slice M3's); on, every painter's are tapeTicks, as before
+        assertTrue(SurveyMeas.ticksOf(len, screen = true, tapes = false).isEmpty())
+        for (l in listOf(90.0, 500.0, 1234.0, 3310.0)) {
+            val all = SurveyMeas.tapeTicks(l).map { Triple(it.at, it.major, it.figure) }
+            assertEquals(all, SurveyMeas.ticksOf(l, screen = true, tapes = true).map { Triple(it.at, it.major, it.figure) }, "$l on the screen, on")
+            for (on in listOf(true, false)) assertEquals(all, SurveyMeas.ticksOf(l, screen = false, tapes = on).map { Triple(it.at, it.major, it.figure) }, "$l in a saved picture, $on")
+            assertTrue(SurveyMeas.ticksOf(l, screen = true, tapes = false).isEmpty(), "$l on the screen, off")
+            assertEquals(SurveyMeas.ticksOf(l, screen = true, tapes = Features.TAPES).size, SurveyMeas.ticksOf(l, screen = true).size, "the default IS the switch")
+        }
+        assertTrue(SurveyMeas.tapeTicks(1234.0).any { it.figure }, "what goes: `500` and `1000` beside the long ticks are the photo's figures too")
+        // WHAT IS LEFT OF IT ON THE PHOTO: its band -- the one half-width the drawing and the pick share -- and, picked,
+        // its code on its chip, where every picked item's is
+        assertEquals(12.5, SurveyMeas.bandHalfMm(1.0, 2.0)); assertEquals(0xfacc15, SurveyMeas.TAPE_COLOUR)
+        assertEquals("F-T1", PhotoFigures.nameOf(p, Pick.State("t1", false, null))); assertEquals("F-T1 ▾", SurveyPrepTouch.chipText("F-T1"))
+        // no word its panel says carries a figure
+        val pv = MarkSheet.panel(Tx.EN, p, MarkSheet.openPanel(p, "t1", 0L)!!, 0, null)!!
+        for (t in listOf(pv.head.code, pv.head.name, pv.pane) + pv.acts.all.flatMap { listOf(it.text, it.aria) }) {
+            assertFalse("1234" in t, t); assertFalse("mm" in t, t)
+        }
+        assertEquals("F-T1 tape", SurveyPrepEdit.labelOf(Tx.EN, p, "t1"), "what its delete says: its code and what it is")
+        // A SAVED PICTURE'S TAG IS NOT THIS SWITCH'S: the old painter still prints the photo's length, until slice M3
+        assertEquals("F-T1 1234 mm", SurveyMeas.tapeTag(t1.code, len))
+    }
+
+    @Test fun `a room that already has a tape keeps it - read and written unchanged, picked, moved, opened in its panel, locked and deleted`() {
+        val p = roomWithTape(); val z = ab("front")
+        val t = p.measById("t1")!!.second
+        // THE FILE: it is written, read back and written again byte for byte -- nothing of it is dropped on the way
+        val o = SurveyPrepFile.encode(p, L, W, H)
+        val d = SurveyPrepFile.decode(o)!!
+        assertTrue(d.problems.isEmpty())
+        val t2 = d.prep.measById("t1")!!.second
+        assertEquals("F-T1", t2.code); assertEquals(SurveyMeas.TAPE, t2.kind); assertEquals(t.pts.map { it.toList() }, t2.pts.map { it.toList() })
+        assertEquals(o.toString(), SurveyPrepFile.encode(d.prep, L, W, H).toString())
+        // IT IS AN ITEM OF THE FACE LIKE ANY OTHER: listed, labelled; it asks no reading and is in no count
+        assertEquals(listOf("FD1", "F-T1", "F-M1", "F-M2"), p.itemsOf("front").map { it.code })
+        assertEquals("F-T1 tape", SurveyPrepEdit.labelOf(Tx.EN, p, "t1")); assertNull(SurveyMeas.key(t))
+        assertTrue(MeasureWalk.stopsOf(p, "t1") { ab(it) }.isEmpty())
+        // PICKED: a tap on its band (screen px = mm here), 12 dp off its middle and its half-width more
+        val shapes = p.surface("front").meas.map { it to it.pts }
+        assertEquals("t1", SurveyMeas.pick(shapes, 800.0, 1020.0, 12.0) { m -> if (m.kind == SurveyMeas.TAPE) 12.5 else 0.0 })
+        val sc = Pick.Scene(p, 0, StepRoute.MARK) { ab(it) }
+        val held = Pick.tap(sc, Pick.NONE, null, "t1").state
+        assertEquals(Pick.State("t1", true, null), held, "picked and held; nothing gold -- a Tape asks no reading")
+        // MOVED: by its band, whole (slice F1's rule), and by one end
+        val start = t.pts.map { it.copyOf() }
+        assertTrue(SurveyGuide.bodyPress(true, SurveyPrepPalette.SEL, t, false, t.pts, 800.0, 1005.0, 28.0, 24.0, 12.5) is SurveyGuide.BodyPress.Grab)
+        assertTrue(SurveyGuide.bodyMove(t, start, 100.0, 50.0, z[0], z[1]))
+        assertEquals(listOf(listOf(300.0, 1050.0), listOf(1534.0, 1050.0)), t.pts.map { it.toList() })
+        val end = assertNotNull(SurveyGuide.endMove("front", t, 1, pt(1600.0, 1050.0), z[0], z[1], emptyList(), 0.0), "an end still answers a drag")
+        assertEquals(listOf(1600.0, 1050.0), end.p.toList()); assertEquals("h", end.snap)
+        t.pts[1] = end.p
+        // ... and under Fine move's pad, a millimetre a press
+        val pad = assertNotNull(NudgePad.start(p, "t1", 0, null, null, 696.0, 1028.0, 2.0))
+        assertTrue(NudgePad.press(p, pad, NudgePad.Key.UP, z[0], z[1]) {}.moved); assertEquals(listOf(300.0, 1051.0), t.pts[0].toList())
+        // OPENED IN ITS PANEL: the head, and Lock, Fine move, Lock all and Delete -- everything but Duplicate
+        assertTrue(MarkSheet.panelOpens(p, "t1"))
+        val pv = MarkSheet.panel(Tx.EN, p, MarkSheet.openPanel(p, "t1", 0L)!!, 0, null)!!
+        assertEquals(listOf("F-T1", "Tape"), listOf(pv.head.code, pv.head.name))
+        assertEquals(listOf(SurveyPrepEdit.LOCK, MarkSheet.FINE, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), pv.acts.all.map { it.id })
+        assertEquals("Lock|Lock all tapes|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "t1", 0, null).joinToString("|") { it.second })
+        assertTrue(PhaseTools.editable(p, "t1", 0) && PhaseTools.lockOk(p, "t1", 0) && PhaseTools.delOk(p, "t1", 0) && MarkSheet.fineOk(p, "t1", 0))
+        // LOCKED: it does not move and is not deleted; unlocked again it is as it was
+        assertEquals(true, SurveyPrepEdit.setLocked(p, "t1", true)); assertFalse(p.deleteMark("t1"), "locked, it is not deleted")
+        assertFalse(SurveyGuide.bodyMove(t, t.pts.map { it.copyOf() }, 10.0, 0.0, z[0], z[1]))
+        assertEquals(false, SurveyPrepEdit.setLocked(p, "t1", false))
+        // DELETED: it goes, and nothing else; one undo brings it back
+        val snap = p.copy()
+        assertTrue(p.deleteMark("t1"))
+        assertNull(p.measById("t1")); assertEquals(listOf("FD1", "F-M1", "F-M2"), p.itemsOf("front").map { it.code }); assertEquals(1240.0, p.actual["F-M1.len"])
+        val back = SurveyPrepEdit.undoTo(p, snap)
+        assertEquals(listOf("FD1", "F-T1", "F-M1", "F-M2"), back.itemsOf("front").map { it.code })
+        // AND THE MODEL STILL MAKES ONE: nothing of the Tape was taken out of the room's own code -- only no screen asks for it
+        val made = back.addMeas("front", SurveyMeas.TAPE, listOf(pt(100.0, 100.0), pt(600.0, 100.0)), "t9")
+        assertEquals("F-T2", made.code)
+    }
+
+    @Test fun `every entry of the tape tool reads the one constant, the app overrides none, and nothing of the tape was deleted`() {
+        val tapes = "Features.TAPES"
+        val all = LiteralScan.ROOTS.flatMap { sources(it) }
+        // THE INVENTORY: each source that reads the switch, and how many times -- all in :pano, each the default of a
+        // pure rule's last parameter. A new reader is added HERE, with its reason.
+        val found = all.associateWith { count(code(it), tapes) }.filterValues { it > 0 }
+        assertEquals(mapOf(
+            pano + "SurveyPrepPalette.kt" to 1,   // offered: what the palette draws
+            pano + "PhaseTools.kt" to 2,          // toolFor: the tool that is on; copyOk: Duplicate on a Tape
+            pano + "SurveyPrepEdit.kt" to 1,      // menuItemsOf: the menu's Duplicate row, through copyOk
+            pano + "MarkSheet.kt" to 3,           // acts, panel, actStep: the panel's acts, through menuItemsOf
+            pano + "SurveyMeas.kt" to 2,          // ticksOf: its graduations on the screen's painters; tapeFigure: its length there
+            pano + "PhotoFigures.kt" to 3,        // tape: its figure; items and layout: what the figures' layout is handed
+        ).toSortedMap(), found.toSortedMap(), "the sources that read Features.TAPES, and how often")
+        val declared = all.filter { Regex("""\bTAPES\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
+        assertEquals(listOf(pano + "Features.kt"), declared, "TAPES is given a value in one place")
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "!tapes && p.measById(id)?.second?.kind == SurveyMeas.TAPE -> false"))
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "(tool == SurveyPrepPalette.TAPE && !tapes)"))
+        assertEquals(1, count(code(pano + "SurveyMeas.kt"), "fun ticksOf(len: Double, screen: Boolean, tapes: Boolean = Features.TAPES): List<Tick> ="))
+        assertEquals(1, count(code(pano + "SurveyMeas.kt"), "fun tapeFigure(len: Double, tapes: Boolean = Features.TAPES): String = if (tapes) tapeShown(len) else "))
+        assertEquals(1, count(code(pano + "PhotoFigures.kt"), "fun tape(m: SurveyPrep.Meas, tapes: Boolean = Features.TAPES): String ="))
+        assertEquals(1, count(code(pano + "PhotoFigures.kt"), "DimLayout.item(m.id, null, tape(m, tapes), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)"))
+        assertEquals(1, count(code(pano + "PhotoFigures.kt"), "} + items(prep, s, a, b, pick, toPx, dp, textW, ready, ask, tapes)"))
+        // :app NEVER OVERRIDES IT: no app source names the switch or hands a rule its own answer
+        val apps = all.filter { it.startsWith("app/") || it.startsWith("camera/") }
+        assertTrue(apps.size > 40, "the app's sources were walked (${apps.size})")
+        for (rel in apps) {
+            assertEquals(0, count(code(rel), "tapes ="), "$rel hands a rule the answer")
+            assertEquals(0, count(code(rel), tapes), "$rel reads the switch by itself: every gate is a pure rule's default")
+        }
+        val screen = code(app + "SurveyPrepScreen.kt"); val tools = code(app + "SurveyPrepTools.kt"); val p3 = code(app + "SurveyPrep360.kt")
+        val draw = code(app + "SurveyPrepDraw.kt")
+        // ENTRIES 1 AND 2 are the chain's own lines, pinned by its test above: the palette draws the row the rule gives
+        // (`SurveyPrepPalette.row(kind)`), every slot weighed alike, and ONE tool is on, the rule's answer
+        // (`PhaseTools.toolFor(toolSet, quoteStage)`) -- so a Tape is pulled in one place on each view, behind that tool
+        assertEquals(1, count(screen, "val d = SurveyMeas.Draft(tab, if (tool0 == SurveyPrepPalette.TAPE) SurveyMeas.TAPE else SurveyMeas.LINE, m0, ab0[0], ab0[1])"))
+        assertEquals(1, count(p3, "val dr = SurveyMeas.Draft(s, if (tool0 == SurveyPrepPalette.TAPE) SurveyMeas.TAPE else SurveyMeas.LINE, m0, ab0[0], ab0[1])"))
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt" || rel == app + "SurveyPrep360.kt") 1 else 0, count(code(rel), "SurveyMeas.Draft("), "$rel pulls a Tape or a Line")
+        assertEquals(1, count(screen, "val measOn = mode == "), "2 - Mark: only with the Tape's or the Line's key on")
+        assertTrue(Regex("""val measOn = mode == "[^"]*" && SurveyPrepPalette\.isMeasTool\(tool0\)""").containsMatchIn(screen))
+        // ENTRY 3: the copy rule is asked before the one call that copies a Tape, a Line or an area
+        val dup = screen.indexOf("if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }")
+        val made = screen.indexOf("SurveyPrepEdit.duplicateMeas(prep, mid, a[0], a[1], nid)")
+        assertTrue(dup in 0 until made, "the copy rule is asked before the one call that copies a Tape")
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "duplicateMeas("), rel)
+        // ITS FIGURE ON THE PHOTO is the layout's, which the painter asks with no answer of its own (the default: the switch)
+        assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, free = o.free, ask = o.ask)"))
+        for (rel in apps) { assertEquals(0, count(code(rel), "PhotoFigures.tape("), rel); assertEquals(0, count(code(rel), "PhotoFigures.items("), rel) }
+        // WHAT THE TWO PAINTERS STILL ASK BY THEMSELVES -- F3b's WORK LIST (this slice edits no painter: :app is compiled
+        // only by CI, and the switch-over is one commit). Until then a Tape a room already has is drawn on the photo with
+        // its graduations and no length, and on the 360 with both. F3b turns each `tapeTicks(len)` into
+        // `ticksOf(len, screen = …)` and each `tapeShown(len)` into `tapeFigure(len)`, and moves these four pins with it.
+        assertEquals(1, count(draw, "for (tk in SurveyMeas.tapeTicks(len)) {"), "the photo's painter and a saved picture's: F3b asks ticksOf(len, screen = quiet)")
+        assertEquals(1, count(draw, "val txt = if (quiet) SurveyMeas.tapeShown(len) else SurveyMeas.tapeTag(if (draft) null else code, len)"), "a Tape being pulled on the photo: F3b asks tapeFigure(len)")
+        assertEquals(1, count(p3, "for (tk in SurveyMeas.tapeTicks(len)) {"), "the 360's painter: F3b asks ticksOf(len, screen = true)")
+        assertEquals(1, count(p3, "val txt = SurveyMeas.tapeShown(len)"), "the 360's tag: F3b asks tapeFigure(len)")
+        for (rel in apps) { assertEquals(0, count(code(rel), "ticksOf("), "$rel: not switched over yet"); assertEquals(0, count(code(rel), "tapeFigure("), "$rel: not switched over yet") }
+        // NOTHING OF THE TAPE WAS DELETED: its model, its file's reader and writer, its drag, its graduations and its
+        // tags, its drawing on the photo and the 360, its icon, its hint, and its own tests
+        val kept = mapOf(
+            pano + "SurveyMeas.kt" to listOf("const val TAPE = ", "class Draft(val s: String, val kind: String,", "fun tapeTicks(len: Double): List<Tick> {", "fun tapeTag(code: String?, len: Double)",
+                "fun tapeShown(len: Double): String", "fun tapeTagAt(pa: DoubleArray, pb: DoubleArray,", "fun bandHalfMm(ppm: Double, dpPx: Double): Double", "fun tapeChip(tx: Tx)", "fun tapeTap(tx: Tx)"),
+            pano + "SurveyPrep.kt" to listOf("class Meas(val id: String,", "fun addMeas(s: String,", "fun measById(id: String)"),
+            pano + "SurveyPrepFile.kt" to listOf("val need = when (kind) { SurveyMeas.TAPE, SurveyMeas.LINE -> 2; SurveyMeas.AREA -> 3; else -> 1 }"),
+            pano + "SurveyPrepPalette.kt" to listOf("val TOOLS: List<String> = listOf(TAPE, LINE, CHAIN)", "TAPE -> tx.common_tape", "fun isMeasTool(tool: String) = tool == TAPE || tool == LINE"),
+            pano + "SurveyPrepEdit.kt" to listOf("fun duplicateMeas(p: SurveyPrep.Prep, id: String,", "g.kind == KIND_TAPE -> tx.sp_group_tapes"),
+            pano + "Pano360.kt" to listOf("fun tapeHalfMm(v: View,", "fun tapeScale(v: View,", "if (meas) { out.add(Step.MEAS); return out }"),
+            app + "SurveyPrepDraw.kt" to listOf("private fun tape(c: Canvas, a: DoubleArray, b: DoubleArray, code: String?,", "o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.TAPE }?.let { d ->"),
+            app + "SurveyPrep360.kt" to listOf("private fun tape(c: android.graphics.Canvas, v: Pano360.View,", "st.drag?.takeIf { it.s == s && it.kind == SurveyMeas.TAPE }?.let { d ->"),
+            app + "SurveyPrepTools.kt" to listOf("private fun DrawScope.drawTapeIcon(c: Color)", "SurveyPrepPalette.TAPE -> drawTapeIcon(col)"),
+            app + "SurveyPrepScreen.kt" to listOf("onTapeTap = { say(SurveyMeas.tapeTap(tx)) },", "if (tool0 == SurveyPrepPalette.TAPE) { onTapeTapS(); return }"),
+        )
+        for ((rel, has) in kept) { val c = code(rel); for (dcl in has) assertTrue(dcl in c, "$rel still has `$dcl`") }
+        assertTrue(I18n.android.resolve(tests + "MeasTest.kt").isFile, "the Tape's own tests still run")
+        // every text of the Tape is still keyed, for the Tapes a room already has and for the day the switch goes on
+        for (tx in listOf(Tx.EN, Tx.MR)) {
+            assertTrue(tx.common_tape.isNotBlank()); assertTrue(SurveyMeas.tapeChip(tx).isNotBlank()); assertTrue(SurveyMeas.tapeTap(tx).isNotBlank())
+            assertTrue(tx.sp_tape_suffix.isNotBlank()); assertTrue(tx.sp_group_tapes.isNotBlank())
+        }
+        assertEquals("Tape", Tx.EN.common_tape)
     }
 }

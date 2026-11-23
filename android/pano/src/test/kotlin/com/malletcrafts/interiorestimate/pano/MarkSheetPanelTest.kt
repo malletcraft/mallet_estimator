@@ -71,7 +71,9 @@ class MarkSheetPanelTest {
 
     @Test fun `the acts at Survey - Lock, Duplicate, Fine move on line 1 - Lock all, then Delete last on line 2`() {
         val p = wall()
-        for (id in listOf(D1, W1, E1, N1, "t1", "m1", "m2")) {
+        // (port 63 slice F3a moved the Tape out of this list: with the Tape tool off -- Features.TAPES -- its panel has no
+        // Duplicate, a copy of a Tape being a new Tape; with the switch on it has these five acts, as it had. Below.)
+        for (id in listOf(D1, W1, E1, N1, "m1", "m2")) {
             val a = MarkSheet.acts(en, p, id, 0, null)
             assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(a), id)
             assertEquals(listOf(SurveyPrepEdit.LOCK, SurveyPrepEdit.DUPLICATE, MarkSheet.FINE, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), ids(a), id)
@@ -79,10 +81,22 @@ class MarkSheetPanelTest {
             assertEquals(1, a.all.count { it.delete }, "one delete cell, and no other act is drawn as one")
         }
         assertEquals("fine", MarkSheet.FINE)
+        // THE TAPE: no Duplicate while the Tape tool is off; everything else its panel offered; Delete still last and apart
+        MarkSheet.acts(en, p, "t1", 0, null, tapes = false).let { a ->
+            assertEquals("Lock|Fine move / Lock all|Delete", said(a))
+            assertEquals(listOf(SurveyPrepEdit.LOCK, MarkSheet.FINE, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), ids(a))
+            assertEquals(2, a.rows); assertSame(a.line2.last(), a.delete)
+        }
+        MarkSheet.acts(en, p, "t1", 0, null, tapes = true).let { a ->
+            assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(a))
+            assertEquals(listOf(SurveyPrepEdit.LOCK, SurveyPrepEdit.DUPLICATE, MarkSheet.FINE, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), ids(a))
+        }
+        assertEquals(said(MarkSheet.acts(en, p, "t1", 0, null, tapes = Features.TAPES)), said(MarkSheet.acts(en, p, "t1", 0, null)), "the default IS the switch")
         // the cell reads "Lock all"; a screen reader is told the group, in the menu's own words -- and what Lock and Delete act on
         val door = MarkSheet.acts(en, p, D1, 0, null)
         assertEquals(listOf("Lock FD1", "Duplicate", "Fine move", "Lock all Door", "Delete FD1 Door"), door.all.map { it.aria })
-        assertEquals("Lock all tapes", MarkSheet.acts(en, p, "t1", 0, null).all[3].aria); assertEquals("Delete F-T1 tape", MarkSheet.acts(en, p, "t1", 0, null).delete!!.aria)
+        // (F3a: the cell is found by what it is, not by its place -- the Tape's acts are four or five as its switch stands)
+        assertEquals("Lock all tapes", MarkSheet.acts(en, p, "t1", 0, null).all.single { it.id == SurveyPrepEdit.LOCK_ALL }.aria); assertEquals("Delete F-T1 tape", MarkSheet.acts(en, p, "t1", 0, null).delete!!.aria)
         assertEquals("Lock all Line marks", MarkSheet.acts(en, p, "m2", 0, null).all[3].aria)
         // unread is Survey's: the same acts
         for (id in ALL) assertEquals(said(MarkSheet.acts(en, p, id, 0, null)), said(MarkSheet.acts(en, p, id, null, null)), id)
@@ -102,8 +116,10 @@ class MarkSheetPanelTest {
         assertEquals("Unlock|Duplicate / Unlock all|Delete", said(all))
         assertEquals(listOf("Unlock FD1", "Duplicate", "Unlock all Door", "Delete FD1 Door"), all.all.map { it.aria })
         // a Tape, the only one on the wall: locked, its group is all locked
-        lock(p, "t1"); assertEquals("Unlock|Duplicate / Unlock all|Delete", said(MarkSheet.acts(en, p, "t1", 0, null)))
-        assertEquals("Unlock all tapes", MarkSheet.acts(en, p, "t1", 0, null).all[2].aria)
+        // (F3a: its Duplicate is there only with the Tape tool on; locked, off, it reads Unlock / Unlock all · Delete)
+        lock(p, "t1"); assertEquals("Unlock|Duplicate / Unlock all|Delete", said(MarkSheet.acts(en, p, "t1", 0, null, tapes = true)))
+        assertEquals("Unlock / Unlock all|Delete", said(MarkSheet.acts(en, p, "t1", 0, null, tapes = false)))
+        assertEquals("Unlock all tapes", MarkSheet.acts(en, p, "t1", 0, null).all.single { it.id == SurveyPrepEdit.LOCK_ALL }.aria)
     }
 
     @Test fun `a mark past Existing has no delete cell - Drop and Restore stay STATE's moves - and a Note keeps Delete`() {
@@ -154,8 +170,13 @@ class MarkSheetPanelTest {
         // ... Estimation changes nothing: no act for anything
         for (id in ALL) assertEquals(0, MarkSheet.acts(en, p, id, 3, null).rows, id)
         // ... the measuring tools stay the phase's own outside Estimation
-        assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(MarkSheet.acts(en, p, "t1", 1, null)))
-        assertEquals("Lock|Duplicate / Lock all|Delete", said(MarkSheet.acts(en, p, "t1", 5, null)), "nothing is held at Client approved")
+        // (F3a: shown on a Line, which is still copied, and on the Tape with its tool on; off, the Tape's has no Duplicate)
+        assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(MarkSheet.acts(en, p, "m1", 1, null)))
+        assertEquals("Lock|Duplicate / Lock all|Delete", said(MarkSheet.acts(en, p, "m1", 5, null)), "nothing is held at Client approved")
+        assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(MarkSheet.acts(en, p, "t1", 1, null, tapes = true)))
+        assertEquals("Lock|Duplicate / Lock all|Delete", said(MarkSheet.acts(en, p, "t1", 5, null, tapes = true)), "nothing is held at Client approved")
+        assertEquals("Lock|Fine move / Lock all|Delete", said(MarkSheet.acts(en, p, "t1", 1, null, tapes = false)))
+        assertEquals("Lock / Lock all|Delete", said(MarkSheet.acts(en, p, "t1", 5, null, tapes = false)))
     }
 
     @Test fun `the four-corner shape row is OFF until slice Q2 turns the switch - then it is line 2's first, on a mark that may have four corners`() {
@@ -190,7 +211,10 @@ class MarkSheetPanelTest {
         val tv = assertNotNull(MarkSheet.panel(en, p, tp, 0, null))
         assertEquals(listOf("F-T1", "Tape", "Done"), listOf(tv.head.code, tv.head.name, tv.head.done)); assertNull(tv.head.trade); assertTrue(tv.head.doneEnabled)
         assertNull(tv.body, "no KIND, TRADE, STATE or NOTE"); assertEquals("Options for F-T1", tv.pane)
-        assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(tv.acts))
+        // (F3a: no Duplicate while the Tape tool is off -- a copy of a Tape is a new Tape; the rest of its acts stay)
+        assertEquals("Lock|Fine move / Lock all|Delete", said(tv.acts))
+        assertFalse(Features.TAPES, "the Tape tool is off")
+        assertEquals("Lock|Duplicate|Fine move / Lock all|Delete", said(MarkSheet.panel(en, p, tp, 0, null, tapes = true)!!.acts), "the switch comes through the menu's own rule")
         // the chain: no Duplicate while the chain tool is off, and no Fine move -- nothing moves a chain whole
         val kp = assertNotNull(MarkSheet.openPanel(p, "k1", 0L))
         val kv = assertNotNull(MarkSheet.panel(en, p, kp, 0, null))

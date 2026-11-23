@@ -325,15 +325,23 @@ class PhotoFiguresTest {
         assertTrue("m²" in SurveyMeas.lineTag(m2.code, m2.kind, m2.pts, reading = 5734.0, approx = true))
     }
 
-    @Test fun `a Line being pulled and an area being tapped show nothing - and the Tape keeps its own figure, the number alone`() {
+    // (Port 63 slice F3a renamed this test and moved its Tape lines: it ended "- and the Tape keeps its own figure, the
+    // number alone", §18 rule 4's one exception "until he rules". Amit, 23 Nov 2026, on 0.3.350: "does tape tool make any
+    // sense now? as we don't want any foto measured dimensions on fone." -- so with the Tape tool off (Features.TAPES) a
+    // Tape shows NO figure; the number alone is what it shows with the switch on, held beside it.)
+    @Test fun `a Line being pulled and an area being tapped show nothing - and a Tape shows no figure while its tool is off, the number alone with it on`() {
         assertEquals("", PhotoFigures.DRAFT_TAG)
         assertEquals("", SurveyMeas.shownTag(null, SurveyMeas.LINE, null, ask = true)); assertEquals("", SurveyMeas.shownTag(null, SurveyMeas.AREA, 5.0, ask = true))
         // a tape has no reading key, so it has no such tag: its figure IS what the photo says (the one exception) -- now
         // without its code and its unit
         val p = wall(); val t1 = p.measById("t1")!!.second
         PhotoFigures.line(t1, p.actual, State("t1", true, null)).let { assertEquals("", it.text); assertNull(it.key) }
-        assertEquals("1234", PhotoFigures.tape(t1)); assertEquals("1234", SurveyMeas.tapeShown(SurveyMeas.plen(t1.pts)))
-        assertEquals("", PhotoFigures.tape(p.measById("m1")!!.second), "a Line is not a Tape")
+        assertEquals("1234", PhotoFigures.tape(t1, tapes = true)); assertEquals("1234", SurveyMeas.tapeShown(SurveyMeas.plen(t1.pts)))
+        assertEquals("", PhotoFigures.tape(t1, tapes = false), "off: nothing measured from the photo is drawn on a Tape")
+        assertEquals(PhotoFigures.tape(t1, tapes = Features.TAPES), PhotoFigures.tape(t1), "the default IS the switch")
+        assertEquals("1234", SurveyMeas.tapeFigure(1234.4, tapes = true)); assertEquals("", SurveyMeas.tapeFigure(1234.4, tapes = false))
+        assertEquals(SurveyMeas.tapeFigure(1234.4, tapes = Features.TAPES), SurveyMeas.tapeFigure(1234.4))
+        for (on in listOf(true, false)) assertEquals("", PhotoFigures.tape(p.measById("m1")!!.second, tapes = on), "a Line is not a Tape")
         assertEquals("F-T1 1234 mm", SurveyMeas.tapeTag(t1.code, SurveyMeas.plen(t1.pts)), "what 0.3.345 prints, which this replaces")
         assertEquals("", SurveyMeas.shownTag("F-T1", SurveyMeas.TAPE, null, true))
         // what takes a tap: a figure or a question mark
@@ -399,11 +407,13 @@ class PhotoFiguresTest {
         val picks = listOf(Pick.NONE, State("m1", true, null), State("m1", false, "F-M1.len"), State("m2", true, "F-M2.per"),
             State("k1", true, "FK1.2"), State("k1", false, "FK1.t"), State("t1", true, null))
         for (pick in picks) for (ready in listOf(true, false)) {
-            for (m in p.surface("front").meas) { labels += PhotoFigures.line(m, p.actual, pick, ready).text; labels += PhotoFigures.tape(m); labels += PhotoFigures.line360(m, p.actual) }
+            // (F3a: the Tape's label is asked with its tool ON as well -- off, it has none to carry anything)
+            for (m in p.surface("front").meas) { labels += PhotoFigures.line(m, p.actual, pick, ready).text; labels += PhotoFigures.tape(m); labels += PhotoFigures.tape(m, tapes = true); labels += PhotoFigures.line360(m, p.actual) }
             val k1 = p.chainById("k1")!!.second; val v = SurveyChain.vals(k1, p.actual, W, H)
             for (i in 0 until k1.nodes.size - 1) PhotoFigures.chainSeg(k1, v, i, pick, ready)?.let { labels += it.text }
             labels += PhotoFigures.chainTotal(k1, v, pick, ready).text; labels += PhotoFigures.chainTotal360(v)
-            labels += PhotoFigures.items(p, "front", W, H, pick, { x, y -> doubleArrayOf(x / 8, 340 - y / 8) }, 1.0, { t, fs, _ -> t.length * fs * 0.6 }, ready).flatMap { mk -> mk.figs.map { it.text } }
+            for (on in listOf(true, false))
+                labels += PhotoFigures.items(p, "front", W, H, pick, { x, y -> doubleArrayOf(x / 8, 340 - y / 8) }, 1.0, { t, fs, _ -> t.length * fs * 0.6 }, ready, tapes = on).flatMap { mk -> mk.figs.map { it.text } }
         }
         assertTrue(labels.count { it.isNotEmpty() } > 40, "${labels.count { it.isNotEmpty() }}")
         for (t in labels) {
@@ -420,9 +430,22 @@ class PhotoFiguresTest {
         val p = wall(); p.actual["FD1.w"] = 898.0
         val toPx = { x: Double, y: Double -> doubleArrayOf(x * 340 / W, 340 - y * 340 / H) }
         val textW = { t: String, fs: Double, _: Boolean -> t.length * fs * 0.6 }
-        fun lay(pick: State) = PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW)
-        // nothing picked: the door's one read figure; the window, the point and the wished door cost nothing -- and of
-        // the Tapes, Lines, areas and chains (P5: placed with the marks) only the Tape, whose figure is the photo's
+        // (Port 63 slice F3a: `lay` names the Tape's switch. It is asked ON through this test, so every index below is the
+        // one it was; what the phone draws with the switch OFF -- no Tape among the figures -- is held first.)
+        fun lay(pick: State, tapes: Boolean = true) = PhotoFigures.layout(Tx.EN, p, "front", W, H, pick, toPx, 1.0, 1.0, textW, tapes = tapes)
+        // THE TAPE TOOL OFF: nothing picked, the door's one read figure and NOTHING ELSE -- the Tape's length is the
+        // photo's, so the layout is not handed it; picked or held, the Tape still has none
+        for (pick in listOf(Pick.NONE, State("t1", false, null), State("t1", true, null))) lay(pick, tapes = false).let { ms ->
+            assertEquals(listOf(D1, W1, E1, D2), ms.map { it.id }, "$pick"); assertEquals(listOf(1, 0, 0, 0), ms.map { it.figs.size }, "$pick")
+            val out = DimLayout.placeShown(ms, 340.0, 340.0, emptyList(), 1.0, 1.0)
+            assertEquals(listOf("FD1.w"), out.plates.map { it.code }); assertEquals(listOf("898"), out.plates.map { it.fig.text })
+        }
+        assertEquals(lay(Pick.NONE, tapes = Features.TAPES).map { it.id }, PhotoFigures.layout(Tx.EN, p, "front", W, H, Pick.NONE, toPx, 1.0, 1.0, textW).map { it.id }, "the default IS the switch")
+        // the switch moves the Tape's figure alone: every mark's are the same on both sides
+        assertEquals(lay(State(W1, true, "FW1.w"), tapes = true).take(4).map { m -> m.figs.map { it.text } }, lay(State(W1, true, "FW1.w"), tapes = false).map { m -> m.figs.map { it.text } })
+        // THE TAPE TOOL ON, as it was. Nothing picked: the door's one read figure; the window, the point and the wished
+        // door cost nothing -- and of the Tapes, Lines, areas and chains (P5: placed with the marks) only the Tape, whose
+        // figure is the photo's
         lay(Pick.NONE).let { ms ->
             assertEquals(listOf(D1, W1, E1, D2, "t1"), ms.map { it.id }); assertEquals(listOf(1, 0, 0, 0, 1), ms.map { it.figs.size })
             assertTrue(ms.none { it.picked || it.tabs })

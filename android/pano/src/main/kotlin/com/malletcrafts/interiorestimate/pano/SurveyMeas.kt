@@ -259,6 +259,18 @@ object SurveyMeas {
         return out
     }
 
+    /**
+     * THE GRADUATIONS A PAINTER DRAWS ON A TAPE [len] mm long (port 63 slice F3, 23 Nov 2026). Amit, with build 0.3.350
+     * on his phone: "does tape tool make any sense now? as we don't want any foto measured dimensions on fone." A tick
+     * every 100 mm from the hook, and "500", "1000" beside the long ones, are figures measured from the photo as much
+     * as the length at its end is. So ON THE SCREEN'S OWN PAINTERS ([screen]: the editing photo and the 360) A TAPE A
+     * ROOM ALREADY HAS IS ITS PLAIN BAND while [tapes] is off ([Features.TAPES]): no tick, no figure. A SAVED
+     * PICTURE'S old painter ([screen] false) keeps [tapeTicks] as they were, whichever way the switch stands: it goes
+     * with the saved pictures' own slice (M3). With [tapes] on, [tapeTicks] everywhere, as before.
+     */
+    fun ticksOf(len: Double, screen: Boolean, tapes: Boolean = Features.TAPES): List<Tick> =
+        if (screen && !tapes) emptyList() else tapeTicks(len)
+
     // ------------------------------------------------------------ the words on screen
 
     /** Its type name: "Tape", "Marked length", "Marked area" -- never "Measure" (item 6: the tool is the Line). */
@@ -311,7 +323,8 @@ object SurveyMeas {
      * never on the line. Until it is read it shows NOTHING, and `?` only where it can be acted on ([ask]: it is the
      * picked item, on a face). An AREA'S m² IS COMPUTED FROM THE PHOTO, SO IT IS NOT SHOWN: its perimeter is, once read,
      * `5734`; until then nothing, or `?`. A Line being pulled and an area being tapped ([code] null) show NOTHING:
-     * their length and m² are the photo's. The Tape keeps its own figure, the number alone ([tapeShown]; §18 rule 4).
+     * their length and m² are the photo's. The Tape's own figure, the number alone, is [tapeFigure]'s -- §18 rule 4's
+     * one exception until port 63 slice F3, and nothing at all while [Features.TAPES] is off.
      * Figures: byte-equal in every language. It takes [lineTag]'s place on the screen from slice I1b on.
      */
     fun shownTag(code: String?, kind: String, reading: Double?, ask: Boolean): String = when {
@@ -328,6 +341,16 @@ object SurveyMeas {
      * place on the editing photo from slice I1b on, centred on the band and turned along it ([DimLayout.item]).
      */
     fun tapeShown(len: Double): String = len.roundToInt().toString()
+
+    /**
+     * A TAPE'S FIGURE ON THE SCREEN'S OWN PAINTERS -- the editing photo and the 360, plotted or while it is pulled
+     * (port 63 slice F3; [Features.TAPES]): [tapeShown] while [tapes] is on, and NOTHING ("": the painter draws no
+     * label) while it is off. Amit, 23 Nov 2026: "does tape tool make any sense now? as we don't want any foto measured
+     * dimensions on fone." -- §18's rule 4 kept this one figure "until he rules"; the phone now shows no figure nobody
+     * measured, a Tape's included. A length the surveyor wants is a Line, which takes a reading. The switch is the
+     * DEFAULT of the last parameter. (A saved picture's tag is [tapeTag], untouched: slice M3's.)
+     */
+    fun tapeFigure(len: Double, tapes: Boolean = Features.TAPES): String = if (tapes) tapeShown(len) else ""
 
     /** Whether that tag takes a tap under its reading key: only when it shows a figure or `?` -- the code alone is
      *  not a figure, and a tap on the Line's own body picks it (which is what puts the `?` there). */

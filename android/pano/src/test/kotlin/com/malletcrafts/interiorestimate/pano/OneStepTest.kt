@@ -117,23 +117,37 @@ class OneStepTest {
 
     // ------------------------------------------------------------------ the row, and the tool that goes off
 
-    @Test fun `the row has no Select slot and the next-figure slot is last - seven equal slots`() {
+    // (Port 63 slice F3a renamed this test and moved its numbers: it read "seven equal slots" -- Tape, Line, three types,
+    // More, `▸`. The Tape tool is off now (Features.TAPES; Amit, 23 Nov 2026: "does tape tool make any sense now? as we
+    // don't want any foto measured dimensions on fone."), so the row as drawn is SIX; the seven, with the Tape's switch
+    // on, are held beside them, and the eight with the Chain's too.)
+    @Test fun `the row has no Select slot and the next-figure slot is last - six equal slots, seven with the Tape tool on`() {
         for (kind in listOf("wall", "floor", "ceil")) {
             val row = SurveyPrepPalette.row(kind)
-            assertEquals(listOf(RowKind.TOOL, RowKind.TOOL, RowKind.TYPE, RowKind.TYPE, RowKind.TYPE, RowKind.MORE, RowKind.NEXT), row.map { it.kind }, kind)
-            assertEquals(7, row.size)
-            assertFalse(row.any { it.key == SurveyPrepPalette.SEL })
+            assertEquals(listOf(RowKind.TOOL, RowKind.TYPE, RowKind.TYPE, RowKind.TYPE, RowKind.MORE, RowKind.NEXT), row.map { it.kind }, kind)
+            assertEquals(6, row.size)
+            assertFalse(row.any { it.key == SurveyPrepPalette.SEL }); assertFalse(row.any { it.key == SurveyPrepPalette.TAPE })
+            val on = SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(tapes = true))
+            assertEquals(listOf(RowKind.TOOL, RowKind.TOOL, RowKind.TYPE, RowKind.TYPE, RowKind.TYPE, RowKind.MORE, RowKind.NEXT), on.map { it.kind }, kind)
+            assertEquals(7, on.size)
+            assertFalse(on.any { it.key == SurveyPrepPalette.SEL })
         }
-        assertEquals(listOf("T", "M", "W", "D", "E", "", ""), SurveyPrepPalette.row("wall").map { it.key })
+        assertEquals(listOf("M", "W", "D", "E", "", ""), SurveyPrepPalette.row("wall").map { it.key })
+        assertEquals(listOf("T", "M", "W", "D", "E", "", ""), SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(tapes = true)).map { it.key })
         assertEquals("▸", SurveyPrepPalette.NEXT_GLYPH)
         // the Chain's slot stays gone while its switch is off, and comes back with it
-        assertFalse(SurveyPrepPalette.row("wall").any { it.key == SurveyPrepPalette.CHAIN }); assertEquals(8, SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(chains = true)).size)
+        assertFalse(SurveyPrepPalette.row("wall").any { it.key == SurveyPrepPalette.CHAIN }); assertEquals(8, SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(chains = true, tapes = true)).size)
+        assertEquals(7, SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(chains = true, tapes = false)).size)
         // which slot is lit: the armed tool's; More while a More type is armed; never the next-figure slot
         val row = SurveyPrepPalette.row("wall")
-        assertEquals(listOf(false, false, false, true, false, false, false), row.map { SurveyPrepPalette.rowOn(it, "wall", "D") })
-        assertEquals(listOf(true, false, false, false, false, false, false), row.map { SurveyPrepPalette.rowOn(it, "wall", SurveyPrepPalette.TAPE) })
-        assertEquals(listOf(false, false, false, false, false, true, false), row.map { SurveyPrepPalette.rowOn(it, "wall", "O") })
+        assertEquals(listOf(false, false, true, false, false, false), row.map { SurveyPrepPalette.rowOn(it, "wall", "D") })
+        assertEquals(listOf(true, false, false, false, false, false), row.map { SurveyPrepPalette.rowOn(it, "wall", SurveyPrepPalette.LINE) })
+        assertEquals(listOf(false, false, false, false, true, false), row.map { SurveyPrepPalette.rowOn(it, "wall", "O") })
         assertTrue(row.none { SurveyPrepPalette.rowOn(it, "wall", SurveyPrepPalette.SEL) }, "no tool armed: nothing is lit")
+        // the Tape's slot lights only where it is offered: with its tool off there is no slot to light
+        assertTrue(row.none { SurveyPrepPalette.rowOn(it, "wall", SurveyPrepPalette.TAPE) })
+        assertEquals(listOf(true, false, false, false, false, false, false),
+            SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(tapes = true)).map { SurveyPrepPalette.rowOn(it, "wall", SurveyPrepPalette.TAPE) })
     }
 
     @Test fun `a tool places one item and goes off - and the lit slot tapped again turns it off`() {

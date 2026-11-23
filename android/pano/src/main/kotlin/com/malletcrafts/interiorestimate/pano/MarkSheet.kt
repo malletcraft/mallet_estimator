@@ -550,7 +550,8 @@ object MarkSheet {
      * [DeleteGuard.last]:
      *  - WHAT THE PHASE FORBIDS IS NOT DRAWN: Lock / Unlock only where the padlock shows ([PhaseTools.lockOk]),
      *    Duplicate only where the copy may be made ([PhaseTools.copyOk] -- never a chain while the chain tool is off,
-     *    [chains]), Lock all only where the item may be edited, Delete only where its delete control shows
+     *    [chains], and never a Tape while the Tape tool is off, [tapes]: port 63 slice F3, [Features.TAPES], the
+     *    default of the last parameter), Lock all only where the item may be edited, Delete only where its delete control shows
      *    ([PhaseTools.delOk]). A surveyed mark after Survey has no act at all, as its menu was its head and Cancel;
      *  - the menu's Cancel is no act: Back, the dimmed photo and a swipe down cancel the panel;
      *  - A MARK PAST EXISTING HAS NO DELETE CELL. Its menu row read Drop, or Restore -- STATE's moves, which the sheet
@@ -563,9 +564,10 @@ object MarkSheet {
      *    own words ("Lock all Door", "Unlock all tapes").
      * No act for an id that is no item: the reference rectangle has no panel.
      */
-    fun acts(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false): Acts {
+    fun acts(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false,
+             tapes: Boolean = Features.TAPES): Acts {
         val o = p.itemById(id) ?: return Acts.NONE
-        val rows = SurveyPrepEdit.menuItemsOf(tx, p, id, stage, picked, chains, shape)
+        val rows = SurveyPrepEdit.menuItemsOf(tx, p, id, stage, picked, chains, shape, tapes)
         fun said(k: String): String? = rows.firstOrNull { it.first == k }?.second
         val mark = p.markById(id)?.second
         val past = mark != null && MarkLife.deleteWord(mark) != MarkLife.DeleteWord.DELETE
@@ -643,9 +645,10 @@ object MarkSheet {
      * a Line's and an area's head is this sheet's own ([view]); a Tape's is "F-T1 · Tape" and a chain's "FK1 · Chain",
      * with no trade and a Done that only closes.
      */
-    fun panel(tx: Tx, p: SurveyPrep.Prep, pn: Panel, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false): PanelView? {
+    fun panel(tx: Tx, p: SurveyPrep.Prep, pn: Panel, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false,
+              tapes: Boolean = Features.TAPES): PanelView? {
         val o = p.itemById(pn.id) ?: return null
-        val a = acts(tx, p, pn.id, stage, picked, chains, shape)
+        val a = acts(tx, p, pn.id, stage, picked, chains, shape, tapes)
         val d = pn.draft
         if (d != null) {
             val v = view(tx, p, d, stage) ?: return null
@@ -692,9 +695,9 @@ object MarkSheet {
      *  - Delete: [ActStep.Delete]; every other act: [ActStep.Run].
      */
     fun actStep(tx: Tx, p: SurveyPrep.Prep, pn: Panel, act: String, stage: Int?, picked: String?,
-                chains: Boolean = Features.CHAINS, shape: Boolean = false): ActStep {
+                chains: Boolean = Features.CHAINS, shape: Boolean = false, tapes: Boolean = Features.TAPES): ActStep {
         val o = p.itemById(pn.id) ?: return ActStep.Refused(pn)
-        if (!acts(tx, p, pn.id, stage, picked, chains, shape).has(act)) return ActStep.Refused(pn)
+        if (!acts(tx, p, pn.id, stage, picked, chains, shape, tapes).has(act)) return ActStep.Refused(pn)
         val no = when (act) {
             // Delete, and the shape row: drawn on a LOCKED mark, and answered with the lock's own words (menuItemsOf)
             SurveyPrepEdit.DELETE, SurveyPrepEdit.SHAPE_FREE, SurveyPrepEdit.SHAPE_BOX -> if (o.locked) SurveyPrepEdit.refusal(tx, o.code) else null

@@ -135,10 +135,16 @@ object PhaseTools {
      * [Features.CHAINS]: Amit, 16 Nov 2026, "chain mark is rarely used. get rid of it."). This is the one answer 2 ·
      * Mark's photo, 4 · 360, the chip and the palette all draw from, so with the switch off no chain can be started
      * whatever was picked: the palette does not offer it ([SurveyPrepPalette.offered]), and a key that arrived any
-     * other way is Select here. The switch is the DEFAULT of the last parameter: both sides stay tested.
+     * other way is Select here. The switch is the DEFAULT of its parameter: both sides stay tested.
+     *
+     * AND NEVER THE TAPE WHILE [tapes] IS OFF (port 63 slice F3; [Features.TAPES]: Amit, 23 Nov 2026, "does tape tool
+     * make any sense now? as we don't want any foto measured dimensions on fone."): the same one answer, so no Tape
+     * can be pulled on the photo or on the 360 whatever was picked -- no drag starts one, no chip names one, no guide
+     * is drawn for one.
      */
-    fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS): String =
-        if (!can(Tool.PALETTE, stage) || (tool == SurveyPrepPalette.CHAIN && !chains)) SurveyPrepPalette.SEL else tool
+    fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS, tapes: Boolean = Features.TAPES): String =
+        if (!can(Tool.PALETTE, stage) || (tool == SurveyPrepPalette.CHAIN && !chains) || (tool == SurveyPrepPalette.TAPE && !tapes))
+            SurveyPrepPalette.SEL else tool
 
     // ------------------------------------------------------------------ survey prep, as far as it is wired (slice L4)
 
@@ -504,12 +510,20 @@ object PhaseTools {
      *
      * A CHAIN IS NOT COPIED WHILE [chains] IS OFF (port 63 slice F1; [Features.CHAINS]): the copy of a chain is a NEW
      * chain, and no way to make one is offered -- the menu's Duplicate row is hidden on a chain and the act makes
-     * nothing. The chain itself stays, with everything else its menu offers. The switch is the DEFAULT of the last
+     * nothing. The chain itself stays, with everything else its menu offers. The switch is the DEFAULT of its
      * parameter.
+     *
+     * NOR IS A TAPE WHILE [tapes] IS OFF (port 63 slice F3; [Features.TAPES]): the copy of a Tape is a NEW Tape -- a
+     * new figure taken from the photo -- and no way to make one is offered. The Tape itself stays, with everything
+     * else its panel offers; a Line and an area are copied as before.
      */
-    fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS): Boolean =
-        p.markById(id)?.let { copyOk(it.second, stage, picked) }
-            ?: if (!chains && p.chainById(id) != null) false else editable(p, id, stage)
+    fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS,
+               tapes: Boolean = Features.TAPES): Boolean =
+        p.markById(id)?.let { copyOk(it.second, stage, picked) } ?: when {
+            !chains && p.chainById(id) != null -> false
+            !tapes && p.measById(id)?.second?.kind == SurveyMeas.TAPE -> false
+            else -> editable(p, id, stage)
+        }
 
     /**
      * [editable], [delOk] and [lockOk] for the item of [p] with the id [id], whatever it is -- a mark, a Tape, a Line,
