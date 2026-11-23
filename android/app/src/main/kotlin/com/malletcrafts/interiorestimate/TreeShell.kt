@@ -627,6 +627,17 @@ fun previewCode(client: String, room: String, articleCode: String): String =
  * but the refusal that used to arrive after Save ("Could not rename: no server
  * configured") is now the reason standing in the grey line's place from the
  * moment the dialog opens.
+ *
+ * AND A PROJECT'S DIALOG HAS A SITE ROW (port 63 slice F4c; Renames.moveRoute).
+ * Amit, 23 Nov 2026, with build 0.3.350: a project of his sat outside its flat's
+ * site, and nothing on the phone could put it there. Under the name, a row says
+ * the site the project is listed under ([site]); a tap unfolds, in the dialog
+ * itself, the client's other sites ([siteChoices]) and a field for a new one, and
+ * a pick hands the name to [onMove]. It is a row of its own, live whether or not
+ * the NAME can be changed here: every project he has is shut for a rename, and
+ * its Site row is what he came for. Where the site cannot be changed from this
+ * phone at all the row has no picker and [moveShut] stands under it; a move that
+ * did not happen says why under the row ([moveWhy]) and the dialog stays open.
  */
 @Composable
 fun RenameDialog(
@@ -669,6 +680,20 @@ fun RenameDialog(
      *  and it is the only way a person can tell two rows apart when four
      *  sites on this bench are all called "Main site". */
     serverId: String = "",
+    /** For a project: the site the tree lists it under, shown on the Site
+     *  row. Null draws no Site row (a client, a site). */
+    site: String? = null,
+    /** The client's other named sites, each one tap (Renames.siteChoices). */
+    siteChoices: List<String> = emptyList(),
+    /** Why this project's site cannot be changed from this phone at all
+     *  (Renames.moveShut); blank when it can. */
+    moveShut: String = "",
+    /** Why the last move did not happen, or null. Drawn under the Site row. */
+    moveWhy: String? = null,
+    /** Another site was typed: the reason goes. */
+    onMoveEdit: () -> Unit = {},
+    /** A site was picked, or typed and confirmed: give the project that site. */
+    onMove: ((String) -> Unit)? = null,
 ) {
     val tx = LocalTx.current
     // the {kind} word: the wire kinds "client" / "site" / "project" through their nouns (EN byte-identical
@@ -694,6 +719,9 @@ fun RenameDialog(
     // reason are in view each time one is set, as the page's rn62Top does.
     val scroll = rememberScrollState()
     LaunchedEffect(whyTick) { if (why != null) scroll.scrollTo(0) }
+    // The Site row's picker, folded until the row is tapped; and the name typed for a site the client does not have yet.
+    var pickSite by remember(current, site) { mutableStateOf(false) }
+    var newSite by remember(current, site) { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         // The name is wrong HERE and the thing is unwanted HERE. Sending a
@@ -755,6 +783,66 @@ fun RenameDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                // THE SITE ROW (port 63 slice F4c): the site this project is listed under, and the way to give it
+                // another. Unfolded IN the dialog -- no second window over this one -- and drawn the same whether
+                // or not the name above can be edited: a move is not a rename.
+                if (site != null && onMove != null) {
+                    val canMove = moveShut.isEmpty()
+                    Spacer(Modifier.height(14.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(10.dp))
+                    Text(tx.common_site, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        (if (canMove && !busy) Modifier.clickableRow { pickSite = !pickSite } else Modifier.fillMaxWidth())
+                            .heightIn(min = 48.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    ) {
+                        // the site through its master: "(no site)" and "Main site" read in the language shown, a typed name as typed
+                        Text(Masters.site_name(tx, site), style = MaterialTheme.typography.titleSmall,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        // the chevron only where a tap opens something
+                        if (canMove) Icon(painterResource(R.drawable.ic_mcft_down), contentDescription = tx.app_move_project,
+                            modifier = Modifier.size(18.dp))
+                    }
+                    if (!canMove) Text(moveShut, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (moveWhy != null) Text(
+                        moveWhy,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
+                    )
+                    if (canMove && pickSite) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(tx.app_move_project, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // the client's other sites, one tap each
+                        siteChoices.forEach { s ->
+                            Row(
+                                (if (!busy) Modifier.clickableRow { onMove(s) } else Modifier.fillMaxWidth())
+                                    .heightIn(min = 48.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            ) {
+                                Text(Masters.site_name(tx, s), style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        // ...or a site the client does not have yet, typed
+                        OutlinedTextField(
+                            value = newSite,
+                            onValueChange = { newSite = it; onMoveEdit() },
+                            singleLine = true,
+                            enabled = !busy,
+                            label = { Text(tx.common_new_site) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TextButton(enabled = newSite.isNotBlank() && !busy,
+                            onClick = { onMove(newSite.trim()) }) {
+                            Text(if (busy) tx.common_saving else tx.app_use_site)
+                        }
+                    }
                 }
                 if (onDelete != null) {
                     Spacer(Modifier.height(14.dp))

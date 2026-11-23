@@ -161,7 +161,10 @@ class TreeKeepTest {
 
     @Test fun `each caller of the read says whether the pair is live - the sync's S5 leg never, the app's start by what the bench just answered, the rename by the stored facts`() {
         val main = app("MainActivity.kt"); val sync = app("SyncWorker.kt")
-        assertEquals(3, count(main + sync, "S5Masters.fetch("), "three callers: the app's start, the rename's read-first, the sync's S5 leg")
+        // THIS PIN MOVED WITH PORT 63 SLICE F4c, 3 -> 4, and holds no less: the project's Site row reads S5's list first in the
+        // one case a site's rename does (a capture keyed for S5 that S5's list has not named here), by the same call with the
+        // same answer about the pair -- MoveRouteTest pins that call. Every caller still says whether the pair is live (below).
+        assertEquals(4, count(main + sync, "S5Masters.fetch("), "four callers: the app's start, the rename's read-first, the project move's read-first, the sync's S5 leg")
         assertFalse((main + sync).contains("S5Masters.fetch(context)") || (main + sync).contains("S5Masters.fetch(ctx)"), "none leaves the answer out")
         // the S5 leg runs only with no pair or a refused one (doWork), so it is never live there
         val leg = between(sync, "private fun s5Leg(store: CaptureStore)", "private data class ErpOutcome")

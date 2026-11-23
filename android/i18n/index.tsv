@@ -228,6 +228,7 @@ app.msg.importing_imagemeter	app_msg_importing_imagemeter	static	-
 app.msg.local_copy_removed_capture	app_msg_local_copy_removed_capture	static	-
 app.msg.looked_14_gallery_photos	app_msg_looked_14_gallery_photos	static	-
 app.msg.looked_x_gallery_photos	app_msg_looked_x_gallery_photos	template	n: String
+app.msg.moved_to_x	app_msg_moved_to_x	template	site: String
 app.msg.no_camera_app_x	app_msg_no_camera_app_x	template	why: String
 app.msg.no_photos_gallery	app_msg_no_photos_gallery	static	-
 app.msg.photo_filed_x	app_msg_photo_filed_x	template	v: String
@@ -271,6 +272,7 @@ app.none	app_none	static	-
 app.not_annotated	app_not_annotated	static	-
 app.not_connected	app_not_connected	static	-
 app.not_done_yet_tap	app_not_done_yet_tap	static	-
+app.not_moved_pick_another_site	app_not_moved_pick_another_site	static	-
 app.not_on_web_x	app_not_on_web_x	template	why: String
 app.not_refiled_web_x	app_not_refiled_web_x	template	why: String
 app.not_signed_in	app_not_signed_in	static	-
@@ -324,11 +326,13 @@ app.phone_camera_simulated	-	skipped	prototype-only
 app.photos	app_photos	static	-
 app.pick_360_gallery	app_pick_360_gallery	static	-
 app.pinch_zoom_double_tap	app_pinch_zoom_double_tap	static	-
+app.project_capture_on_way_not_moved	app_project_capture_on_way_not_moved	static	-
 app.project_has_no_skus	app_project_has_no_skus	static	-
 app.project_is_at	app_project_is_at	static	-
 app.project_office_record_renamed	app_project_office_record_renamed	static	-
 app.project_s5_not_removed	app_project_s5_not_removed	static	-
 app.project_s5_not_renamed	app_project_s5_not_renamed	static	-
+app.project_site_not_changed_here	app_project_site_not_changed_here	static	-
 app.queued	app_queued	static	-
 app.reading_x_mm_unit	app_reading_x_mm_unit	template	mm: String
 app.ready_shoot	app_ready_shoot	static	-

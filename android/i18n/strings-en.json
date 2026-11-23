@@ -1738,6 +1738,19 @@
    "phone-text"
   ]
  },
+ "app.msg.moved_to_x": {
+  "en": "Moved to {site}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt moved at d9d32ab+F4c · Shell · a project's dialog, its Site row (port 63 slice F4c, 23 Nov 2026; DESIGN-tree §7): the banner after ONE project was given another site -- S5 answered for it, or the phone's own row was moved · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "site": "the site's name as S5 stored it or as typed (data), shown through Masters.site_name"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.no_camera_app_x": {
   "en": "No camera app answered: {why}",
   "where": [
@@ -2091,6 +2104,16 @@
   "en": "Not done yet · tap to bound, square and mark each surface",
   "where": "v53build/app.js:525 · kept",
   "kind": "static"
+ },
+ "app.not_moved_pick_another_site": {
+  "en": "Not moved: pick another site, or type a new site's name.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt moveRoute at d9d32ab+F4c · Shell · a project's dialog, its Site row (port 63 slice F4c, 23 Nov 2026; DESIGN-tree §7): under the Site row, in red, the dialog staying open: the site typed is blank, is the (no site) bucket, or is the site the project is already at · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.not_on_web_x": {
   "en": "Not on web: {why}",
@@ -2566,6 +2589,16 @@
    "phone-text"
   ]
  },
+ "app.project_capture_on_way_not_moved": {
+  "en": "A photo of this project has not reached S5 yet — move it once it has; not moved",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt moveRoute at d9d32ab+F4c · Shell · a project's dialog, its Site row (port 63 slice F4c, 23 Nov 2026; DESIGN-tree §7): under the Site row, in red, the dialog staying open: a capture of a project made on this phone is keyed for S5 and S5's list, read for this move, still does not name the project · the project's twin of refuse.site.capture_on_way · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.project_has_no_skus": {
   "en": "This project has no SKUs yet. The office adds them from the estimate, and they arrive on the next sync.",
   "where": "v53build/app.js:249 · h",
@@ -2600,6 +2633,16 @@
   "en": "This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.",
   "where": [
    "S2 APK phone text · RenameRoute.kt heldByS5 at cff09e5+F4b · Shell · the rename dialog (port 63 slice F4b, 23 Nov 2026; DESIGN-tree §3): in the grey line's place, the name shown and not edited, for a PROJECT S5 lists, one under a phone-minted S5 key, or one a capture of which is keyed for S5 · a whole key per kind (the client's twin is app.client_s5_not_renamed) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.project_site_not_changed_here": {
+  "en": "This project's site cannot be changed from this phone: S5 does not hold the project and it was not made here.",
+  "where": [
+   "S2 APK phone text · RenameRoute.kt moveShut at d9d32ab+F4c · Shell · a project's dialog, its Site row (port 63 slice F4c, 23 Nov 2026; DESIGN-tree §7): under the Site row, which then has no picker: the demo's project, and a project only an ERP bootstrap names on a phone with a live ERP pair · the project's twin of app.site_not_renamed_here · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [

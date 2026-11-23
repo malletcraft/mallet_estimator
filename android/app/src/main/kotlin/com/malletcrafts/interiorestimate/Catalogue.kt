@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.SiteRows
 import com.malletcrafts.interiorestimate.pano.TourDemo
@@ -776,6 +777,133 @@ class Catalogue(context: Context) {
                 o.put("site_name", to)
                 touched = true
             }
+        }
+        return touched
+    }
+
+    // ---- one project, one site (port 63 slice F4c) ------------------------
+
+    /**
+     * The project a dialog's target IS, as the tree lists it NOW: by its server id where it carries one; else by client,
+     * site and title; else -- the phone's own row has become S5's since, or its site has moved under it -- by client
+     * and title, as the tree itself hides a row behind a listed project of the same client and title. Null when the
+     * tree lists no such project.
+     */
+    fun projectOf(masters: JSONObject?, serverId: String, client: String, site: String, title: String): Project? {
+        val all = projects(masters)
+        return all.firstOrNull { serverId.isNotBlank() && it.serverId == serverId }
+            ?: all.firstOrNull { same(it.client, client) && same(it.site, site) && same(it.title, title) }
+            ?: all.firstOrNull { same(it.client, client) && same(it.title, title) }
+    }
+
+    /** What Renames.moveShut and Renames.moveRoute ask about ONE project as the tree lists it ([moveFacts]). */
+    private class MoveFacts(
+        val project: String, val held: Renames.Held?, val hasLocalRow: Boolean,
+        val mastersOnly: Boolean, val onWay: Boolean, val demo: Boolean,
+    )
+
+    /** Whether the masters hold [projectId] as an entry an ERP bootstrap brought -- not one a read of S5's list added. */
+    private fun bootstrapEntry(masters: JSONObject?, projectId: String): Boolean {
+        val arr = masters?.optJSONArray("projects") ?: return false
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("project") == projectId) return !o.optBoolean(S5Masters.FROM_S5)
+        }
+        return false
+    }
+
+    /**
+     * WHAT :pano's MOVE RULE IS ASKED WITH, gathered in one place for the project [p] as the tree lists it:
+     *  - AN ENTRY OF THE MASTERS (the tree's project carries a server id): S5's name for that id ([S5Sites.held]), and
+     *    whether it is a bootstrap's entry that S5 does not list (`mastersOnly`);
+     *  - THE PHONE'S OWN ROW: the S5 project it is, where S5's list has named one -- by the project id a capture of the
+     *    row carries (a capture's site read where its key was minted from, [localSiteFor]; never the demo's), else by
+     *    the key the row would have on S5 (S5Auth.localKey). That is the row S5 holds while the masters do not list it
+     *    (signed out; or a phone with a live pair, whose bootstrap replaces the masters). And `onWay`: a capture of the
+     *    row carries a phone-minted key that S5's list has NOT named here -- gone up since the list was last read, or
+     *    about to.
+     */
+    private fun moveFacts(masters: JSONObject?, captures: List<CaptureStore.Capture>, p: Project): MoveFacts {
+        val demo = TourDemo.isDemoProject(p.client, p.title)
+        val hasRow = hasLocal("project", p.client, p.site, p.title)
+        if (!p.local && p.serverId.isNotBlank()) {
+            val held = S5Sites.held(appContext, p.serverId)
+            return MoveFacts(p.serverId, held, hasRow,
+                mastersOnly = held == null && bootstrapEntry(masters, p.serverId), onWay = false, demo = demo)
+        }
+        val carried = captures.firstOrNull { c ->
+            c.project.isNotBlank() && !TourDemo.isDemoProject(c.customerName, c.projectTitle) &&
+                same(c.customerName, p.client) && same(c.projectTitle, p.title) &&
+                same(localSiteFor(c.customerName, c.projectTitle), p.site)
+        }?.project.orEmpty()
+        val id = carried.ifEmpty { S5Auth.localKey(p.client, p.site, p.title) }
+        val held = S5Sites.held(appContext, id)
+        return MoveFacts(if (held != null) id else "", held, hasRow, mastersOnly = false,
+            onWay = held == null && Renames.minted(carried), demo = demo)
+    }
+
+    /** Why [p]'s site cannot be changed from this phone at all, or null when it can: Renames.moveShut, asked when the project's dialog opens. */
+    fun moveShut(tx: Tx, masters: JSONObject?, captures: List<CaptureStore.Capture>, p: Project, erpLive: Boolean): String? {
+        val f = moveFacts(masters, captures, p)
+        return Renames.moveShut(tx, f.project, f.held, f.hasLocalRow, f.mastersOnly, erpLive, f.demo)
+    }
+
+    /** Where a move of [p] to the site [to] goes: Renames.moveRoute on [moveFacts]. The one caller of the rule. */
+    fun moveRoute(
+        tx: Tx, masters: JSONObject?, captures: List<CaptureStore.Capture>, p: Project, to: String,
+        signedIn: Boolean, erpLive: Boolean, listRead: Boolean = false,
+    ): RenameRoute {
+        val f = moveFacts(masters, captures, p)
+        return Renames.moveRoute(tx, f.project, f.held, f.hasLocalRow, f.mastersOnly, erpLive, signedIn, f.demo,
+            from = p.site, to = to, onWay = f.onWay, listRead = listRead)
+    }
+
+    /**
+     * MOVE THE PHONE'S OWN ROW OF ONE PROJECT TO ANOTHER SITE: the row of [client], [site] and [project] says [to].
+     * A row is words in this phone's preferences, so this works with no signal. Where a row of that client and project
+     * already stands at [to], the two are one row and the moved one goes. The moved row takes the type and the address
+     * of the site it joins (a row of that client already there), and at a site nobody has named yet it keeps its type
+     * and carries NO address: an address is the flat's it was typed for. Returns whether a row was moved; the captures
+     * need nothing (a capture carries no site).
+     */
+    fun moveLocal(client: String, site: String, project: String, to: String): Boolean {
+        val n = to.trim()
+        if (!Renames.named(n) || same(site, n)) return false
+        val have = locals()
+        val there = have.firstOrNull { same(it.client, client) && same(it.site, n) }
+        val twin = have.any { same(it.client, client) && same(it.site, n) && same(it.project, project) }
+        var touched = false
+        val out = ArrayList<Local>()
+        for (l in have) {
+            if (same(l.client, client) && same(l.site, site) && same(l.project, project)) {
+                if (!twin && !touched) out.add(l.copy(site = n, siteType = there?.siteType ?: l.siteType, address = there?.address ?: ""))
+                touched = true
+            } else out.add(l)
+        }
+        if (touched) writeLocals(out)
+        return touched
+    }
+
+    /**
+     * THE PHONE'S COPY OF A BOOTSTRAP ENTRY TAKES ANOTHER SITE NAME: the `site_name` of the masters entry of
+     * [projectId] says [to] -- never an entry a read of S5's list added (that one has no name of its own: its site is
+     * S5's, else the phone's own row's). For the one case Renames.moveRoute sends here: a project only an old ERP
+     * bootstrap names, kept on a phone with no live pair because a capture of it has not reached a server; its first
+     * upload then carries this name to S5 as S5's first value ([siteFor]). The entry's link to the bench's site row
+     * stays as it is (SiteRows.listed lists that row under the name its projects are listed under). Returns whether
+     * anything changed; the caller saves the masters.
+     */
+    fun setMastersSite(masters: JSONObject, projectId: String, to: String): Boolean {
+        val n = to.trim()
+        if (projectId.isBlank() || !Renames.named(n)) return false
+        val arr = masters.optJSONArray("projects") ?: return false
+        var touched = false
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optString("project") != projectId || o.optBoolean(S5Masters.FROM_S5)) continue
+            if (o.optString("site_name") == n) continue
+            o.put("site_name", n)
+            touched = true
         }
         return touched
     }

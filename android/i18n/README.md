@@ -1187,11 +1187,43 @@ nothing calls BY NAME stay at 656 (all six new keys are born read). Two new lite
 phone-minted key's prefix `S5-` in `pano/RenameRoute.kt` and a line of SQL in `app/CaptureStore.kt`; the capture
 store's state `SYNCED` is marked where `app/S5Session.kt` and `app/MainActivity.kt` newly compare it.
 
+## Port 63 slice F4c (23 Nov 2026): one project, one site -- 4 keys added, English first
+
+Amit, 23 Nov 2026, with build 0.3.350 on his phone: a project of his was listed outside its flat's site, and "site
+switch is not happening correctly. fix it." Nothing on the phone gave ONE project a site. Since F4c a project's dialog
+has a Site row (`android/docs/port63/DESIGN-tree.md` §7).
+
+**Four keys**, each a phone text (flag `phone-text`), ENGLISH FIRST (decision 7 above): the Marathi value of each IS its
+English for now, with a note saying so, and all four are listed in `mr-pending.tsv` (37 -> 41).
+
+| Key | English | Read by |
+|---|---|---|
+| `app.msg.moved_to_x` | `Moved to {site}` | `MainActivity.kt` `moved` -- the banner after ONE project was given another site; `{site}` is the site's name as S5 stored it or as typed, through `Masters.site_name` |
+| `app.project_site_not_changed_here` | `This project's site cannot be changed from this phone: S5 does not hold the project and it was not made here.` | `Renames.moveShut` -- under the Site row, which then has no picker: the demo's project, and a project only an ERP bootstrap names on a phone with a live ERP pair. The project's twin of `app.site_not_renamed_here` |
+| `app.project_capture_on_way_not_moved` | `A photo of this project has not reached S5 yet — move it once it has; not moved` | `Renames.moveRoute` -- under the Site row, in red: a capture of a project made on this phone is keyed for S5 and S5's list, read for this move, still does not name the project. The project's twin of `refuse.site.capture_on_way` |
+| `app.not_moved_pick_another_site` | `Not moved: pick another site, or type a new site's name.` | `Renames.moveRoute` -- under the Site row, in red: the site typed is blank, is the `(no site)` bucket, or is the site the project is already at |
+
+**Reused, with the Marathi they already have** -- the Site row itself adds no word: its label is `common.site`, the
+picker's head `app.move_project` ("Move the project to": the prototype's key for the stage sheet v61c removed, which had
+no reader on the phone until now), the field `common.new_site`, its button `app.use_site` (the New site dialog's own),
+and `common.saving` while a move is out. Signed out, offline and S5's 409 are the site rename's own lines
+(`refuse.site.signed_out`, `refuse.site.offline`, `Renames.text`): a move is that same write, made for one project.
+They end "not saved", and the first says "Save again" where a move has no Save; they stand as approved until the phone
+says they read wrongly.
+
+**No existing English or Marathi value is changed**: the diff of `strings-mr.json` is four additions. Only
+`app.msg.moved_to_x` has a placeholder.
+
+1,944 keys (1,940 + 4); Tx regenerated with `:pano:i18nGen` (1,873 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and no file is gone; `unkeyed.tsv` stays empty; the accessors nothing calls BY NAME go
+656 -> 655 (`app.move_project` is read now; all four new keys are born read). One new literal is marked
+`// text:value`: the wire kind `project`, compared where `MainActivity.kt` opens a project's dialog.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,940 keys each (counted 23 Nov 2026: the 1,934 of port 63 slice Q2b and the 6 of its slice F4b; that 1,934 is the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,944 keys each (counted 23 Nov 2026: the 1,940 of port 63 slice F4b and the 4 of its slice F4c; that 1,940 is the 1,934 of port 63 slice Q2b and the 6 of slice F4b; that 1,934 is the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

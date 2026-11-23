@@ -271,6 +271,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // the tree groups by at once (a 409's stored name, 1 of 2 renamed), so "the projects under the old name" is no
     // longer the same list on Save again -- these are, each with the base S5 last gave for it.
     var renameIds by remember { mutableStateOf<List<String>?>(null) }
+    // WHY THE LAST MOVE OF A PROJECT TO ANOTHER SITE DID NOT HAPPEN (port 63 slice F4c): drawn under the dialog's Site
+    // row while the dialog stays open, set on failure, cleared when another site is picked or typed and on dismiss.
+    var moveWhy by remember { mutableStateOf<Msg?>(null) }
     // The server's own words for why a delete was refused — "still has 3
     // capture(s)". Cleared whenever the dialog target changes, so a refusal
     // about one project never arms a cascade on the next.
@@ -1261,6 +1264,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         renaming = null
         renameWhy = null
         renameIds = null
+        moveWhy = null
         deleteBlocker = null
         deleteFatal = false
     }
@@ -1269,6 +1273,119 @@ private fun AppScreenBody(onLang: () -> Unit) {
         renameBusy = false
         renameWhy = why
         renameWhyTick += 1
+    }
+    // ---- ONE PROJECT, ONE SITE (port 63 slice F4c; android/docs/port63/DESIGN-tree.md §7) ------------------------
+    // A project's dialog carries a Site row, and picking a site there gives THAT project the site. Until this slice
+    // nothing on the phone moved one project: a project in "(no site)" could not be given its flat's site at all.
+    // Where a move goes is :pano's (Renames.moveRoute, asked through Catalogue.moveRoute); every failure is said in
+    // the dialog, under the Site row, and the dialog stays open.
+    fun moveFailed(why: Msg) {
+        renameBusy = false
+        moveWhy = why
+    }
+    // Moved: the tree is re-read, the place follows the project to the site it is at now, and it is said.
+    fun moved(p: Catalogue.Project, name: String) {
+        reload()
+        val now = cat.projectOf(store.masters(), p.serverId, p.client, name, p.title)
+        navClient = now?.client ?: p.client
+        navSite = now?.site ?: name
+        // an OPEN project is re-read from the tree: its copy here still says the site it was at
+        if (navProject != null) navProject = now
+        lastResult = { tx -> tx.app_msg_moved_to_x(Masters.site_name(tx, name)) }
+        renameBusy = false
+        closeRename()
+    }
+    // THE LOCAL MOVE: the phone's own row, and the phone's copy of a bootstrap entry S5 does not list -- CHECKED, as
+    // the local rename is: a move that moved nothing is a failure, never "Moved".
+    fun moveOnPhone(p: Catalogue.Project, to: String) {
+        val row = cat.moveLocal(p.client, p.site, p.title, to)
+        val entry = store.masters()?.let { m -> cat.setMastersSite(m, p.serverId, to).also { if (it) store.saveMasters(m) } } == true
+        if (!row && !entry) {
+            moveFailed { tx -> tx.app_project_site_not_changed_here }
+            return
+        }
+        // The rooms chosen for the site it leaves go with it where the site it joins has none of its own, and the
+        // old site keeps its list while anything is still listed there (Catalogue.moveRoomScope). S5's route needs
+        // no such step: S5Sites moves the rooms where S5's name for a project changes.
+        if (Renames.named(p.site))
+            cat.moveRoomScope(p.client, p.site, to, leave = cat.projectsOf(store.masters(), p.client, p.site).isEmpty())
+        moved(p, to)
+    }
+    fun moveProject(t: RenameTarget, typed: String) {
+        // the project as the tree lists it NOW: an answer of S5's to an earlier try may have moved it since the dialog opened
+        val p = cat.projectOf(masters, t.serverId, t.client, t.site, t.project)
+        if (p == null) {
+            moveFailed { tx -> tx.app_project_site_not_changed_here }
+            return
+        }
+        val to = Renames.moveTarget(typed, cat.sitesOf(masters, p.client).map { it.name })
+        // an S5 sign-in, or the legacy key S5 also takes: with neither there is nothing to call S5 with
+        val signedIn = S5Session.signedIn(context) || FrappeClient.authorization(context) != null
+        when (val route = cat.moveRoute(tx, masters, queue, p, to, signedIn = signedIn, erpLive = S5Masters.erpLive(context))) {
+            RenameRoute.Local -> moveOnPhone(p, to)
+            // S5 LISTS THE PROJECT: ONE PUT …/site for it, with its own base -- the write a site's rename makes once
+            // per project. Success is S5's answer alone.
+            is RenameRoute.S5 -> {
+                renameBusy = true
+                moveWhy = null
+                scope.launch {
+                    var at: Catalogue.Project = p
+                    var go: RenameRoute = route
+                    if (route.readFirst) {
+                        // A capture of the phone's own row is keyed for S5, and S5's list has not named its project
+                        // here (audit R9, as for a site): the list is read FIRST and the route asked again. Listed
+                        // now, it is S5's project and takes the write; still not, the move waits for the upload.
+                        val fresh = withContext(Dispatchers.IO) {
+                            S5Masters.fetch(context, erpLive = S5Masters.erpLive(context))?.also { store.saveMasters(it) }
+                        }
+                        if (fresh == null) {
+                            moveFailed { tx -> tx.refuse_site_offline }
+                            return@launch
+                        }
+                        reload()
+                        val again = cat.projectOf(fresh, t.serverId, t.client, t.site, t.project)
+                        if (again == null) {
+                            moveFailed { tx -> tx.app_project_site_not_changed_here }
+                            return@launch
+                        }
+                        at = again
+                        go = cat.moveRoute(tx, fresh, store.all(), at, to, signedIn = signedIn,
+                            erpLive = S5Masters.erpLive(context), listRead = true)
+                    }
+                    if (go == RenameRoute.Local) {
+                        moveOnPhone(at, to)
+                        return@launch
+                    }
+                    val s5 = go as? RenameRoute.S5
+                    if (s5 == null || s5.writes.isEmpty()) {
+                        val said = (go as? RenameRoute.Blocked)?.reason
+                        moveFailed { tx -> said ?: tx.refuse_site_offline }
+                        return@launch
+                    }
+                    val outcome = withContext(Dispatchers.IO) { SiteRename.rename(context, s5.writes, to) }
+                    if (outcome is Renames.Outcome.Done) {
+                        // S5 answered: its name for the project is already kept (SiteRename, S5Sites), so the tree
+                        // lists it there without a sync. The phone's own row of the project follows it, wherever it
+                        // stands, so the row is at the same site should the masters stop listing the project.
+                        val name = outcome.site
+                        val rowSite = cat.localSiteFor(at.client, at.title)
+                        if (rowSite.isNotEmpty()) withContext(Dispatchers.IO) { cat.moveLocal(at.client, rowSite, at.title, name) }
+                        moved(at, name)
+                    } else {
+                        // S5 did not take it: the dialog stays open and says why. What S5 DID answer (a 409's
+                        // stored name) is already on the phone, so the tree is redrawn from it.
+                        reload()
+                        moveFailed { tx -> Renames.text(tx, outcome).orEmpty() }
+                    }
+                }
+            }
+            is RenameRoute.Blocked -> {
+                val said = route.reason
+                moveFailed { _ -> said }
+            }
+            // never: a move is not told to the bench (Renames.moveRoute has no such route)
+            is RenameRoute.Legacy -> moveFailed { tx -> tx.app_project_site_not_changed_here }
+        }
     }
     // WHERE A RENAME GOES IS DECIDED IN ONE PLACE, and it is tested (Renames.route in :pano, beside Deletes.route).
     // This used to be `if (t.serverId.isBlank())` inline: a blank id renamed "locally" without checking a row was
@@ -1351,8 +1468,27 @@ private fun AppScreenBody(onLang: () -> Unit) {
         BackHandler { if (!renameBusy) closeRename() }
         // The form the dialog opens in: which grey line, and whether the name can be edited at all (P0 b, c).
         val opened = remember(t, masters, queue, dataTick, renameIds, renameWhyTick, tx) { renameRoute(t) }
+        // ONE PROJECT, ONE SITE (port 63 slice F4c): a project's dialog shows the site the tree lists it under and
+        // moves it to another -- whether or not its NAME can be changed here, which is a separate question
+        // (`opened`). The project as the tree lists it now, why its site cannot be changed at all (Renames.moveShut),
+        // and the client's other sites; none of the three for a client or a site.
+        val moving = remember(t, masters, queue, dataTick) {
+            if (t.kind == "project") cat.projectOf(masters, t.serverId, t.client, t.site, t.project) else null // text:value the wire kind, compared
+        }
+        val moveShut = remember(moving, masters, queue, dataTick, tx) {
+            moving?.let { cat.moveShut(tx, masters, queue, it, erpLive = S5Masters.erpLive(context)) }
+        }
+        val moveSites = remember(moving, masters, dataTick) {
+            moving?.let { m -> Renames.siteChoices(cat.sitesOf(masters, m.client).map { it.name }, m.site) }.orEmpty()
+        }
         RenameDialog(
             what = t.kind, current = t.current,
+            site = moving?.site,
+            siteChoices = moveSites,
+            moveShut = moveShut.orEmpty(),
+            moveWhy = moveWhy?.invoke(tx),
+            onMoveEdit = { moveWhy = null },
+            onMove = if (moving == null) null else ({ to: String -> moveProject(t, to) }),
             line = Renames.line(opened),
             shut = if (opened is RenameRoute.Blocked && Renames.shut(opened)) opened.reason else "",
             why = renameWhy?.invoke(tx),

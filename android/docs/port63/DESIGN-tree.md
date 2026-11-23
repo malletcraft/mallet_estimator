@@ -33,9 +33,15 @@ His two answers on the selector that followed (~22:15 IST):
 - what he had seen of a rename was **"Rename did not take"**: after a rename the old name came back, or the site
   split into two rows.
 
-The fix is four slices and a fifth that needs his yes (§5). This file is written with the first build's two, each
-its own commit: **F4a** (the plan's Slice 1: what the phone lists, §2) and **F4b** (the plan's Slice 4: a rename that
-cannot work says so before Save, and never forks, §3).
+The fix is four slices and a fifth that needs his yes (§5). This file is written with them, each its own commit:
+**F4a** (the plan's Slice 1: what the phone lists, §2), **F4b** (the plan's Slice 4: a rename that cannot work says
+so before Save, and never forks, §3) and **F4c** (the plan's Slice 2: one project, one site, §7). Sections 1 to 6 are
+the first writer's record of F4a and F4b and are kept as written, but for §5, where a slice built since points to its
+own section.
+
+A third sentence of the same message is the one F4c answers. It names one of his projects and the flat it belongs
+to, so it is in the session's notes and not here; what it says is that the project belongs to that flat and no
+other. On his phone it was listed outside the flat's site.
 
 ## 1. The faults these two slices close
 
@@ -324,12 +330,9 @@ table with each key's reader.
 
 In the order the verified plan gives them. V-numbers are the verifying pass's.
 
-- **Slice 2 — one project, one site** (V1). Nothing on the phone gives ONE project a site: the "(no site)" bucket
-  cannot be renamed, the seed and the upload send nothing for it, and no screen moves a project. A "Site" row on the
-  project's dialog: pick one of the client's sites or a new name, ONE `PUT …/site` for that project with its own base
-  (`SiteRename.rename` already sends one), `Catalogue.moveLocal` for a phone row. The data that prompted it (a
-  project of his on S5 with no site name) was written on S5 stage the same evening, so his phone lists it under the
-  flat's name at its next list read.
+- **Slice 2 — one project, one site** (V1): **built, F4c — §7.** The data that prompted it (a project of his on S5
+  with no site name) was written on S5 stage the same evening, so his phone lists it under the flat's name at its
+  next list read; the control he lacked is the project's Site row.
 - **Slice 3 — navigation, the "site switch"** (V9, V10, V11, and V8's twin). A chevron drawn on a crumb whose tap
   does nothing; only the last crumb opens "Switch"; Back skips a project list he walked through; the open place is
   held as names and a stale `Project` copy that nothing re-reads; a one-site client is opened by site NAME across all
@@ -401,3 +404,187 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
   probe refuses it), so that start takes the old path once; the sync that follows cuts the tree.
 - **The Queue's Sent list still names every client a capture of this phone was sent for**, the other clients'
   included: it is a history of what was sent, not the tree. Left as it is; said here so it is not a surprise.
+
+## 7. Slice F4c as built — one project, one site
+
+The plan's Slice 2, its own commit over F4b. Closes V1.
+
+### 7.1 What was wrong
+
+A site is not an entity on S5 or on the phone: it is the name each project carries. The phone could rename a site
+(every project of it at once) and could not give ONE project a site. A project S5 lists with no site name is filed
+under the "(no site)" bucket; the bucket cannot be renamed (it would name every unnamed project at once), the seed
+and the upload send nothing for it, and no screen moved a project. That is where a project of his own sat, outside
+its flat's site, with nothing he could press. (The data was corrected on S5 stage the same evening by one staff
+write; the missing control is this slice.)
+
+### 7.2 The rules
+
+`pano/RenameRoute.kt`, pure, tested by `MoveRouteTest` (new):
+
+```kotlin
+object Renames {
+    fun moveShut(tx: Tx, project: String, held: Held?, hasLocalRow: Boolean, mastersOnly: Boolean, erpLive: Boolean, demo: Boolean): String?
+    fun moveRoute(tx: Tx, project: String, held: Held?, hasLocalRow: Boolean, mastersOnly: Boolean,
+                  erpLive: Boolean, signedIn: Boolean, demo: Boolean, from: String, to: String,
+                  onWay: Boolean = false, listRead: Boolean = false): RenameRoute
+    fun siteChoices(sites: List<String>, current: String): List<String>
+    fun moveTarget(typed: String, sites: List<String>): String
+}
+```
+
+A move is "give this ONE project that site name": the write a site's rename makes once per project
+(`PUT /api/asis/:project/site {site, base}`, S5 QUOTE slice A1), made for one project with that project's own base.
+`moveRoute` answers with the routes a rename has, in this order:
+
+1. **Shut** (`moveShut`, asked when the dialog opens, before any site is picked) → `Blocked(…, SHUT)`: the demo's
+   project; a row that is neither S5's, nor an entry of the masters, nor made on this phone; and an entry of an ERP
+   bootstrap that S5 does not list **on a phone with a live ERP pair** — its site is the bench's, the bench moves no
+   project (it only fills a site that is blank), and the next bootstrap would put the old site back over anything
+   changed here. One sentence for all three (`app.project_site_not_changed_here`).
+2. **The target** → `Blocked(app.not_moved_pick_another_site, PHONE)`: a blank name, the "(no site)" bucket (a bucket
+   is not a place a project is moved to) and the site the project is already at, names as the catalogue compares
+   them. Never sent, never "Moved".
+3. **S5 lists the project** (`held` not null) → `RenameRoute.S5` with ONE write, its base S5's name for THIS project
+   exactly as S5 gave it — `''` when S5 holds none, which is the bucket's projects. Signed out:
+   `Blocked(refuse.site.signed_out, S5)`, known on the phone, so nothing is sent.
+4. **An entry of an ERP bootstrap S5 does not list, with no live pair** → `RenameRoute.Local`: the phone's copy of
+   the entry takes the name (below, decision 2).
+5. **A row made on this phone that S5's list has not named** → `RenameRoute.Local`. But where a capture of the row
+   already carries a phone-minted S5 key (`onWay`), the key is a hash of client|site|title and a row moved now would
+   mint a NEW key at its next capture — two S5 projects (audit R9, as for a site). So `S5(emptyList(), readFirst =
+   true)`: S5's list is read first and the route asked again with `listRead`. Listed now, it is S5's project and
+   takes the write (3); still not, `Blocked(app.project_capture_on_way_not_moved, S5)`.
+
+Never `RenameRoute.Legacy`: the bench is not told of a move, as it is not told of a site's rename.
+
+`siteChoices`: the client's NAMED sites other than the one the project is at, in the tree's order, each once — never
+the bucket. `moveTarget`: a typed name that is one of the client's sites (as the catalogue compares names) means
+that site in ITS spelling, so "flat 9" typed for a client who has "Flat 9" joins that site and does not give S5 a
+second spelling of it.
+
+### 7.3 Where `:app` asks them
+
+| Site | What changed |
+|---|---|
+| `app/Catalogue.kt` `moveFacts(masters, captures, p)` (new, private) | Gathers what the rule is asked with, for the project as the tree lists it. **An entry of the masters**: S5's name for its id (`S5Sites.held`), and `mastersOnly` = no name held and the entry is a bootstrap's (`bootstrapEntry`: not one a read of S5's list added). **The phone's own row**: the S5 project it IS, where S5's list has named one — by the project id a capture of the row carries (the capture's site read from the phone's row for its client and title, never the demo's), else by the key the row would have on S5 (`S5Auth.localKey`); and `onWay` = a capture of the row carries a phone-minted key that `S5Sites` does not hold. |
+| `app/Catalogue.kt` `moveShut(tx, masters, captures, p, erpLive)`, `moveRoute(tx, masters, captures, p, to, signedIn, erpLive, listRead)` (new) | The one caller of each rule, through `moveFacts`. `from` is the site the TREE lists the project under. |
+| `app/Catalogue.kt` `projectOf(masters, serverId, client, site, title)` (new) | The project a dialog's target is, as the tree lists it NOW: by its server id, else by client, site and title, else by client and title (the phone's own row has become S5's since, or its site moved under it). |
+| `app/Catalogue.kt` `moveLocal(client, site, project, to)` (new) | The phone's own row says the new site. One row per client, site and project: a row already standing at the target is the same row. The moved row takes the type and address of the site it joins, and at a site nobody has named yet it carries no address. |
+| `app/Catalogue.kt` `setMastersSite(masters, projectId, to)` (new) | The `site_name` of a bootstrap's entry, and nothing else of it; never an entry S5's list added. The caller saves the masters. |
+| `app/MainActivity.kt` `moveProject(t, typed)` (new) | Re-finds the project in the tree (`projectOf`), takes `Renames.moveTarget`, asks `cat.moveRoute`, and follows it: `Local` → `moveOnPhone`; `S5` → the list read first where the route says so (`S5Masters.fetch`, then `projectOf` and the route again on the masters that read gave), then `SiteRename.rename(context, s5.writes, to)` — the site rename's own sender, one PUT — and on `Outcome.Done` the phone's own row follows (`moveLocal`, wherever that row stands) and `moved`; anything else `reload()` and the reason. `Blocked` → the reason. |
+| `app/MainActivity.kt` `moveOnPhone(p, to)` (new) | `cat.moveLocal` and `cat.setMastersSite` (saved when it changed something); neither moved anything → a failure, never "Moved". Then `cat.moveRoomScope(client, from, to, leave = nothing is listed under the old site any more)`. |
+| `app/MainActivity.kt` `moved(p, name)` (new) | `reload()`, the open client and site become the project's, an OPEN project is re-read from the tree, the banner `app.msg.moved_to_x`, the dialog closes. |
+| `app/MainActivity.kt` `moveFailed(why)`, `moveWhy` (new) | The reason under the Site row; cleared in `closeRename()` and when another site is typed. |
+| `app/MainActivity.kt`, the dialog's call | `moving` (the tree's project, for kind project only), `moveShut`, `moveSites`, and six arguments to `RenameDialog`: `site`, `siteChoices`, `moveShut`, `moveWhy`, `onMoveEdit`, `onMove`. |
+| `app/TreeShell.kt` `RenameDialog` | Six new parameters, all defaulted. Under the name and its grey line, when `site != null && onMove != null`: a divider, the label `Site` (`common.site`), and a row with the site's name (through `Masters.site_name`, so the bucket reads in the language shown) and a down chevron. A tap unfolds, IN the dialog: the head `Move the project to` (`app.move_project`), the client's other sites one tap each, a field `New site` (`common.new_site`) and the button `Use this site` (`app.use_site`). Shut: no chevron, no picker, `moveShut` under the row. `moveWhy` in red under the row. Nothing of the row reads whether the NAME is shut. |
+
+### 7.4 What Amit sees
+
+- **A project in "(no site)"** (S5 lists it, with no site name): long-press it → the dialog. Its name is greyed with
+  the office's sentence, as F4b left it. Under that: `Site` / `(no site)` ▾. Tap → `Move the project to` / the
+  client's sites. Tap his flat's site → "Moved to <site>": the project is listed there at once, he is taken to that
+  site's project list, the bucket is gone if it was the last project in it, and the web's `/projects` and any other
+  phone say the same after their next read.
+- **A project at the wrong site**: the same, and its old site keeps its other projects.
+- **A site the client does not have yet**: typed in `New site`, then `Use this site`.
+- **A failure** is said in red under the Site row and the dialog stays open, nothing changed: not signed in to S5;
+  offline; S5's own words when somebody renamed the project's site meanwhile (the row then shows the site S5 holds,
+  and picking again sends against it).
+- **A project he typed on site and has not sent**: moved on the phone, with or without a signal. The rooms chosen
+  for the site it leaves go with it where the site it joins has none.
+- **A project he photographed minutes ago** (uploaded, but S5's list not read since): the move reads S5's list first
+  and then moves it on S5 — one tap for him. If the photo has not gone up: "A photo of this project has not reached
+  S5 yet — move it once it has; not moved".
+
+### 7.5 Decided by Claude, not by Amit
+
+1. **The picker unfolds inside the dialog**, not as a second sheet over it. Nobody could see a sheet over a dialog
+   on a phone from here, and an unfolding list cannot land behind its own window. The plan said "a row … opening
+   the client's sites plus New site"; where it opens was open.
+2. **A bootstrap-only entry.** The brief for this slice read "cannot exist any more after Slice 1"; it can — F4a
+   keeps an ERP-only project while a capture of it has not reached a server. Met on a phone with **no live pair** the
+   route is `Local`: the phone's copy of the entry's `site_name` is the only name the phone has for it, and it is
+   what the capture's upload carries to S5 as S5's first value (`Catalogue.siteFor`), so the move reaches S5 with the
+   project. Met **with a live pair** the row is shut. `MoveRouteTest` pins both, and the order: `mastersOnly` is asked
+   before `hasLocalRow`, because a hidden row of the phone's behind a bench entry, moved alone, would say "Moved" and
+   change nothing on screen.
+3. **The entry's link to the bench's site row is left as it is.** `SiteRows.listed` then lists that bench row under
+   the name its projects are listed under — the designed read-time rule for a renamed site — so no empty site of the
+   old name is left (run in the harness). The cost is V12's, unchanged: such a site row shows the bench row's type
+   and docname.
+4. **A blank target, the bucket and the same site are a refusal under the row (`Line.PHONE`), not SHUT.** The plan
+   listed them with the demo as "shut". SHUT means the row has no picker; these are a wrong pick, and the next pick
+   can be right. The dialog cannot produce the first two by a tap (the choices never hold them, and the button is off
+   while the field is blank); the sentence is for a name typed.
+5. **`onWay` and `listRead` were added to the plan's signature**, defaulted. Without them a row whose capture is
+   keyed for S5 would be moved on the phone alone and fork at its next capture — the fault F4b closed for renames.
+   The read-first is the site rename's own (`S5Masters.fetch`), so it has a fourth caller; `TreeKeepTest`'s count
+   moved 3 → 4 with the reason beside it.
+6. **The phone's own row follows its project after an S5 move — wherever the row stands** (`localSiteFor`), not only
+   a row under the old site. Signed out, the masters drop what S5 listed and the phone's row shows again: it then
+   shows at the site S5 holds, and its move says to sign in (run in the harness). What it costs is the known residue
+   of a site rename (audit R9's): the row's re-derived key no longer matches the key S5 holds, so with no capture of
+   the project left on the phone AND nobody signed in, the row looks like the phone's own. Slice 5 stores the key.
+7. **The place follows the project.** After a move he is at the project's new site (its project list, or the project
+   itself if it was open), not left in a site the project just left — which may no longer exist.
+8. **The move of the phone's row carries the chosen rooms, not the address.** Rooms: as S5's names already move them
+   (`moveRoomScope`; the old site keeps its list while anything is listed there). Address: a site nobody has named yet
+   gets none — an address is the flat's it was typed for.
+9. **No new sentence for signed-out, offline and S5's 409**: the site rename's own lines
+   (`refuse.site.signed_out`, `refuse.site.offline`, `Renames.text`). They end "not saved" and one says "Save again",
+   where a move has no Save; they are the approved lines of the same write, with their Marathi. If they read wrongly
+   on the phone, each is one key.
+10. **`app.move_project` ("Move the project to") is reused** as the picker's head. It is the prototype's key for the
+    stage sheet that v61c removed, had no reader on the phone, and says exactly this. `Use this site` is the New site
+    dialog's own button.
+11. **The four new sentences** (§7.6).
+
+### 7.6 The new texts
+
+Four keys, each a phone text, English first: the Marathi value of each is its English, and each is listed in
+`android/i18n/mr-pending.tsv` (37 → 41). No existing text changed.
+
+| Key | English |
+|---|---|
+| `app.msg.moved_to_x` | Moved to {site} |
+| `app.project_site_not_changed_here` | This project's site cannot be changed from this phone: S5 does not hold the project and it was not made here. |
+| `app.project_capture_on_way_not_moved` | A photo of this project has not reached S5 yet — move it once it has; not moved |
+| `app.not_moved_pick_another_site` | Not moved: pick another site, or type a new site's name. |
+
+Reused, with their Marathi: `common.site`, `common.new_site`, `app.use_site`, `app.move_project`,
+`refuse.site.signed_out`, `refuse.site.offline`.
+
+### 7.7 Tests
+
+`:pano` 114 classes, 1,644 tests → **115 classes, 1,659 tests**, all green.
+
+- `MoveRouteTest` (new, 15): a project S5 lists moves by ONE write with its own base, whatever else is true of it;
+  the bucket's project with base `''`, and the body S5 takes; signed out; the phone's own row; a capture on its way
+  (read first, then S5 or the refusal); a bootstrap-only entry with and without a live pair; shut, and that the
+  route's shut IS `moveShut`'s sentence for every combination of the facts; the target (blank, the bucket in four
+  spellings, the same site in three) for each kind of project; never the bench and never more than one write, over
+  every combination; `siteChoices`; `moveTarget`; the four texts; and three source tests of `:app` (the gathering;
+  the handlers; the dialog's row).
+- **A pin that moved, with its reason beside it:** `TreeKeepTest` — the callers of `S5Masters.fetch(` are four, not
+  three.
+
+### 7.8 What is not proven (F4c)
+
+- **Nothing was seen on a phone** and `:app` was not compiled. The scratch harness compiled the real `Catalogue.kt`,
+  `S5Sites.kt`, `S5Session.kt`, `CaptureStore.kt`, `JsonRead.kt` and — new — `SiteRename.kt`, with `MainActivity`'s
+  four handlers mirrored statement for statement, and ran them over a stand-in for S5 written from S5's own rule
+  (`setSite`: the base compared exactly; the same name `written: false`; a stale base 409 with the name as stored):
+  the bucket's project moved by one PUT with base `''`; signed out, offline, the same site and the bucket refused
+  with nothing sent; a 409 said, the tree redrawn from it, and the second pick sent against the stored name; an open
+  project re-read; a phone-only row moved with its rooms and no address; the read-first case; the capture still on
+  its way; the bootstrap-only entry with and without a pair. S5 itself was not called.
+- **The Site row has never been drawn.** It is Compose written without a compiler: a `Row` with `clickableRow`, an
+  `Icon`, an `OutlinedTextField` and a `TextButton`, each as the same file already calls them. How the unfolded
+  picker sits in the dialog at 360 dp with five sites, and in landscape, is the phone's to show; the body scrolls.
+- **The row is below the name's reason.** For a project of his, the dialog reads: the name greyed, the office's
+  sentence, then `Site`. Whether the row should stand first is his to say.
+- **The way in is a long press.** The project's dialog opens by a long press on its row in the site's project
+  list, as it did; nothing else opens it.
+- **A live-pair phone** moves a project S5 lists through S5 as well, and the bench's own site link is not told
+  (the plan's "does not fix"). No phone holds a live pair.

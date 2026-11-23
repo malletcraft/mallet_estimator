@@ -58,6 +58,12 @@ package com.malletcrafts.interiorestimate.pano
  *        rows that no server holds are renamed in the same step ([Renames.rekey]; audit R10), so the photos stay
  *        with the row and its first upload goes up under the new name, to ONE project.
  *    S5 keeping a client's name, and a project's title rename, are a later slice that needs Amit's yes.
+ *  - ONE PROJECT, ONE SITE (port 63 slice F4c, 23 Nov 2026; DESIGN-tree.md §7). A site is the name each project
+ *    carries, so a rename covers every project of a site and nothing gave ONE project a site: a project S5 listed
+ *    with no site name sat in the "(no site)" bucket, which cannot be renamed. A project's dialog now has a Site
+ *    row, and where a move goes is decided here as a rename's is ([Renames.moveRoute], [Renames.moveShut]): the same
+ *    `PUT …/site`, for that one project, with its own base ('' for the bucket's); the phone's own row where nothing
+ *    of it is on S5; never the bench.
  *
  * The same object holds the wire ([Renames.siteRequest], [Renames.siteVerdict], pinned to S5's own answers in
  * `S5Site`), what one Save comes to over several projects ([Renames.outcome], [Renames.text]), the order S5's
@@ -254,6 +260,113 @@ object Renames {
 
     /** The line for a bench rename (a client's or a project's) that the bench refused or could not be reached for: its own words, as the banner used to carry them. */
     fun benchRefused(tx: Tx, why: String?): String = tx.app_msg_could_not_rename_x(why = why.orEmpty())
+
+    // ---- one project, one site: the "Site" row of a project's dialog (port 63 slice F4c) --------------------
+
+    /**
+     * WHY ONE PROJECT'S SITE CANNOT BE CHANGED FROM THIS PHONE AT ALL -- asked when the project's dialog opens, before
+     * any site is picked; null when it can be. The Site row is then drawn without its picker, the sentence under it.
+     *
+     * Amit, 23 Nov 2026, with build 0.3.350 on his phone, said of one of his own projects that it belongs to one flat
+     * and no other (his words name the project and the flat, so they are in the session's notes, not here), and:
+     * "site switch is not happening correctly. fix it." That project sat outside its flat's site and nothing on the
+     * phone could put it there: the "(no site)" bucket cannot be renamed, the seed and the upload send nothing for
+     * it, and no screen moved a project. So a project carries its own Site row (android/docs/port63/DESIGN-tree.md
+     * §7), and where that row goes is [moveRoute]. It is shut only where no move could be true:
+     *  - the demo's project, and a row that is neither S5's, nor an entry of the masters, nor made on this phone;
+     *  - an entry of an ERP bootstrap that S5 does not list, on a phone WITH a live ERP pair: its site is the
+     *    bench's, the bench moves no project (it only fills a site that is blank), and the next bootstrap would put
+     *    the old site back over anything changed here.
+     * One sentence for all of them (app.project_site_not_changed_here), the project's twin of the site's own
+     * app.site_not_renamed_here: S5 does not hold the project and it was not made here.
+     *
+     * @param project     the id S5 knows the project by ('' when this phone knows none)
+     * @param held        S5's name for the project's site as this phone last heard it; null when S5's list has not
+     *                    named the project (S5Sites holds no entry for [project])
+     * @param hasLocalRow a row made on this phone carries the project
+     * @param mastersOnly the tree lists the project from an entry of an ERP bootstrap that S5 does not list
+     * @param erpLive     this phone holds a LIVE ERP pair ([TreeKeep.erpLive])
+     * @param demo        it is the demo's project
+     */
+    fun moveShut(tx: Tx, project: String, held: Held?, hasLocalRow: Boolean, mastersOnly: Boolean, erpLive: Boolean, demo: Boolean): String? = when {
+        demo -> tx.app_project_site_not_changed_here
+        held != null && project.isNotBlank() -> null
+        mastersOnly -> if (erpLive) tx.app_project_site_not_changed_here else null
+        hasLocalRow -> null
+        else -> tx.app_project_site_not_changed_here
+    }
+
+    /**
+     * WHERE A MOVE OF ONE PROJECT TO ANOTHER SITE GOES, decided before anything is moved anywhere. A site is not an
+     * entity on S5 or on the phone: it is the name each project carries, so "move this project to that site" is "give
+     * this ONE project that name" -- by the very write a site's rename makes once per project
+     * (`PUT /api/asis/:project/site {site, base}`), here made for one project with that project's own base.
+     *
+     *  - S5 LISTS THE PROJECT ([held] not null) -> [RenameRoute.S5] with ONE write, its base S5's name for THIS
+     *    project exactly as S5 gave it ('' when S5 holds none: the bucket's projects). Signed out: the sign-in line,
+     *    known on the phone, so nothing is sent.
+     *  - AN ENTRY OF AN ERP BOOTSTRAP S5 DOES NOT LIST, on a phone with no live pair -- kept only because a capture of
+     *    it has not reached a server yet ([TreeKeep.keepsProject]) -> [RenameRoute.Local]: the phone's copy of the
+     *    entry takes the name, and its first upload carries it to S5 as S5's first value. With a live pair it is shut
+     *    ([moveShut]).
+     *  - A ROW MADE ON THIS PHONE that S5's list has not named -> [RenameRoute.Local]: the row is words on this phone.
+     *    But where a capture of it already carries a phone-minted S5 key ([onWay]) the key is a hash of
+     *    client|site|title, and a row moved now would mint a NEW key at its next capture -- two S5 projects (audit R9,
+     *    as for a site). The capture has usually gone up already and only S5's list has not been read since; so S5's
+     *    list is read first ([RenameRoute.S5] with no writes yet and readFirst) and the route asked again with
+     *    [listRead]: listed now, it is S5's project and takes the write; still not, the move is refused until it is.
+     *  - [moveShut]'s cases -> [RenameRoute.Blocked] with [RenameRoute.Line.SHUT].
+     *  - THE TARGET: a blank name, the "(no site)" bucket (a bucket is not a place a project is moved to) and the
+     *    site the project is already at are refused, saying to pick another -- never sent, never "moved".
+     *  - Never the bench ([RenameRoute.Legacy]): it is not told of a move, as it is not told of a site's rename.
+     *
+     * @param from     the site the tree lists the project under now (the bucket's name for none)
+     * @param to       the site picked or typed ([moveTarget])
+     * @param signedIn this phone holds something to call S5 with
+     * @param onWay    for a row made on this phone: a capture of it carries a phone-minted S5 key that S5's list has
+     *                 not named on this phone
+     * @param listRead S5's list has just been read for this move, so "not named" is S5's own answer
+     * The other parameters are [moveShut]'s.
+     */
+    fun moveRoute(
+        tx: Tx, project: String, held: Held?, hasLocalRow: Boolean, mastersOnly: Boolean,
+        erpLive: Boolean, signedIn: Boolean, demo: Boolean, from: String, to: String,
+        onWay: Boolean = false, listRead: Boolean = false,
+    ): RenameRoute {
+        moveShut(tx, project, held, hasLocalRow, mastersOnly, erpLive, demo)?.let { return RenameRoute.Blocked(it, RenameRoute.Line.SHUT) }
+        val site = to.trim()
+        if (!named(site) || key(site) == key(from)) return RenameRoute.Blocked(tx.app_not_moved_pick_another_site, RenameRoute.Line.PHONE)
+        if (held != null && project.isNotBlank()) {
+            if (!signedIn) return RenameRoute.Blocked(tx.refuse_site_signed_out, RenameRoute.Line.S5)
+            return RenameRoute.S5(listOf(RenameRoute.Write(project.trim(), held.site)), readFirst = false)
+        }
+        // The phone's copy of a bootstrap entry (no live pair: moveShut), which its first upload carries to S5.
+        if (mastersOnly) return RenameRoute.Local
+        if (onWay) {
+            if (!signedIn) return RenameRoute.Blocked(tx.refuse_site_signed_out, RenameRoute.Line.S5)
+            if (listRead) return RenameRoute.Blocked(tx.app_project_capture_on_way_not_moved, RenameRoute.Line.S5)
+            return RenameRoute.S5(emptyList(), readFirst = true)
+        }
+        return RenameRoute.Local
+    }
+
+    /**
+     * The sites a project can be moved to by a tap: the client's NAMED sites other than the one it is at, in the
+     * tree's order, each once (names as the catalogue compares them). Never the "(no site)" bucket: nothing is moved
+     * into it. A new site is typed ([moveTarget]).
+     */
+    fun siteChoices(sites: List<String>, current: String): List<String> =
+        sites.map { it.trim() }.filter { named(it) && key(it) != key(current) }.distinctBy { key(it) }
+
+    /**
+     * The site a typed or picked name MEANS: one of the client's sites in that site's own spelling where the name is
+     * one of them as the catalogue compares names -- so "flat 9" typed for a client who has "Flat 9" joins that site
+     * and does not give S5 a second spelling of it -- else the name as typed, trimmed.
+     */
+    fun moveTarget(typed: String, sites: List<String>): String {
+        val name = typed.trim()
+        return sites.firstOrNull { named(it) && key(it) == key(name) }?.trim() ?: name
+    }
 
     /** The grey line [route] draws: where the rename is about to go. */
     @JvmStatic

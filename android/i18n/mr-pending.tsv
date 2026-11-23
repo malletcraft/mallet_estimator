@@ -25,12 +25,20 @@
 # cannot be renamed from this phone (app.client_office_record_renamed / app.project_office_record_renamed: the office's record;
 # app.client_s5_not_renamed / app.project_s5_not_renamed: S5 holds it) and why a site or a project S5 holds is not removed
 # (app.site_s5_not_removed / app.project_s5_not_removed). 37 in all.
+# Port 63 slice F4c (23 Nov 2026) added four: a project's Site row (android/docs/port63/DESIGN-tree.md §7) -- the banner after one project
+# was given another site (app.msg.moved_to_x), why its site cannot be changed from this phone (app.project_site_not_changed_here), why a
+# move waits for a photo still on its way to S5 (app.project_capture_on_way_not_moved) and the refusal of a blank site, the bucket or the
+# site it is already at (app.not_moved_pick_another_site). 41 in all.
 key	English
 app.client_office_record_renamed	This client is the office's record. It is renamed at the office, not from this phone.
 app.client_s5_not_renamed	This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.
+app.msg.moved_to_x	Moved to {site}
+app.not_moved_pick_another_site	Not moved: pick another site, or type a new site's name.
+app.project_capture_on_way_not_moved	A photo of this project has not reached S5 yet — move it once it has; not moved
 app.project_office_record_renamed	This project is the office's record. It is renamed at the office, not from this phone.
 app.project_s5_not_removed	This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed.
 app.project_s5_not_renamed	This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.
+app.project_site_not_changed_here	This project's site cannot be changed from this phone: S5 does not hold the project and it was not made here.
 app.site_s5_not_removed	This site has a project on S5, or on its way there. This phone cannot delete it there, so nothing was removed.
 measure.diagonal	diagonal, bottom-left to top-right
 measure.diagonal_plan	diagonal, back-left to front-right
