@@ -220,19 +220,32 @@ class MeasureScreenTest {
         assertEquals(1, count(sheet, "Text(h.done,"), "ONE Done"); assertEquals(0, count(sheet, "MsDone")); assertEquals(0, count(sheet, "v.close")); assertEquals(0, count(st, "\"✕\""))
         assertEquals(2, count(sheet, "MsHead(v.head, MarkSheet.HEAD"), "portrait and landscape, each its head")
         // the head and the acts are OUTSIDE what scrolls: in each layout MsHead and MsActs come before the scrolling column
-        for (layout in listOf("private fun MsPortrait(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit)", "private fun MsLandscape(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit)")) {
+        val port = "private fun MsPortrait(v: MarkSheet.PanelView, a: MarkSheetActions, cap: Double?, typing: () -> Unit, pulled: () -> Unit)"
+        for ((layout, scrolls) in listOf(port to "verticalScroll(scroll)", "private fun MsLandscape(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit)" to "verticalScroll(rememberScrollState())")) {
             val b = body(sheet, layout)
-            assertTrue(b.indexOf("MsHead(") in 0 until b.indexOf("MsActs(")); assertTrue(b.indexOf("MsActs(") < b.indexOf("verticalScroll(rememberScrollState())"), layout)
-            assertEquals(1, count(b, "verticalScroll("), layout)
+            assertTrue(b.indexOf("MsHead(") in 0 until b.indexOf("MsActs(")); assertTrue(b.indexOf("MsActs(") < b.indexOf(scrolls), layout)
+            assertEquals(1, count(b, "verticalScroll("), layout); assertEquals(1, count(b, scrolls), layout)
         }
         // WHERE IT RESTS is MarkSheet's answer, asked once as it opens; the grip is the sheet's own handle in portrait only
         val sp = body(sheet, "internal fun SpMarkSheet(v: MarkSheet.PanelView, land: Boolean, a: MarkSheetActions)")
-        assertEquals(1, count(sp, "val whole = remember(land) { MarkSheet.opensWhole(land, v) }"))
-        assertEquals(1, count(sp, "rememberModalBottomSheetState(skipPartiallyExpanded = whole, confirmValueChange = mayHide)"))
-        assertEquals(0, count(sheet, "skipPartiallyExpanded = true"), "the half rest is ON in portrait")
+        assertEquals(1, count(sp, "var whole by remember(land) { mutableStateOf(MarkSheet.opensWhole(land, v)) }"))
         assertEquals(1, count(sp, "val grip: (@Composable () -> Unit)? = if (MarkSheet.hasGrip(land)) { { MsGrip { y -> onTopS(y) } } } else null")); assertEquals(1, count(sp, "dragHandle = grip,"))
-        // a box that takes the keyboard pulls it up whole: both boxes say so
-        assertEquals(1, count(sp, "if (MarkSheet.standsWhole(land, true)) { scope.launch { sheet.expand() } }"))
+        // THE HALF REST IS THE PANEL'S OWN, NEVER THE LIBRARY'S ANCHOR (the review of I2, finding 1): material3 1.3 sends an
+        // expanded sheet back to its half anchor at every resize -- the keyboard coming up above all -- so the library's sheet
+        // is given NO half anchor, nothing here asks it to expand, and the half rest is a cap on the content, lifted when
+        // a box takes the keyboard or the blocks are pulled up
+        assertEquals(1, count(sp, "rememberModalBottomSheetState(skipPartiallyExpanded = MarkSheet.SKIPS_LIBRARY_HALF, confirmValueChange = mayHide)"))
+        assertEquals(1, count(sheet, "skipPartiallyExpanded"), "one sheet state, and its half anchor is :pano's to switch")
+        for (gone in listOf("sheet.expand(", "partialExpand(", "rememberCoroutineScope", "scope.launch")) assertEquals(0, count(sheet, gone), "the sheet composable still has $gone")
+        assertEquals(1, count(sp, "val cap = MarkSheet.contentCapDp(LocalConfiguration.current.screenHeightDp.toDouble(), land, whole)"))
+        assertEquals(1, count(sp, "val boxFocused: () -> Unit = { whole = MarkSheet.wholeAfter(land, whole, typing = true) }"))
+        assertEquals(1, count(sp, "val pulled: () -> Unit = { whole = MarkSheet.wholeAfter(land, whole, pulled = true) }"))
+        assertEquals(1, count(sp, "if (land) MsLandscape(v, a, boxFocused) else MsPortrait(v, a, cap, boxFocused, pulled)"))
+        val pb = body(sheet, port)
+        assertEquals(1, count(pb, "val rest = if (cap != null) Modifier.heightIn(max = cap.toFloat().dp) else Modifier"))
+        assertEquals(1, count(pb, "Column(rest.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {"), "the cap is on the head, the acts and the blocks together")
+        assertEquals(1, count(pb, "val up by remember { derivedStateOf { scroll.value > 0 } }")); assertEquals(1, count(pb, "LaunchedEffect(up) { if (up) pulled() }"))
+        // a box that takes the keyboard makes it whole: both boxes say so
         assertEquals(2, count(sheet, ".onFocusChanged { f -> if (f.isFocused) typing() }"), "a Why box and the note")
         // IT TAKES NO TAP FOR ITS FIRST 300 MS: the sheet asks before it lets itself be closed, the screen before everything else
         assertEquals(1, count(sp, "remember { { to: SheetValue -> to != SheetValue.Hidden || answersS() } }"))
@@ -244,12 +257,15 @@ class MeasureScreenTest {
         // the pure half: where Done is, and where the panel rests
         val p = wall(); val acts = MarkSheet.acts(Tx.EN, p, "d1", 0, null)
         assertEquals(56, MarkSheet.doneBottomDp(false)); assertEquals(36, MarkSheet.doneBottomDp(true))
-        assertTrue(MarkSheet.doneBottomDp(false) < MarkSheet.foldTopDp(acts)); assertEquals(144, MarkSheet.foldTopDp(acts))
+        assertTrue(MarkSheet.doneBottomDp(false) < MarkSheet.foldTopDp(acts)); assertEquals(152, MarkSheet.foldTopDp(acts))
         assertTrue(MarkSheet.foldTopDp(acts) < MarkSheet.halfRestDp(756.0), "Done and both lines of acts are above the half rest")
         val view = MarkSheet.panel(Tx.EN, p, MarkSheet.openPanel(p, "d1", 0L)!!, 0, null)!!
         assertEquals("Done", view.head.done); assertTrue(view.head.doneEnabled)
         assertFalse(MarkSheet.opensWhole(false, view), "portrait: half way"); assertTrue(MarkSheet.opensWhole(true, view), "landscape: whole")
         assertTrue(MarkSheet.standsWhole(false, typing = true)); assertFalse(MarkSheet.standsWhole(false, typing = false))
+        assertEquals(378.0, MarkSheet.GRIP_DP + MarkSheet.contentCapDp(756.0, land = false, whole = false)!!, "half way: the grip and the capped content")
+        assertEquals(null, MarkSheet.contentCapDp(756.0, land = false, whole = MarkSheet.wholeAfter(false, false, typing = true)), "typing: no cap, whatever the keyboard does to the window")
+        assertTrue(MarkSheet.wholeAfter(false, false, pulled = true)); assertTrue(MarkSheet.wholeAfter(false, true), "and it never falls back to half")
     }
 
     @Test fun `the picked item's code is a chip - a tap on it, and a long press when the finger lifts, open the panel - and the photo lifts under it`() {
@@ -266,7 +282,7 @@ class MeasureScreenTest {
         assertEquals(2, count(marks, "val chipped = sel && chipOf != null"), "a box mark and a point: its code is not drawn inside as well")
         // it is drawn for the PICKED item, held or not, on 2 - Mark with no tool on -- and the press finds it after the handles
         assertEquals(1, count(c, "chip = mode == StepRoute.MARK && !SurveyPrepPalette.armed(tool),"))
-        assertEquals(1, count(text(sps), "shown = if (which == \"main\") shown else null), mm, u)"), "the loupe fills nothing")
+        assertEquals(1, count(text(sps), "shown = if (which == \"main\") shown else null,"), "the loupe fills nothing")
         assertEquals(1, count(c, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)"))
         assertEquals(1, count(c, "if (o.options) pick.picked?.let { pid -> openPanel(pid) }"), "Pick row 7")
         // A LONG PRESS takes the item at the press and opens its panel WHEN THE FINGER LIFTS -- not after a pinch or a cancel
@@ -282,11 +298,29 @@ class MeasureScreenTest {
         assertEquals(1, count(c, "onTop = { y -> panelTop = y }))")); assertEquals(1, count(c, "shown = shown, panelTop = { panelTop },"))
         assertEquals(1, count(code(app + "MarkSheet.kt"), "onTop(at[1] + c.positionInRoot().y)"))
         // FINE MOVE: the pad is NudgePad's, over the photo, and it follows every Pick event
-        assertEquals(1, count(c, "pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp)"))
+        assertEquals(1, count(c, "pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp, stepTaken)"))
+        // DONE'S UNDO STEP IS THE FINE MOVE'S (the review of I2, finding 2): typed in the panel, then Fine move, is one step
+        assertEquals(1, count(c, "MarkSheet.FINE -> fineMove(pn.id, NudgePad.doneTookStep(before, mid))")); assertEquals(1, count(c, "fun fineMove(mid: String, stepTaken: Boolean) {"))
+        assertEquals(2, count(c, "fineMove("), "its declaration and the panel's act: nothing starts one any other way")
         assertEquals(1, count(c, "val r = NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }"))
         assertEquals(1, count(c, "pad = NudgePad.afterEvent(prep, pad, pick, quoteStage, o.nudge, body)")); assertEquals(1, count(c, "part = NudgePad.touched(part, before, o, body)"))
-        assertEquals(1, count(c, "val padNow = if (marking) NudgePad.after(prep, pad, pick, quoteStage) else null"))
+        assertEquals(1, count(c, "val fineNow = if (marking) NudgePad.after(prep, pad, pick, quoteStage) else null"))
         assertEquals(1, count(c, "for (row in NudgePad.GRID) {")); assertEquals(1, count(c, "eh?.i?.let { pi -> onHandleS(NudgePad.pointPart(pi)) }"))
+        // NOTHING ON THE PAD IS THE PHOTO'S (the review of I2, finding 5; NudgePad.swallows): the pad's whole box -- edge and
+        // empty cells -- takes the press before the photo does, and a key takes its press over its whole 40 dp cell: the
+        // press comes BEFORE the 2 dp the key is drawn inside, so there is no gutter between two keys
+        val np = body(c, "private fun SpNudgePad(st: NudgePad.State, modifier: Modifier, onKey: (NudgePad.Key) -> Unit)")
+        assertEquals(1, count(np, "Column(modifier.pointerInput(Unit) { detectTapGestures { } }.padding(NudgePad.EDGE_DP.toFloat().dp)) {"))
+        assertEquals(1, count(np, "Box(cell.clickable(role = Role.Button) { onKey(k) }")); assertEquals(1, count(np, ".clickable("))
+        assertTrue(np.indexOf("Box(cell.clickable(role = Role.Button) { onKey(k) }") < np.indexOf(".padding(2.dp).clip(shape)"), "the press is on the cell, the inset is how it is drawn")
+        assertEquals(0, count(np, "cell.padding(")); assertEquals(1, count(np, "val cell = Modifier.size(NudgePad.CELL_DP.toFloat().dp)"))
+        // THE PART IT NUDGES IS DRAWN SOLID (finding 6; NudgePad.solid): the photo is handed the Fine move, the editing photo
+        // alone draws it, and each handle asks the one rule -- a mark's tabs by their own keys, a Line's and a Tape's ends
+        assertEquals(1, count(c, "fine = fineNow,")); assertEquals(1, count(text(sps), "nudge = if (which == \"main\") fine else null), mm, u)"), "the loupe draws none solid")
+        assertEquals(1, count(d, "val solid = NudgePad.solid(o.nudge, e.id, k)")); assertEquals(1, count(d, "for (k in SurveyPrepTouch.TABS) {"))
+        assertEquals(1, count(d, "val at = SurveyPrepTouch.tabAt(k, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble())"))
+        assertEquals(2, count(d, "solid = { i -> NudgePad.solid(o.nudge, q.id, NudgePad.pointPart(i)) })"), "a Line or an area, and a Tape")
+        assertEquals(3, count(d, "NudgePad.solid("))
         assertEquals(1, count(c, "fun sheetOrFinger(): Boolean = photoBusy || panel != null || moreOpen\n"), "the pad holds no reading back: it is no sheet")
         // the pure half: the wall's window, long-pressed, then lifted over a half-open panel
         val p = wall(); val o = Pick.longPress(sc(p), Pick.NONE, "d1")

@@ -88,12 +88,25 @@ object NudgePad {
     }
 
     /** The key under ([x], [y]) on the pad at [pad], or null: an empty cell, or off the pad. The pad is asked BEFORE
-     *  anything on the photo: it is drawn over it. */
+     *  anything on the photo: it is drawn over it. EVERY CELL IS ITS KEY'S, edge to edge -- there is no gutter between
+     *  two keys for a press to fall through -- and a press that finds no key may still be the pad's ([swallows]). */
     fun keyAt(pad: Box, x: Double, y: Double, dp: Double): Key? {
         if (!pad.contains(x, y)) return null
         val c = CELL_DP * dp
         val i = min(CELLS - 1, ((x - pad.l) / c).toInt()); val r = min(CELLS - 1, ((y - pad.t) / c).toInt())
         return GRID[r][i]
+    }
+
+    /**
+     * WHETHER A PRESS AT ([x], [y]) IS THE PAD'S AND NEVER THE PHOTO'S (the review of I2, finding 5): anywhere on the
+     * pad -- A KEY, OR ONE OF ITS THREE EMPTY CELLS -- and on the [EDGE_DP] round it. A press there that finds no key
+     * ([keyAt]) does NOTHING: a thumb a little off an arrow must not land on the photo under the pad, where a tap on
+     * empty photo lets the item go and ends Fine move ([after]) -- for a slip between ▶ and ▼, whose diagonal is an
+     * empty cell. Only a press clear of the pad and its edge is the photo's.
+     */
+    fun swallows(pad: Box, x: Double, y: Double, dp: Double): Boolean {
+        val e = EDGE_DP * dp
+        return x >= pad.l - e && x <= pad.r + e && y >= pad.t - e && y <= pad.b + e
     }
 
     private fun gap(a: Box, b: Box): Double = hypot(max(0.0, max(a.l - b.r, b.l - a.r)), max(0.0, max(a.t - b.b, b.t - a.b)))
@@ -135,9 +148,26 @@ object NudgePad {
      * FINE MOVE BEGINS on [id] at [stage] -- the panel has closed and the item is held ([Pick.shaped], row 16) -- or
      * null where it is not offered ([MarkSheet.fineOk]). It nudges [part], the part last touched, the whole item when
      * that is none of its own; by 1 mm; the pad in the corner farthest from [bb], the item's box on a [w] x [h] photo.
+     * [stepTaken]: THE PANEL'S DONE HAS JUST TAKEN AN UNDO STEP ([doneTookStep] -- something was typed in the panel
+     * before `Fine move` was tapped): that step is this Fine move's too, and its first nudge takes no second one --
+     * "Done's step and the act's step are ONE ↶ step" (§6), as for Lock, Duplicate and Lock all (the review of I2,
+     * finding 2).
      */
-    fun start(p: SurveyPrep.Prep, id: String, stage: Int?, part: String?, bb: Box?, w: Double, h: Double, dp: Double): State? =
-        if (!MarkSheet.fineOk(p, id, stage)) null else State(id, partOf(p, id, part), FINE_MM, corner(bb, w, h, dp))
+    fun start(p: SurveyPrep.Prep, id: String, stage: Int?, part: String?, bb: Box?, w: Double, h: Double, dp: Double,
+              stepTaken: Boolean = false): State? =
+        if (!MarkSheet.fineOk(p, id, stage)) null else State(id, partOf(p, id, part), FINE_MM, corner(bb, w, h, dp), stepTaken)
+
+    /** Whether the panel's Done took an undo step: the history held [before] entries before it and [afterDone] after. */
+    fun doneTookStep(before: Int, afterDone: Int): Boolean = afterDone > before
+
+    /**
+     * WHAT IS DRAWN SOLID WHILE THE PAD IS UP (§6: "It nudges the part last touched (the whole item, an edge, a
+     * corner, an end), drawn solid"; the review of I2, finding 6): the [handle] of the item [id] -- one of a mark's
+     * eight tabs, a point of a Tape, a Line or an area ([pointPart]) -- is filled when it is the part the Fine move [st]
+     * nudges, and EVERY handle of the item when that part is the whole item ([BODY]): one solid handle moves alone, all
+     * solid and the whole item moves. Nothing is solid with no pad up, or on another item.
+     */
+    fun solid(st: State?, id: String, handle: String): Boolean = st != null && st.id == id && (st.part == handle || st.part == BODY)
 
     /**
      * WHILE THE PAD IS UP, A TAP ON ANOTHER HANDLE, CORNER OR END OF THE SAME ITEM MAKES THAT THE PART NUDGED

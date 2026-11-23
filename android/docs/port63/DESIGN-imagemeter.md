@@ -1990,3 +1990,156 @@ call in `SPS`.
 3. **`Fine move` on a mark near the bottom of the wall.** The pad should stand in the corner away from the mark, the
    arrows should move it 1 mm a press, and `✓` should take the pad away. Then press one corner of a mark, open its
    panel, `Fine move`: the arrows should move that corner alone.
+
+### 23.4 The review of I2 (23 Nov 2026)
+
+Two reviewers read the three commits of this branch — P2N (`7dacbbc`), I2a (`ab47739`), I2b (`76811cf`) — and reported
+six findings: two major, four minor, one of the minor a record with nothing to fix. **All six are confirmed in the code;
+none is declined.** Each confirmed fault is fixed in one commit over I2b, each with a `:pano` test that fails without
+the fix (proved by putting the old behaviour back and running it: nine tests go red for the pure rules, four for the
+`:app` sources). `:app` is compiled only by CI; nothing has been seen on a phone. Nothing on the wire changes.
+
+`MS`, `SPS`, `SPD` as in §23.3; line numbers are this commit's.
+
+#### The findings, the verdicts and the fixes
+
+1. **Portrait: the panel fell back to its half rest whenever it was resized, so the keyboard coming up undid
+   `sheet.expand()` and hid the box being typed in — CONFIRMED (major).** Confirmed in the library's own source, read
+   here: androidx `ModalBottomSheet.kt` at commit `10ffa70a` answers `PartiallyExpanded` for an EXPANDED sheet whenever
+   a half anchor exists (its anchors lambda, lines 256–268: `PartiallyExpanded, Expanded ->` is one branch), and the
+   sheet's dialog pads its own content for the keyboard (line 166, `Modifier.fillMaxSize().imePadding()`), so the keys
+   rising change the sheet's height, its anchors, and so its target. At commit `0a8673ff` the branch is split and
+   `Expanded` stays `Expanded` (lines 312–327). Not verified here: the dates of those two commits, which release each
+   is in, and that compose-bom 2024.12.01 is material3 1.3.1 (the reviewer's statements; this session cannot reach
+   Google's Maven or GitHub's commit pages). The fix does not depend on them: it is right on a library with or without
+   the retarget.
+   **Fixed — the half rest is the panel's OWN height, never the library's anchor.** The library's sheet is given NO half
+   anchor at all (`skipPartiallyExpanded = MarkSheet.SKIPS_LIBRARY_HALF`, always true; `MS:209`): it is exactly as high
+   as its content, so a resize has nowhere to send it. The half rest is a CAP on that content
+   (`MarkSheet.contentCapDp(windowDp, land, whole)`: half the window less the grip, in portrait, while the panel is not
+   whole; `MS:216`, `MS:274`): the head with Done and the acts stay, the blocks scroll under them. The cap goes when the
+   panel is WHOLE (`MarkSheet.wholeAfter`): a box took the keyboard (`MS:211`), or he pulled it up (`MS:213`). Nothing
+   calls `sheet.expand()` any more; the coroutine scope it needed is gone.
+   What this decides, each of which can be turned round:
+   - **He pulls the panel up by dragging its blocks up** — their first scroll makes it whole (`MS:272-273`), as a drag
+     up on a library sheet's content expands it. A drag up on the grip or the head alone moves nothing (the sheet has no
+     anchor above the one it stands at); a drag down anywhere closes it, as before. The grip takes no tap: a tap that
+     misses a 16 dp bar lands on the dimmed photo and cancels the panel.
+   - **Once whole it stays whole** until it closes. A panel that shrank again as the keyboard went would move under
+     the thumb.
+   - **There is ONE Back: it cancels.** §23.3's decision 2 ("the first Back brings the whole panel to its half rest and
+     the second closes it") was the library's half anchor, which is gone. With the keyboard up the first Back still
+     closes the keyboard.
+   - **"Half the window" is half the height the configuration reports** (`LocalConfiguration.screenHeightDp`: the
+     app's window less the system bars), so on the Mi A3 the panel's top stands a little under the 378 dp of §6.
+   - With the keyboard up the library lifts the whole sheet over the keys (its own `imePadding`), so the panel is all
+     above them, whole, and its blocks scroll where the window is too short.
+2. **Fine move after something was typed in the panel was two ↶ steps — CONFIRMED (minor).** `panelAct` took Done's
+   snapshot, `fineMove` took none, so `stepsToDrop` had nothing to merge; the first nudge then took a second step
+   (`NudgePad.press`, `stepTaken` false). **Fixed:** `NudgePad.start(…, stepTaken)` — the Fine move begins with its one
+   step already taken when Done took one (`NudgePad.doneTookStep(before, afterDone)`; `SPS:1307`, `SPS:1256-1263`). One
+   ↶ takes back the nudges and what was typed together, as for Lock, Duplicate and Lock all. Typed, then Fine move,
+   then `✓` with no nudge: Done's step stands, alone.
+3. **No compile fault found in the three commits — RECORDED, nothing to fix.** The reviewer ran `:pano` (111 classes,
+   1,572 tests, green), the generator and the ratchet (tree clean), and kotlinc against the builder's stand-ins (no
+   error in `SPS`, `MS`, `SPD`; four planted errors each reported), and checked by hand the names each changed line
+   uses, the deleted symbols, and the run-time traps (panel open on a gone item, Fine move after ↶, ✓ Save twice,
+   rotation). Its own limits stand for this commit too: the stand-ins are hand-written, so nothing the Compose compiler
+   plugin or lint enforces has been compiled, and nothing has run on a phone. The lines it names as the first to look
+   at are listed, with this commit's, below.
+4. **Portrait: Delete stood 8 dp under `Fine move` — half of `DeleteGuard.CLEAR_DP` — and no test held the vertical
+   gap — CONFIRMED (major).** Two act rows of 44 dp with cells of 36 leave 8 dp between the lines; `slots` puts
+   `Fine move` in the last column of line 1 and Delete in the last column of line 2, straight under it; the cell's top
+   and height were literals in `:app`, and the tests looked only at same-row neighbours. The build matched the picture
+   (8 dp there too) and not his words ("same for delete button for any item").
+   **Fixed — the vertical clearance is a `:pano` rule, and `:app` draws every edge from it.** `MarkSheet.Slot` has its
+   top and bottom; where line 2 holds Delete the whole line starts `DeleteGuard.CLEAR_DP` (16 dp) under line 1's cells
+   (`MarkSheet.deleteDropDp`: 8 dp more; none where there is no Delete); `MarkSheet.actsDp` is the acts' height (96 for
+   two lines with Delete). `MsActs` takes each cell's four edges from its slot and the height from `actsDp`
+   (`MS:370-380`): the file holds no row arithmetic. Done's height is `MarkSheet.DONE_DP` (`MS:351`), so the test
+   measures against the box that is drawn. `DeleteGuardTest` now holds, in portrait AND landscape, that Delete's box is
+   at least 16 dp from every other act's and from Done's (portrait: 16 dp under the act over it, 24 dp from the one
+   beside it; landscape: 24 dp from the act before it, 16 dp left of and 6 dp under Done, 17 dp in all).
+   **The panel is 8 dp taller than the picture** (`mcft-new-5-panel.png`): the grip, the head and the acts are 152 dp,
+   not §6's 144, still far above the half rest. The reviewer's other way — leave the column over Delete empty and move
+   `Fine move` — departs from the picture more.
+5. **Fine move's pad: the gutters between its cells and its three empty cells were live photo — CONFIRMED (minor).**
+   Each key's press was on a 36 dp square inside its 40 dp cell, the empty cells were bare spacers, and the pad's
+   column took no press — so a press 2 dp off a key went to the photo under the pad, where a tap on empty photo lets
+   the item go and ends Fine move. The empty cells being "the photo's" was §23.3's decision 5; the gutters were not
+   intended (`NudgePad.keyAt` has none). Both are reversed: a slip between ▶ and ▼ lands on an empty cell.
+   **Fixed:** a key takes its press over its WHOLE 40 dp cell (the press comes before the 2 dp inset, which is only how
+   the key is drawn; `SPS:3564`), and the pad itself — its empty cells and the 8 dp round it — takes every press no key
+   took and does nothing with it (`SPS:3552`; the rule is `NudgePad.swallows`). `:app` still does not call `keyAt`: the
+   presses are Compose's, and `MeasureScreenTest` pins the layout against the rule.
+6. **Two lines of §6 were not on screen — CONFIRMED (minor), both.**
+   - *The part Fine move nudges was not shown ("drawn solid").* I2b deleted the row that said "move" / "corner", with
+     no successor, and did not list it as a departure. **Fixed:** the photo is handed the Fine move (`SPS:1770`,
+     `SPS:1817`, `SPS:3439`; `SurveyPrepDraw.Marks.nudge`) and draws the handle it nudges SOLID — filled in the item's
+     colour, ringed white, the colours of a plain handle turned round — and EVERY handle of the item when the arrows
+     move it whole (`NudgePad.solid`; a mark's eight tabs at `SPD:672-682`, a Line's and an area's points at
+     `SPD:871-876`, a Tape's ends at `SPD:926-931`). One solid handle: that part moves. All solid: the whole item
+     moves. The reviewer suggested a heavier outline for the whole item; all handles solid says the same with the one
+     sign. A point (a 50 mm spot) and a Note have no handle and show nothing: only the whole of them moves. A
+     four-corner mark's corners are not drawn as handles yet (Q2's).
+   - *A mark past Existing, long-pressed, did not open with STATE in view* (§23.3's decision 9 had said so).
+     `stateFirst` was computed and tested and nothing read it. **Fixed:** such a panel opens WHOLE in portrait too
+     (`MarkSheet.opensWhole(land, view)` reads `stateFirst`), so STATE and its moves are in view as it opens; no scroll
+     was added. It applies wherever `stateFirst` is set: a long press on a mark past Existing, and a Drop opened on its
+     why (which was whole already).
+
+#### What this changes on the phone, against §23.3
+
+- **§23.3, 4:** the panel still opens half way. It is pulled up by dragging the blocks up, not by the grip; once up,
+  or once a box is tapped, it stays up. A long press on a wish (or any mark past Existing) opens it whole.
+- **§23.3, 4:** the second line of acts stands 8 dp lower, so Delete is 16 dp under `Fine move`.
+- **§23.3, 5:** Back cancels at once (after the keyboard, if it is up).
+- **§23.3, 8:** while the pad is up the handle it moves is solid on the item — all of them when the arrows move the
+  whole item — and a press on the pad's empty cells, between its keys or just beside it does nothing.
+- Typed in the panel, then `Fine move`, then nudges: one ↶ takes all of it back.
+
+#### Tests, texts, and what was type-checked
+
+**`:pano`: 111 test classes, 1,575 tests, 0 failures, 0 errors, 0 skipped** (from the XML; I2b: 111 and 1,572). Added,
+`NudgePadTest` +3: "nothing on the pad is the photo's", "Done's undo step is the Fine move's", "the part Fine move
+nudges is drawn solid". Rewritten where they pinned the fault: `DeleteGuardTest` (Delete's box against every other
+act's and Done's, both layouts; the screen's cell edges from the slot), `MarkSheetPanelTest` (152 and 172 for 144 and
+164; every slot's top and bottom; the cap; `wholeAfter`; a long-pressed wish opens whole — and the Drop opened at
+Survey's gate, which a test held at half, is whole: it is opened for its STATE), `MarkSheetTest` and
+`MeasureScreenTest` (the sheet state with no half anchor, no `expand`, the cap, the pull; the pad's presses; the solid
+handles; Fine move's step). No test was deleted.
+
+**Texts.** No key added, moved or deleted. `Tx` regenerated (1,861 accessors) and unchanged; the ratchet lowered
+nothing; `unkeyed.tsv` stays empty; `mr-pending.tsv` unchanged.
+
+**Type-checked here, and what that cannot prove.** kotlinc 2.0.21 from the Gradle cache, the real `:pano` classes and
+the stand-ins of §23.3 with one more (`derivedStateOf`): `MS`, `SPS` and `SPD` have NO error; the 192 left are the same
+stub gaps in the same four files, count for count (`SurveyPrepTools.kt` 134, `SurveyPrepLocks.kt` 33,
+`SurveyPrep360.kt` 13, `SurveyPlanScreen.kt` 12). Six errors planted on this commit's lines (a name used outside its
+scope in `MsPortrait`, in `SpPhoto` and in `SpNudgePad`; a `:pano` function and a slot member that do not exist; a wrong
+argument type) are each reported. **Every name each added `:app` line uses was checked to be in scope where it is
+written**: `whole`, `cap`, `boxFocused`, `pulled` are `SpMarkSheet`'s own, above their uses; `MsPortrait` uses only its
+parameters and its own `scroll`, `up`, `rest`; `fineNow` is declared at the top of the photo pane's box, above the
+`SpPhoto` call and the pad that read it (and the later `val padNow`, which shared a name with the function `padNow()`,
+is gone); `fine` is `SpPhoto`'s new parameter, read inside it; `before` and `mid` are `panelAct`'s; `SpNudgePad` uses
+its parameters; the imports added are `heightIn`, `derivedStateOf`, `mutableStateOf` (`MS`) and `NudgePad` (`SPD`), and
+the two no longer used are removed. **Not proven:** the stand-ins are hand-written (`heightIn`, `derivedStateOf`,
+`detectTapGestures` with a trailing lambda, `pointerInput` among them); nothing of the Compose compiler plugin or
+lint; and everything about a phone — above all that a column with a pointer input that does nothing keeps a press from
+the photo under it (Compose's sibling hit-testing, read, not run), and how the sheet looks as its cap goes.
+
+**Where to look first if CI's `:app` compile is red.** (1) `MS:198-216`, `SpMarkSheet`: `var whole by remember(land)
+{ mutableStateOf(…) }`, the two lambdas that assign it, `cap`. (2) `MS:267-275`, `MsPortrait`: `derivedStateOf`,
+`LaunchedEffect(up)`, `rest` (an `if` between `Modifier.heightIn(…)` and `Modifier`). (3) `SPS:3552` and `SPS:3564`,
+`SpNudgePad`: `pointerInput(Unit) { detectTapGestures { } }` and the key's modifier chain. (4) `SPD:819`, `SPD:825`,
+`SPD:843`, `SPD:899`: the `solid` lambda parameter and its two callers. (5) Still the reviewer's from I2b:
+`MS:204-218` (the sheet state's veto, the nullable composable `grip`) and the two boxes with `offset { }` in `SpPhoto`.
+
+**For Amit to look at first, on the phone** (before §23.3's three).
+
+1. **Pick a window, tap its chip, drag the panel's lower part up, then tap its note.** The panel should rise whole
+   and STAY whole as the keyboard comes up, with the note box above the keys.
+2. **Look at `Fine move` and `Delete` in the panel.** Delete should stand clearly under and away from `Fine move`,
+   about twice the gap between the other buttons.
+3. **`Fine move`, then press between the arrows and on the pad's empty corners.** Nothing should happen, and the pad
+   should stay. The handle the arrows move should be filled in; with nothing pressed first, all eight are.

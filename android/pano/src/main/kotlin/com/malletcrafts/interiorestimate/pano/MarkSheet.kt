@@ -630,8 +630,8 @@ object MarkSheet {
     /**
      * EVERYTHING THE PANEL DRAWS: [pane] what a screen reader calls it; the [head]; the [acts]; [said], a refused act's
      * words, under them; [body], this sheet's own blocks -- its KIND, TRADE, STATE and NOTE are drawn from it and its
-     * head, its ✕ and its Done are NOT (the panel's head has them) -- null for a Tape and a chain; [stateFirst]: STATE
-     * is scrolled into view as it opens.
+     * head, its ✕ and its Done are NOT (the panel's head has them) -- null for a Tape and a chain; [stateFirst]: it opens
+     * WHOLE in portrait too ([opensWhole]), so STATE is in view as it opens.
      */
     class PanelView(val pane: String, val head: Head, val acts: Acts, val said: String?, val body: View?, val stateFirst: Boolean)
 
@@ -732,6 +732,11 @@ object MarkSheet {
     const val ACT_ROW_DP = 44
     const val ACT_ROW_LAND_DP = 40
     const val SAID_DP = 20
+    /** An act's cell is this high, centred in its row, dp: 36 in portrait's 44, 32 in landscape's 40. */
+    const val ACT_CELL_DP = 36
+    const val ACT_CELL_LAND_DP = 32
+    /** Done, in the head, is this high, centred in the head's row, dp. */
+    const val DONE_DP = 32
     /** The acts stand in three columns, this far apart, dp ... */
     const val ACT_COLUMNS = 3
     const val ACT_GAP_DP = 8.0
@@ -743,9 +748,38 @@ object MarkSheet {
     /** The grip is drawn in portrait only: in landscape the panel opens whole, and there is nothing to pull. */
     fun hasGrip(land: Boolean): Boolean = !land
 
-    /** Whether the panel opens WHOLE, with no half rest (`skipPartiallyExpanded`): in landscape. In portrait the half
-     *  rest is ON -- it was switched off after the K4 review for hiding Done under the fold, and Done is in the head now. */
+    /** Whether the panel opens WHOLE, with no half rest: in landscape. In portrait the half rest is ON -- it was
+     *  switched off after the K4 review for hiding Done under the fold, and Done is in the head now. */
     fun opensWhole(land: Boolean): Boolean = land
+
+    /**
+     * THE HALF REST IS THE PANEL'S OWN HEIGHT, NEVER THE LIBRARY'S ANCHOR (the review of I2, finding 1). The sheet the
+     * app builds against (material3 1.3: `ModalBottomSheet`) sends an expanded sheet BACK to its half anchor every time
+     * its size changes -- its anchors lambda answers `PartiallyExpanded` for an expanded sheet whenever a half anchor
+     * exists -- and the keyboard coming up is such a change, so a box tapped in a panel pulled up whole was left at the
+     * half rest, typed in blind behind the keys. So the sheet has NO half anchor at all (`skipPartiallyExpanded`, always
+     * [SKIPS_LIBRARY_HALF]): it is as high as its content, and the half rest is a CAP on that content ([contentCapDp]),
+     * lifted when the panel is whole ([wholeAfter]). A resize then has nowhere to send it.
+     */
+    const val SKIPS_LIBRARY_HALF = true
+
+    /**
+     * How high the panel's CONTENT -- everything under its grip -- may stand, dp, in a window [windowDp] high; null: no
+     * cap, the panel is as high as its rows (and the blocks scroll where the window is too short for them). In portrait,
+     * not [whole]: the half rest less the grip, so the panel's top is at half the window; the head and the acts stay,
+     * the blocks scroll under them.
+     */
+    fun contentCapDp(windowDp: Double, land: Boolean, whole: Boolean): Double? =
+        if (land || whole) null else halfRestDp(windowDp) - GRIP_DP
+
+    /**
+     * WHETHER THE PANEL IS WHOLE NOW, having been [whole] or not: it BECOMES whole when a box of it takes the keyboard
+     * ([typing]: [standsWhole]) and when he pulls it up ([pulled]: the blocks dragged up -- the first scroll of them);
+     * ONCE WHOLE IT STAYS WHOLE until it closes: a panel that shrank again as the keyboard went, or as a scroll came
+     * back to its top, would move under the thumb.
+     */
+    fun wholeAfter(land: Boolean, whole: Boolean, typing: Boolean = false, pulled: Boolean = false): Boolean =
+        whole || pulled || standsWhole(land, typing)
 
     /**
      * ... AND WHOLE WHILE A BOX OF IT HAS THE KEYBOARD ([typing]; port 63 slice I2b). The half rest is half the WINDOW,
@@ -761,8 +795,13 @@ object MarkSheet {
      *  field ([View.focusNote]), a Drop on Dropped's Why box ([View.focusWhy]). A Tape's and a chain's has no box. */
     fun opensTyping(v: PanelView): Boolean = v.body?.let { it.focusNote || it.focusWhy != null } == true
 
-    /** The panel as it opens: whole in landscape, and whole where it opens on a box ([opensTyping]); else at its half rest. */
-    fun opensWhole(land: Boolean, v: PanelView): Boolean = standsWhole(land, opensTyping(v))
+    /**
+     * The panel as it opens: whole in landscape; whole where it opens on a box ([opensTyping]); and WHOLE WHERE IT
+     * OPENS WITH STATE IN VIEW ([PanelView.stateFirst]: a long press on a mark past Existing, whose Drop and Restore
+     * are STATE's moves, §6 -- at the half rest STATE's second move can lie under the fold; the review of I2, finding
+     * 6). Else at its half rest.
+     */
+    fun opensWhole(land: Boolean, v: PanelView): Boolean = standsWhole(land, opensTyping(v)) || v.stateFirst
 
     /** The half rest of a window [windowDp] high, dp: half of it (378 of the Mi A3's 756). */
     fun halfRestDp(windowDp: Double): Double = windowDp / 2
@@ -773,20 +812,40 @@ object MarkSheet {
         min(contentDp, if (land) windowDp else halfRestDp(windowDp))
 
     /**
+     * HOW FAR LINE 2 IS MOVED DOWN, dp, so that DELETE STANDS [DeleteGuard.CLEAR_DP] CLEAR OF THE ACT OVER IT (the
+     * review of I2, finding 4). Two rows of 44 with cells of 36 leave 8 dp between the lines, and Delete -- the last
+     * column of line 2 -- stood 8 dp under `Fine move`, the last column of line 1 and the act pressed most: half of
+     * what "delete cannot be pressed by accident" asks. So where line 2 holds Delete, the whole line starts 16 dp under
+     * line 1's cells: 8 dp more. No Delete, no move.
+     */
+    fun deleteDropDp(acts: Acts): Int =
+        if (acts.rows == 2 && acts.delete != null) maxOf(0, DeleteGuard.CLEAR_DP - (ACT_ROW_DP - ACT_CELL_DP)) else 0
+
+    /** How high the acts stand, dp: in portrait their rows of 44 and, where line 2 holds Delete, [deleteDropDp] between
+     *  them (96 for two lines with Delete); in landscape their one line of 40. 0: there is no act. */
+    fun actsDp(acts: Acts, land: Boolean = false): Int =
+        if (land) (if (acts.rows > 0) ACT_ROW_LAND_DP else 0) else acts.rows * ACT_ROW_DP + deleteDropDp(acts)
+
+    /**
      * WHAT MUST BE ABOVE THE FOLD, dp from the panel's top: the grip, the head WITH DONE, both lines of acts and a
-     * refused act's line -- 16 + 40 + 88 = 144 dp in portrait with both lines (§6), against a half rest of 378. In
-     * landscape there is no fold; this is then how far down the acts end.
+     * refused act's line -- 16 + 40 + 96 = 152 dp in portrait with both lines and Delete (§6 has 144: before
+     * [deleteDropDp]), against a half rest of 378. In landscape there is no fold; this is then how far down the acts end.
      */
     fun foldTopDp(acts: Acts, land: Boolean = false, said: Boolean = false): Int =
-        if (land) HEAD_LAND_DP + (if (acts.rows > 0) ACT_ROW_LAND_DP else 0) + (if (said) SAID_DP else 0)
-        else GRIP_DP + HEAD_DP + acts.rows * ACT_ROW_DP + (if (said) SAID_DP else 0)
+        (if (land) HEAD_LAND_DP else GRIP_DP + HEAD_DP) + actsDp(acts, land) + (if (said) SAID_DP else 0)
 
     /** Where Done's lower edge is, dp from the panel's top: in the head, so above every rest the panel has. */
     fun doneBottomDp(land: Boolean): Int = if (land) HEAD_LAND_DP else GRIP_DP + HEAD_DP
 
-    /** One act as placed: its [cell], the row it is on (0 or 1; 0 in landscape) and its left and right edge, dp from
-     *  the left edge of the panel's content. */
-    class Slot(val cell: Cell, val row: Int, val l: Double, val r: Double)
+    /** One act as placed: its [cell], the row it is on (0 or 1; 0 in landscape), its left and right edge, dp from
+     *  the left edge of the panel's content, and its top and bottom edge, dp from the top of the acts ([actsDp] high). */
+    class Slot(val cell: Cell, val row: Int, val l: Double, val r: Double, val t: Double, val b: Double)
+
+    /** Where a row of acts' CELLS stand, dp from the top of the acts: [ACT_CELL_DP] high and centred in a row of
+     *  [ACT_ROW_DP] -- line 2 moved down by [deleteDropDp]; in landscape [ACT_CELL_LAND_DP] in the one row. */
+    private fun cellTopDp(acts: Acts, row: Int, land: Boolean): Double =
+        if (land) (ACT_ROW_LAND_DP - ACT_CELL_LAND_DP) / 2.0
+        else row * ACT_ROW_DP + (ACT_ROW_DP - ACT_CELL_DP) / 2.0 + (if (row > 0) deleteDropDp(acts) else 0)
 
     /**
      * WHERE EACH ACT STANDS across a panel whose content is [widthDp] wide (§6).
@@ -794,7 +853,9 @@ object MarkSheet {
      * PORTRAIT: [ACT_COLUMNS] equal columns, [ACT_GAP_DP] apart. Line 1's cells fill them from the left; so do line
      * 2's -- but DELETE IS ALWAYS IN THE LAST COLUMN, AT THE RIGHT END, whatever stands before it, its left edge moved
      * in so that it is [DELETE_GAP_DP] from the column beside it: last, apart, never the cell a hurried second tap
-     * lands on. It is then under Done's column, a whole act row below Done ([Acts.rows]).
+     * lands on. It is then under Done's column, a whole act row below Done ([Acts.rows]) -- and [DeleteGuard.CLEAR_DP]
+     * under the act over it, line 2 being moved down for it ([deleteDropDp]). EVERY OTHER ACT, AND DONE, IS AT LEAST
+     * [DeleteGuard.CLEAR_DP] FROM DELETE, in both layouts (DeleteGuardTest).
      *
      * LANDSCAPE: ONE line -- line 1's cells, then line 2's, Delete last with [DELETE_GAP_DP] before it -- that ends
      * [DONE_CLEAR_LAND_DP] short of Done's left edge ([doneLeftDp], dp from the content's left edge), so nothing,
@@ -807,15 +868,18 @@ object MarkSheet {
             val gaps = cells.indices.drop(1).sumOf { i -> if (cells[i].delete) DELETE_GAP_DP else ACT_GAP_DP }
             val cw = (end - gaps) / cells.size
             var x = 0.0
-            return cells.mapIndexed { i, c -> if (i > 0) x += if (c.delete) DELETE_GAP_DP else ACT_GAP_DP; Slot(c, 0, x, x + cw).also { x += cw } }
+            val t = cellTopDp(acts, 0, true)
+            return cells.mapIndexed { i, c -> if (i > 0) x += if (c.delete) DELETE_GAP_DP else ACT_GAP_DP; Slot(c, 0, x, x + cw, t, t + ACT_CELL_LAND_DP).also { x += cw } }
         }
         val cw = (widthDp - (ACT_COLUMNS - 1) * ACT_GAP_DP) / ACT_COLUMNS
         fun col(i: Int) = i * (cw + ACT_GAP_DP)
         val out = ArrayList<Slot>()
-        acts.line1.forEachIndexed { i, c -> out += Slot(c, 0, col(i), col(i) + cw) }
+        val t1 = cellTopDp(acts, 0, false)
+        acts.line1.forEachIndexed { i, c -> out += Slot(c, 0, col(i), col(i) + cw, t1, t1 + ACT_CELL_DP) }
         val row2 = if (acts.rows == 2) 1 else 0
-        acts.line2.filterNot { it.delete }.forEachIndexed { i, c -> out += Slot(c, row2, col(i), col(i) + cw) }
-        acts.delete?.let { c -> val last = col(ACT_COLUMNS - 1); out += Slot(c, row2, last + (DELETE_GAP_DP - ACT_GAP_DP), last + cw) }
+        val t2 = cellTopDp(acts, row2, false)
+        acts.line2.filterNot { it.delete }.forEachIndexed { i, c -> out += Slot(c, row2, col(i), col(i) + cw, t2, t2 + ACT_CELL_DP) }
+        acts.delete?.let { c -> val last = col(ACT_COLUMNS - 1); out += Slot(c, row2, last + (DELETE_GAP_DP - ACT_GAP_DP), last + cw, t2, t2 + ACT_CELL_DP) }
         return out
     }
 }

@@ -679,10 +679,15 @@ class MarkSheetTest {
         val sheet = code("MarkSheet.kt")
         // PORT 63 SLICE I2b: until then it opened WHOLE in both orientations (`skipPartiallyExpanded = true`, as the album's
         // sheets do since the K4 review, when the half rest hid the foot's Done). Done is in the head now, and where the
-        // panel rests is MarkSheet.opensWhole's answer, asked once as it opens
-        assertTrue(sheet.contains("val whole = remember(land) { MarkSheet.opensWhole(land, v) }"))
-        assertTrue(sheet.contains("val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = whole, confirmValueChange = mayHide)"), "the half rest is ON where it does not open whole")
-        assertFalse(sheet.contains("skipPartiallyExpanded = true"))
+        // panel rests is MarkSheet.opensWhole's answer, asked once as it opens.
+        // THE REVIEW OF I2, finding 1: that half rest is the panel's OWN -- a cap on its content (MarkSheet.contentCapDp),
+        // lifted when it is whole (MarkSheet.wholeAfter) -- and never the library's half anchor, which material3 1.3 sends
+        // an expanded sheet back to at every resize: the library's sheet is given none (MarkSheet.SKIPS_LIBRARY_HALF)
+        assertTrue(sheet.contains("var whole by remember(land) { mutableStateOf(MarkSheet.opensWhole(land, v)) }"))
+        assertTrue(sheet.contains("val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = MarkSheet.SKIPS_LIBRARY_HALF, confirmValueChange = mayHide)"), "no half anchor of the library's")
+        assertFalse(sheet.contains("skipPartiallyExpanded = whole")); assertFalse(sheet.contains("sheet.expand()")); assertFalse(sheet.contains("partialExpand"))
+        assertTrue(sheet.contains("val cap = MarkSheet.contentCapDp(LocalConfiguration.current.screenHeightDp.toDouble(), land, whole)"), "the half rest is the cap")
+        assertTrue(MarkSheet.SKIPS_LIBRARY_HALF)
         assertTrue(sheet.contains("onDismissRequest = a.onCancel,"), "the scrim, ◁ and a swipe cancel")
         assertTrue(sheet.contains("dragHandle = grip,") && sheet.contains("containerColor = MS_BG,") && sheet.contains("sheetMaxWidth = Dp.Unspecified,"))
         assertTrue(sheet.contains("val grip: (@Composable () -> Unit)? = if (MarkSheet.hasGrip(land)) { { MsGrip { y -> onTopS(y) } } } else null"), "a grip in portrait only")

@@ -10,6 +10,7 @@ import com.malletcrafts.interiorestimate.pano.DimLayout
 import com.malletcrafts.interiorestimate.pano.MarkDims
 import com.malletcrafts.interiorestimate.pano.MarkLife
 import com.malletcrafts.interiorestimate.pano.NotePin
+import com.malletcrafts.interiorestimate.pano.NudgePad
 import com.malletcrafts.interiorestimate.pano.PhotoFigures
 import com.malletcrafts.interiorestimate.pano.Pick
 import com.malletcrafts.interiorestimate.pano.SheetMarks
@@ -253,6 +254,10 @@ internal object SurveyPrepDraw {
         /** Filled with what was drawn of the picked item -- its box and its chip -- for the press, the lift under the
          *  panel and Fine move's corner ([Shown]); null: nobody asks. */
         val shown: Shown? = null,
+        /** FINE MOVE WHILE ITS PAD IS UP (the review of I2, finding 6; DESIGN-imagemeter §6: "the part last touched ...
+         *  drawn solid"): the handle its arrows move is FILLED in the item's colour, ringed white -- one tab or end, or
+         *  every handle of the item when they move it whole (NudgePad.solid). Null: no pad, every handle as it was. */
+        val nudge: NudgePad.State? = null,
     )
 
     /**
@@ -664,10 +669,16 @@ internal object SurveyPrepDraw {
                 lifeTagOf(c, tx, e, if (chipped) "" else code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, (if (o.all) 26f else 13f) * u, u, q[0] - p[0] < 90f * u, faded)
                 if (locked && o.mode == "main") padPill(c, q[0] - 3f * u, p[1] + 3f * u, col, u)
                 if (sel && o.mode == "main" && !locked && o.tabs) {
-                    val xm = (p[0] + q[0]) / 2; val ym = (p[1] + q[1]) / 2; val h = 5f * u
-                    for ((tx, ty) in listOf(p[0] to p[1], q[0] to p[1], q[0] to q[1], p[0] to q[1], xm to p[1], xm to q[1], p[0] to ym, q[0] to ym)) {
-                        c.drawRect(tx - h, ty - h, tx + h, ty + h, Paint().apply { color = argb(0xffffff) })
-                        c.drawRect(tx - h, ty - h, tx + h, ty + h, stroke(argb(col), 2f * u))
+                    // its eight tabs, each where SurveyPrepTouch.tabAt puts it -- white, ringed in the mark's colour; THE ONE
+                    // FINE MOVE NUDGES IS SOLID, the colours turned round, and all eight when its arrows move the whole
+                    // mark (NudgePad.solid)
+                    val h = 5f * u
+                    for (k in SurveyPrepTouch.TABS) {
+                        val at = SurveyPrepTouch.tabAt(k, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble())
+                        val hx = at[0].toFloat(); val hy = at[1].toFloat()
+                        val solid = NudgePad.solid(o.nudge, e.id, k)
+                        c.drawRect(hx - h, hy - h, hx + h, hy + h, Paint().apply { color = argb(if (solid) col else 0xffffff) })
+                        c.drawRect(hx - h, hy - h, hx + h, hy + h, stroke(argb(if (solid) 0xffffff else col), 2f * u))
                     }
                 }
                 if (o.mode == "sheet" && (sel || o.all)) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
@@ -804,12 +815,14 @@ internal object SurveyPrepDraw {
         val quiet = o.mode == "main"
         for (q in sf.meas) if (q.kind == SurveyMeas.LINE || q.kind == SurveyMeas.AREA)
             line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ::toS, hd,
-                figure = if (o.mode == "main") SurveyMeas.key(q) else null, o = o, u = u, quiet = quiet)
+                figure = if (o.mode == "main") SurveyMeas.key(q) else null, o = o, u = u, quiet = quiet,
+                solid = { i -> NudgePad.solid(o.nudge, q.id, NudgePad.pointPart(i)) })
         o.area?.takeIf { it.isNotEmpty() }?.let { line(c, "open", it, null, false, true, false, false, dp, ::toS, quiet = quiet) }
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.LINE }?.let { d ->
             line(c, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, dp, ::toS, quiet = quiet) }
         for (q in sf.meas) if (q.kind == SurveyMeas.TAPE && q.pts.size == 2)
-            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS, hd, quiet = quiet)
+            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS, hd, quiet = quiet,
+                solid = { i -> NudgePad.solid(o.nudge, q.id, NudgePad.pointPart(i)) })
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.TAPE }?.let { d ->
             tape(c, d.from, d.to, null, false, true, d.off, false, dp, ppm, o, ::toS, quiet = quiet) }
     }
@@ -825,7 +838,9 @@ internal object SurveyPrepDraw {
                       *  F-M2.per) -- its tag then shows its ONE figure and takes a tap; null: the tag as it always was. */
                      figure: String? = null, o: Marks? = null, u: Float = dp,
                      /** Port 63 slice I1b, the editing photo: no tag -- the figure is placed with the others (drawPlates). */
-                     quiet: Boolean = false) {
+                     quiet: Boolean = false,
+                     /** Whether the handle at point i is drawn SOLID: Fine move nudges it (NudgePad.solid). */
+                     solid: (Int) -> Boolean = { false }) {
         if (pts.isEmpty()) return
         val closed = kind == SurveyMeas.AREA; val isLine = kind == SurveyMeas.LINE
         val col = if (draft && off) OUT_COLOUR else LINE_C
@@ -852,10 +867,12 @@ internal object SurveyPrepDraw {
         // an area's corners, and the corners tapped so far, as white dots ringed in the Line's blue; the picked Line's
         // ends and area's corners, with Select on, as HANDLES -- 5.5 dp, grabbed within 14 dp (v52 slice 10, sp.js drawMeas)
         val hd = sel && !draft && handles
-        if (!isLine || hd) for (q in scr) {
+        // -- and THE END FINE MOVE NUDGES SOLID, the colours turned round (every end when it moves the whole item)
+        if (!isLine || hd) scr.forEachIndexed { i, q ->
             val rr = (if (hd) SurveyGuide.END_R_DP.toFloat() else 3.2f) * dp
-            c.drawCircle(q[0], q[1], rr, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
-            c.drawCircle(q[0], q[1], rr, stroke(argb(LINE_C), 1.5f * dp))
+            val full = hd && solid(i)
+            c.drawCircle(q[0], q[1], rr, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(if (full) LINE_C else 0xffffff) })
+            c.drawCircle(q[0], q[1], rr, stroke(argb(if (full) 0xffffff else LINE_C), 1.5f * dp))
         }
         val segs = if (n > 0) (0 until n).flatMap { listOf(scr[it], scr[(it + 1) % scr.size]) } else scr
         val cx = segs.map { it[0] }.average().toFloat(); val cy = segs.map { it[1] }.average().toFloat()
@@ -877,7 +894,9 @@ internal object SurveyPrepDraw {
                      locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray, handles: Boolean = false,
                      /** Port 63 slice I1b, the editing photo: a plotted Tape's figure is placed with the others (drawPlates),
                       *  the number alone along its band; one being pulled shows its length alone, `1234` (P4). */
-                     quiet: Boolean = false) {
+                     quiet: Boolean = false,
+                     /** Whether the handle at end i is drawn SOLID: Fine move nudges it (NudgePad.solid). */
+                     solid: (Int) -> Boolean = { false }) {
         val len = hypot(b[0] - a[0], b[1] - a[1])
         val pa = toS(a); val pb = toS(b)
         val col = if (off) OUT_COLOUR else TAPE_C
@@ -904,9 +923,11 @@ internal object SurveyPrepDraw {
             }
         }
         // the picked tape's two ends, with Select on: white handles, 5.5 dp, ringed dark (v52 slice 10, sp.js drawTapes)
-        if (sel && !draft && handles) for (p in listOf(pa, pb)) {
-            c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
-            c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, stroke(argb(0x3b2f00), 2f * dp))
+        // -- and THE END FINE MOVE NUDGES SOLID, the colours turned round (both ends when it moves the whole tape)
+        if (sel && !draft && handles) listOf(pa, pb).forEachIndexed { i, p ->
+            val full = solid(i)
+            c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(if (full) 0x3b2f00 else 0xffffff) })
+            c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, stroke(argb(if (full) 0xffffff else 0x3b2f00), 2f * dp))
         }
         if (quiet && !draft) {
             // its figure is drawn by drawPlates; its padlock stays beside its far end, where the tag stood

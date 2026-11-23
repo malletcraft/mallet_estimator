@@ -117,9 +117,18 @@ class DeleteGuardTest {
             val del = slots.single { it.cell.delete }
             assertEquals(1, del.row, id); assertEquals(336.0, del.r, 1e-9, id)
             assertTrue(slots.all { it === del || it.row < del.row || it.r <= del.l - MarkSheet.DELETE_GAP_DP + 1e-9 }, "$id: nothing stands beside Delete nearer than 24 dp")
-            // ... a WHOLE ACT ROW below Done: Done ends at the head's foot, Delete's row starts one act row further down
-            val deleteTop = MarkSheet.GRIP_DP + MarkSheet.HEAD_DP + MarkSheet.ACT_ROW_DP
-            assertEquals(MarkSheet.ACT_ROW_DP, deleteTop - MarkSheet.doneBottomDp(false), id)
+            // ... a WHOLE ACT ROW below Done, and more: Done ends at the head's foot, Delete's cell starts 56 dp further down
+            val deleteTop = MarkSheet.GRIP_DP + MarkSheet.HEAD_DP + del.t
+            assertTrue(deleteTop - MarkSheet.doneBottomDp(false) >= MarkSheet.ACT_ROW_DP, id)
+            // ... AND CLEAR_DP FROM EVERYTHING ELSE THAT TAKES A PRESS, IN EVERY DIRECTION (the review of I2, finding 4):
+            // the act OVER it as well as the one beside it. Two rows of 44 with cells of 36 left Delete 8 dp under
+            // `Fine move`, the act pressed most; its line is moved down so that it is 16
+            for (o in slots) if (o !== del) assertTrue(clear(del, o) >= DeleteGuard.CLEAR_DP - 1e-9, "$id: Delete stands ${clear(del, o)} dp from ${o.cell.text}")
+            slots.filter { it.row == 0 }.forEach { o -> assertEquals(DeleteGuard.CLEAR_DP.toDouble(), del.t - o.b, 1e-9, "$id: under ${o.cell.text}") }
+            assertEquals(MarkSheet.deleteDropDp(acts) + 2 * MarkSheet.ACT_ROW_DP, MarkSheet.actsDp(acts)); assertEquals(8, MarkSheet.deleteDropDp(acts), id)
+            assertTrue(del.b <= MarkSheet.actsDp(acts), "$id: the acts' box holds it")
+            // Done's own box, from the top of the acts: 32 dp high, centred in the head over them, at the right end
+            assertTrue(clear(del, 336.0 - 70, 336.0, -(MarkSheet.HEAD_DP + MarkSheet.DONE_DP) / 2.0, -(MarkSheet.HEAD_DP - MarkSheet.DONE_DP) / 2.0) >= DeleteGuard.CLEAR_DP, id)
             // ... and above the fold of the half rest, with Done: nothing he needs to cancel a slip is hidden
             assertTrue(MarkSheet.foldTopDp(acts) <= MarkSheet.halfRestDp(756.0), id)
             // LANDSCAPE: one line, Delete last, 24 dp from the act before it, and the line ends 16 dp short of Done
@@ -128,6 +137,11 @@ class DeleteGuardTest {
             assertTrue(land.last().cell.delete && land.all { it.row == 0 }, id)
             assertTrue(land.last().r <= doneLeft - MarkSheet.DONE_CLEAR_LAND_DP + 1e-9, "$id: nothing stands under Done")
             assertEquals(MarkSheet.DELETE_GAP_DP, land.last().l - land[land.size - 2].r, 1e-9, id)
+            // ... and there too Delete is CLEAR_DP from every other act and from Done (16 dp to its left, 6 dp under it)
+            val ld = land.last()
+            for (o in land) if (o !== ld) assertTrue(clear(ld, o) >= DeleteGuard.CLEAR_DP - 1e-9, "$id, landscape: ${clear(ld, o)} dp from ${o.cell.text}")
+            assertTrue(clear(ld, doneLeft, 756.0, -(MarkSheet.HEAD_LAND_DP + MarkSheet.DONE_DP) / 2.0, -(MarkSheet.HEAD_LAND_DP - MarkSheet.DONE_DP) / 2.0) >= DeleteGuard.CLEAR_DP, "$id, landscape: Done")
+            assertEquals(0, MarkSheet.deleteDropDp(MarkSheet.Acts(acts.line1, acts.line2.filterNot { it.delete })), "$id: no Delete, no move")
         }
         // IT TAKES NO TAP FOR ITS FIRST 300 MS: a finger that had not quite left the photo deletes nothing
         val pn = MarkSheet.openPanel(p, "d1", 10_000L, longPress = true)!!
@@ -163,6 +177,11 @@ class DeleteGuardTest {
         assertFalse(q.deleteMark("nothing"))
         assertEquals("F-T1 is locked — unlock first", SurveyPrepEdit.refusal(Tx.EN, "F-T1"))
     }
+
+    /** How far two boxes stand apart, dp: 0 when they touch or overlap. */
+    private fun clear(a: MarkSheet.Slot, l: Double, r: Double, t: Double, b: Double): Double =
+        Math.hypot(maxOf(0.0, a.l - r, l - a.r), maxOf(0.0, a.t - b, t - a.b))
+    private fun clear(a: MarkSheet.Slot, o: MarkSheet.Slot): Double = clear(a, o.l, o.r, o.t, o.b)
 
     // ---- the screen, read as source (only CI compiles :app) ---------------------------------------------------
 
@@ -320,6 +339,12 @@ class DeleteGuardTest {
         val acts = body(sheet, "private fun MsActs(v: MarkSheet.PanelView, land: Boolean, wide: Int, doneWide: Int, onAct: (String) -> Unit)")
         assertEquals(1, count(acts, "val slots = MarkSheet.slots(v.acts, w, land, w - doneWide / dens)"))
         assertEquals(1, count(acts, "for (s in slots) {")); assertEquals(1, count(sheet, "MarkSheet.slots("))
+        // EVERY EDGE of a cell is its slot's, and the acts' height MarkSheet.actsDp's: the file holds no row arithmetic of
+        // its own, so the 16 dp between Delete and the act over it cannot be drawn as 8 (the review of I2, finding 4)
+        assertEquals(1, count(acts, "Box(Modifier.padding(start = s.l.toFloat().dp, top = s.t.toFloat().dp).width((s.r - s.l).toFloat().dp).height((s.b - s.t).toFloat().dp)"))
+        assertEquals(1, count(acts, "val tall = MarkSheet.actsDp(v.acts, land)")); assertEquals(1, count(acts, "Box(Modifier.fillMaxWidth().height(tall.dp)) {"))
+        assertEquals(0, count(acts, "ACT_ROW")); assertEquals(0, count(acts, "s.row")); assertEquals(0, count(acts, "rowDp"))
+        assertEquals(1, count(sheet, ".height(MarkSheet.DONE_DP.dp)"), "Done's height is the one the clearance is tested with")
         assertEquals(1, count(acts, ".border(if (c.delete) 1.5.dp else 1.dp, if (c.delete) MS_DEL_LINE else MS_LINE, shape)"))
         assertEquals(1, count(acts, "Text(c.text, color = if (c.delete) MS_DEL else MS_FG,"))
         assertEquals(1, count(acts, ".clickable(role = Role.Button) { onAct(c.id) }"), "one tap still picks an act: Delete and every other")

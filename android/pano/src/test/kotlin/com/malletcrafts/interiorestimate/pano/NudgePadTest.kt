@@ -85,6 +85,83 @@ class NudgePadTest {
         assertEquals("Finish fine move", NudgePad.doneLabel(Tx.EN))
     }
 
+    // ------------------------------------------------------------------ the review of I2 (findings 2, 5, 6)
+
+    @Test fun `nothing on the pad is the photo's - every cell is its key's edge to edge, and the empty cells and the 8 dp round it swallow the press`() {
+        for (corner in Corner.entries) {
+            val pad = NudgePad.box(corner, w, h, dp)
+            // NO GUTTER: a press on the line between two keys, and one a pixel either side of it, finds a key -- never nothing
+            val right = NudgePad.cell(pad, Key.RIGHT, dp)!!; val down = NudgePad.cell(pad, Key.DOWN, dp)!!; val step = NudgePad.cell(pad, Key.STEP, dp)!!
+            for (d in listOf(-1.0, 0.0, 1.0)) {
+                assertNotNull(NudgePad.keyAt(pad, step.r + d, (step.t + step.b) / 2, dp), "between the step and the right arrow, $d")
+                assertNotNull(NudgePad.keyAt(pad, (step.l + step.r) / 2, step.b + d, dp), "between the step and the down arrow, $d")
+            }
+            // EVERY POINT OF THE PAD IS THE PAD'S: a key or not, a press there never reaches the photo
+            var keys = 0; var empty = 0
+            var x = pad.l; while (x <= pad.r) { var y = pad.t; while (y <= pad.b) {
+                assertTrue(NudgePad.swallows(pad, x, y, dp), "$corner: ($x, $y)")
+                if (NudgePad.keyAt(pad, x, y, dp) == null) empty++ else keys++
+                y += 4.0 }; x += 4.0 }
+            assertTrue(keys > 0 && empty > 0)
+            // the slip the review names: between the right arrow and the down arrow lies the empty bottom-right cell
+            val slipX = (right.l + right.r) / 2; val slipY = (down.t + down.b) / 2
+            assertNull(NudgePad.keyAt(pad, slipX, slipY, dp)); assertTrue(NudgePad.swallows(pad, slipX, slipY, dp))
+            // ... and so is the 8 dp round it; a press clear of that is the photo's
+            val e = NudgePad.EDGE_DP * dp
+            for ((px, py) in listOf(pad.l - e + 1 to pad.t + 10, pad.r + e - 1 to pad.b - 10, pad.l + 10 to pad.t - e + 1, pad.r - 10 to pad.b + e - 1)) {
+                assertNull(NudgePad.keyAt(pad, px, py, dp)); assertTrue(NudgePad.swallows(pad, px, py, dp), "($px, $py)")
+            }
+            assertFalse(NudgePad.swallows(pad, pad.l - e - 1, pad.t + 10, dp)); assertFalse(NudgePad.swallows(pad, pad.l + 10, pad.t - e - 1, dp))
+            assertFalse(NudgePad.swallows(pad, w / 2, 20.0, dp), "the photo, far from the pad")
+        }
+    }
+
+    @Test fun `Done's undo step is the Fine move's - where the panel's Done took one the first nudge takes no second`() {
+        assertTrue(NudgePad.doneTookStep(3, 4)); assertFalse(NudgePad.doneTookStep(3, 3)); assertFalse(NudgePad.doneTookStep(0, 0))
+        // nothing was typed: Done took no step, and the Fine move takes its ONE at the first nudge that moves anything
+        val p = wall()
+        val plain = Run(p, assertNotNull(NudgePad.start(p, W1, 0, null, null, w, h, dp, stepTaken = NudgePad.doneTookStep(2, 2))))
+        assertFalse(plain.st.stepTaken); assertTrue(plain.press(Key.LEFT)); assertTrue(plain.press(Key.LEFT)); assertEquals(1, plain.steps)
+        // A NOTE WAS TYPED, THEN FINE MOVE: Done's step is already on the history, and however many nudges follow there is
+        // no second -- one undo takes back the nudges and the note together, as it does for Lock and Duplicate
+        val q = wall()
+        val typed = Run(q, assertNotNull(NudgePad.start(q, W1, 0, null, null, w, h, dp, stepTaken = NudgePad.doneTookStep(2, 3))))
+        assertTrue(typed.st.stepTaken)
+        assertTrue(typed.press(Key.LEFT)); assertTrue(typed.press(Key.UP)); assertTrue(typed.press(Key.LEFT)); assertEquals(0, typed.steps)
+        assertEquals(listOf(1498.0, 2398.0, 901.0, 2101.0), boxOf(mark(q, W1)))
+        // the flag rides through a re-aim, the step's switch and every event that keeps the pad
+        assertTrue(NudgePad.aim(q, typed.st, "lt").stepTaken); assertTrue(NudgePad.toggle(typed.st).stepTaken)
+        assertTrue(NudgePad.after(q, typed.st, Pick.State(W1, true, null), 0)!!.stepTaken)
+        // it is still no Fine move where none is offered
+        assertNull(NudgePad.start(q, "k1", 0, null, null, w, h, dp, stepTaken = true))
+    }
+
+    @Test fun `the part Fine move nudges is drawn solid - one handle, or every handle of the item when the arrows move it whole`() {
+        val p = wall()
+        // no pad: nothing is solid
+        for (k in SurveyPrepTouch.TABS) assertFalse(NudgePad.solid(null, W1, k))
+        // the whole mark: all eight tabs
+        val whole = start(p, W1)!!
+        assertEquals(NudgePad.BODY, whole.part)
+        for (k in SurveyPrepTouch.TABS) assertTrue(NudgePad.solid(whole, W1, k), k)
+        // one tab, or one corner tab: that one alone
+        for (part in listOf("t", "l", "rb", "lt")) {
+            val st = NudgePad.aim(p, whole, part)
+            assertEquals(listOf(part), SurveyPrepTouch.TABS.filter { NudgePad.solid(st, W1, it) }, part)
+        }
+        // never another item's handles
+        for (k in SurveyPrepTouch.TABS) assertFalse(NudgePad.solid(whole, D1, k))
+        // a Line: its whole body, both ends; one end, that end alone -- and so a Tape and an area
+        for (id in listOf("m1", "t1", "m2")) {
+            val n = meas(p, id).pts.size
+            val body = start(p, id)!!
+            assertEquals((0 until n).toList(), (0 until n).filter { NudgePad.solid(body, id, NudgePad.pointPart(it)) }, id)
+            val end = NudgePad.aim(p, body, NudgePad.pointPart(1))
+            assertEquals(listOf(1), (0 until n).filter { NudgePad.solid(end, id, NudgePad.pointPart(it)) }, id)
+            assertFalse(NudgePad.solid(end, "other", NudgePad.pointPart(1)))
+        }
+    }
+
     @Test fun `the pad stands in the bottom corner farthest from the item, chosen once`() {
         // an item on the left: the right corner; on the right: the left corner
         assertEquals(Corner.RIGHT, NudgePad.corner(box(20.0, 300.0, 120.0, 480.0), w, h, dp)); assertEquals(Corner.LEFT, NudgePad.corner(box(230.0, 300.0, 330.0, 480.0), w, h, dp))

@@ -389,23 +389,34 @@ class MarkSheetPanelTest {
         assertEquals(378.0, MarkSheet.halfRestDp(756.0))
         val p = wall()
         val two = MarkSheet.acts(en, p, D1, 0, null)
-        assertEquals(144, MarkSheet.foldTopDp(two), "16 + 40 + 88, the design's own sum")
-        assertEquals(164, MarkSheet.foldTopDp(two, said = true))
+        // 16 + 40 + 88 is the design's own sum (§6: 144); since the review of I2 (finding 4) the line that holds Delete
+        // stands 8 dp further down, 16 dp under the cells over it: 152
+        assertEquals(152, MarkSheet.foldTopDp(two), "16 + 40 + 96")
+        assertEquals(172, MarkSheet.foldTopDp(two, said = true))
+        assertEquals(96, MarkSheet.actsDp(two)); assertEquals(8, MarkSheet.deleteDropDp(two)); assertEquals(0, MarkSheet.deleteDropDp(MarkSheet.Acts.NONE))
+        assertEquals(listOf(36, 32, 32), listOf(MarkSheet.ACT_CELL_DP, MarkSheet.ACT_CELL_LAND_DP, MarkSheet.DONE_DP))
         var most = 0
         for (st in STAGES) for (id in ALL) for (shape in listOf(false, true)) for (said in listOf(false, true)) {
             val a = MarkSheet.acts(en, p, id, st, null, shape = shape)
             val top = MarkSheet.foldTopDp(a, said = said); most = maxOf(most, top)
-            assertEquals(16 + 40 + 44 * a.rows + (if (said) 20 else 0), top)
+            assertEquals(16 + 40 + 44 * a.rows + (if (a.delete != null) 8 else 0) + (if (said) 20 else 0), top)
             // ... on the Mi A3, and on a window as short as 480 dp
             for (win in listOf(756.0, 640.0, 480.0)) assertTrue(top <= MarkSheet.halfRestDp(win), "$id at $st: $top dp of grip, head and acts under a half rest of ${MarkSheet.halfRestDp(win)}")
             assertTrue(MarkSheet.doneBottomDp(false) <= top)
         }
-        assertEquals(164, most)
+        assertEquals(172, most)
         // it opens at the half rest when its rows need more than that, else at its own height; whole in landscape
         assertEquals(378.0, MarkSheet.opensAtDp(756.0, 520.0, land = false)); assertEquals(232.0, MarkSheet.opensAtDp(756.0, 232.0, land = false))
         assertEquals(300.0, MarkSheet.opensAtDp(336.0, 300.0, land = true)); assertEquals(336.0, MarkSheet.opensAtDp(336.0, 400.0, land = true))
         assertEquals(listOf(false, true), listOf(false, true).map { MarkSheet.opensWhole(it) })
         assertEquals(listOf(true, false), listOf(false, true).map { MarkSheet.hasGrip(it) })
+        // THE HALF REST IS A CAP ON THE PANEL'S OWN CONTENT (the review of I2, finding 1): the grip and the capped content
+        // are the half rest together; no cap in landscape, none once the panel is whole; and under every cap the head
+        // with Done, both lines of acts and a refused act's line still fit, so only the blocks ever scroll
+        assertEquals(362.0, MarkSheet.contentCapDp(756.0, land = false, whole = false)); assertEquals(378.0, MarkSheet.GRIP_DP + MarkSheet.contentCapDp(756.0, false, false)!!)
+        assertNull(MarkSheet.contentCapDp(756.0, land = false, whole = true)); assertNull(MarkSheet.contentCapDp(336.0, land = true, whole = false)); assertNull(MarkSheet.contentCapDp(336.0, land = true, whole = true))
+        for (win in listOf(756.0, 640.0, 480.0)) assertTrue(most - MarkSheet.GRIP_DP <= MarkSheet.contentCapDp(win, false, false)!!, "$win")
+        assertTrue(MarkSheet.SKIPS_LIBRARY_HALF, "the library's sheet is given no half anchor to fall back to")
         // landscape: no grip, ONE line of acts of 40 dp under a 36 dp head
         assertEquals(76, MarkSheet.foldTopDp(two, land = true)); assertEquals(36, MarkSheet.foldTopDp(MarkSheet.Acts.NONE, land = true))
         assertEquals(56, MarkSheet.foldTopDp(MarkSheet.Acts.NONE))
@@ -442,6 +453,12 @@ class MarkSheetPanelTest {
             assertEquals(1, del.row, "$id at $st"); assertSame(s.last(), del); assertEquals(336.0, del.r, 1e-9)
             assertTrue(s.filter { it.row == 1 && it !== del }.all { del.l - it.r >= 24.0 - 1e-9 }, "$id at $st")
             assertTrue(MarkSheet.doneBottomDp(false) + MarkSheet.ACT_ROW_DP <= MarkSheet.GRIP_DP + MarkSheet.HEAD_DP + MarkSheet.ACT_ROW_DP * del.row)
+            // EVERY CELL HAS ITS TOP AND BOTTOM TOO (the review of I2, finding 4): 36 dp high; line 1 at 4..40; the line
+            // that holds Delete 16 dp under those cells, at 56..92 -- not at 48, 8 dp under `Fine move`
+            for (x in s) assertEquals(36.0, x.b - x.t, 1e-9, "$id at $st: ${x.cell.text}")
+            for (x in s.filter { it.row == 0 }) { assertEquals(4.0, x.t, 1e-9); assertEquals(40.0, x.b, 1e-9) }
+            for (x in s.filter { it.row == 1 }) { assertEquals(56.0, x.t, 1e-9, "$id at $st: ${x.cell.text}"); assertEquals(92.0, x.b, 1e-9) }
+            assertEquals(96, MarkSheet.actsDp(a), "$id at $st"); assertTrue(s.all { it.b <= MarkSheet.actsDp(a) })
         }
         // no two cells of a row overlap, and none leaves the panel
         for (st in STAGES) for (id in ALL) for (shape in listOf(false, true)) {
@@ -483,7 +500,7 @@ class MarkSheetPanelTest {
     @Test fun `the panel stands whole while a box has the keyboard - it opens whole on a Note just placed and on a Drop's why, half way on anything else`() {
         // THE HALF REST IS HALF THE WINDOW, and the keyboard takes the window's lower part: of the Mi A3's 756 dp the keys
         // take about 280, so at the half rest only the 98 dp between the panel's top and the keys would show -- the grip, the
-        // head and part of the acts (144 dp) -- and never the box being typed in
+        // head and part of the acts (152 dp) -- and never the box being typed in
         val keys = 280.0
         assertTrue(756.0 - MarkSheet.halfRestDp(756.0) - keys < MarkSheet.foldTopDp(MarkSheet.acts(en, wall(), D1, 0, null)))
         assertTrue(MarkSheet.standsWhole(false, typing = true)); assertFalse(MarkSheet.standsWhole(false, typing = false))
@@ -491,10 +508,23 @@ class MarkSheetPanelTest {
         val p = wall()
         fun view(pn: MarkSheet.Panel, stage: Int? = 0) = assertNotNull(MarkSheet.panel(en, p, pn, stage, null))
         // every item opened by its chip or a long press: no box has the keyboard -- half way in portrait, whole in landscape
+        // -- BUT WHOLE WHERE IT OPENS WITH STATE IN VIEW (the review of I2, finding 6): a long press on a mark past Existing,
+        // whose Drop and Restore are STATE's moves; at the half rest its second move can lie under the fold
+        var stateFirst = 0
         for (id in ALL) for (long in listOf(false, true)) {
             val v = view(MarkSheet.openPanel(p, id, 0L, longPress = long)!!)
-            assertFalse(MarkSheet.opensTyping(v), id); assertFalse(MarkSheet.opensWhole(false, v), id); assertTrue(MarkSheet.opensWhole(true, v), id)
+            assertFalse(MarkSheet.opensTyping(v), id); assertEquals(v.stateFirst, MarkSheet.opensWhole(false, v), id); assertTrue(MarkSheet.opensWhole(true, v), id)
+            if (v.stateFirst) { stateFirst++; assertTrue(long, id) }
         }
+        assertTrue(stateFirst > 0, "some item of the wall is past Existing")
+        assertTrue(MarkSheet.opensWhole(false, view(MarkSheet.openPanel(p, D2, 0L, longPress = true)!!)), "a wish, long-pressed: whole")
+        assertFalse(MarkSheet.opensWhole(false, view(MarkSheet.openPanel(p, D2, 0L)!!)), "the same wish by its chip: half way")
+        assertFalse(MarkSheet.opensWhole(false, view(MarkSheet.openPanel(p, D1, 0L, longPress = true)!!)), "a surveyed mark, long-pressed: half way")
+        // ONCE WHOLE IT STAYS WHOLE; it BECOMES whole when a box takes the keyboard and when the blocks are pulled up
+        assertFalse(MarkSheet.wholeAfter(land = false, whole = false)); assertTrue(MarkSheet.wholeAfter(land = false, whole = true))
+        assertTrue(MarkSheet.wholeAfter(land = false, whole = false, typing = true)); assertTrue(MarkSheet.wholeAfter(land = false, whole = false, pulled = true))
+        assertTrue(MarkSheet.wholeAfter(land = true, whole = false))
+        for (t in listOf(false, true)) for (u in listOf(false, true)) assertTrue(MarkSheet.wholeAfter(false, true, typing = t, pulled = u), "never back to half")
         // A NOTE JUST PLACED opens on its note field: whole, or its words would be typed behind the keys
         val note = p.put("front", MarkTypes.NOTE, 2, 700.0, 750.0, 1500.0, 1550.0)
         val fresh = view(MarkSheet.openPanel(p, note.id, 0L, fresh = true, hist = 1)!!)
@@ -502,9 +532,10 @@ class MarkSheetPanelTest {
         // A DROP opens on Dropped's Why box (a wish at the Wish list): whole
         val drop = view(MarkSheet.openPanel(p, D2, 0L, focusMove = MarkLife.DROP)!!, PhaseTools.WISH_LIST)
         assertEquals(MarkLife.DROP, drop.body!!.focusWhy); assertTrue(MarkSheet.opensTyping(drop)); assertTrue(MarkSheet.opensWhole(false, drop))
-        // ... but not where the phase offers no such box (Survey's gate draws no move): nothing takes the keyboard
+        // ... where the phase offers no such box (Survey's gate draws no move) nothing takes the keyboard -- and the panel
+        // is whole all the same, since the review of I2: it was opened FOR its STATE, whose gate line is what it has to say
         val gate = view(MarkSheet.openPanel(p, D2, 0L, focusMove = MarkLife.DROP)!!, 0)
-        assertNull(gate.body!!.focusWhy); assertFalse(MarkSheet.opensWhole(false, gate))
+        assertNull(gate.body!!.focusWhy); assertFalse(MarkSheet.opensTyping(gate)); assertTrue(gate.stateFirst); assertTrue(MarkSheet.opensWhole(false, gate))
         // a Tape and a chain have no box at all
         for (id in listOf("t1", "k1")) assertFalse(MarkSheet.opensTyping(view(MarkSheet.openPanel(p, id, 0L)!!)), id)
     }

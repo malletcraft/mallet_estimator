@@ -1249,14 +1249,16 @@ internal fun SurveyPrepDialog(
      * FINE MOVE BEGINS (the panel's act; NudgePad; DESIGN-imagemeter §6): the item is HELD (Pick row 16) -- a mark the
      * walk had reached shows the handles the act needs -- and the pad stands over the photo, in the bottom corner
      * farthest from the item, nudging the part last touched. It is there only while he is using it: ✓, a tap on empty
-     * photo or a reading that lands ends it (NudgePad.after).
+     * photo or a reading that lands ends it (NudgePad.after). [stepTaken]: the panel's Done has just taken an undo
+     * step for what was typed in it -- that step is this Fine move's too, so its first nudge takes no second one (the
+     * review of I2, finding 2: Done's step and the act's are ONE ↶ step, for Fine move as for Lock and Duplicate).
      */
-    fun fineMove(mid: String) {
+    fun fineMove(mid: String, stepTaken: Boolean) {
         val last = part
         took(Pick.shaped(scene(), pick, mid))
         // the item's box as the photo last drew it, on 2 · Mark; on the 360 there is none, and the pad stands on the right
         val box = if (mode == StepRoute.MARK && shown.id == mid) shown.item else null
-        pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp)
+        pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp, stepTaken)
         rev++
     }
     /** A cell of Fine move's pad pressed: an arrow nudges the part by the step and never snaps, the centre cell switches
@@ -1279,7 +1281,9 @@ internal fun SurveyPrepDialog(
      * typed is dropped, and the item is deleted ("FW1 deleted", with UNDO); every other act -- Done, and where that
      * closed the panel with its item still there (MarkSheet.actRuns), the act: Lock / Unlock, Duplicate, Lock all, Fine
      * move. DONE'S UNDO STEP AND THE ACT'S ARE ONE ↶ STEP (MarkSheet.stepsToDrop): when both took one the act's own is
-     * taken off again, and a snackbar the act showed keeps its UNDO on the step that is left.
+     * taken off again, and a snackbar the act showed keeps its UNDO on the step that is left. FINE MOVE takes its step
+     * later, at its first nudge -- so where Done took one, the Fine move is told it is already taken
+     * (NudgePad.doneTookStep) and its nudges ride on Done's.
      */
     fun panelAct(act: String) {
         val pn = panel ?: return
@@ -1300,7 +1304,7 @@ internal fun SurveyPrepDialog(
                         SurveyPrepEdit.DUPLICATE -> duplicateMark(pn.id)
                         // a mark's type, or every tape, or every Line mark -- never the other (SurveyPrepEdit.lockGroupOf)
                         SurveyPrepEdit.LOCK_ALL -> SurveyPrepEdit.lockGroupOf(prep, pn.id)?.let { (s, g) -> lockAllOf(s, g.t, !g.all, g.kind) }
-                        MarkSheet.FINE -> fineMove(pn.id)
+                        MarkSheet.FINE -> fineMove(pn.id, NudgePad.doneTookStep(before, mid))
                         // (the shape row, Four corners / Rectangle, is slice Q2's: MarkSheet.acts draws none until then)
                         else -> Unit
                     }
@@ -1761,6 +1765,9 @@ internal fun SurveyPrepDialog(
     // ---- THE PHOTO, with all the height the controls leave (1 · Lines and 2 · Mark; 3 · 360 is the 360 itself)
     val photoPane: @Composable ColumnScope.() -> Unit = {
         Box(Modifier.weight(1f).fillMaxWidth()) {
+            // FINE MOVE AS IT STANDS THIS FRAME (NudgePad.after): its pad is drawn last, below, and the photo draws the
+            // part it nudges SOLID (NudgePad.solid) -- null the moment its item is no longer picked and held
+            val fineNow = if (marking) NudgePad.after(prep, pad, pick, quoteStage) else null
             // 1 · Lines: the wall's cut, drawn at its offset, fitted to the surface its lines enclose and 12° beyond its
             // corners (sp.js fitRectFor); 2 · Mark: the squared face, fitted whole
             val cut = if (mode == StepRoute.LINES) views[tab] else null
@@ -1806,6 +1813,8 @@ internal fun SurveyPrepDialog(
                     // what the drawing found of the picked item -- its box, its chip -- and where the open panel's top is,
                     // from which the photo lifts so the item stays in view above it (PhotoLift)
                     shown = shown, panelTop = { panelTop },
+                    // Fine move, while its pad is up: the photo draws the part it nudges solid (NudgePad.solid)
+                    fine = fineNow,
                     // the keypad's uncommitted digits for the gold plate; the hollow glyph while the laser is not ready;
                     // the plate that has just taken a reading; and the bump that pans to a gold figure off screen
                     live = MeasurePad.live(padNow()),
@@ -1854,11 +1863,11 @@ internal fun SurveyPrepDialog(
             notesOver()
             // FINE MOVE'S PAD (port 63 slice I2b; NudgePad; DESIGN-imagemeter §6): over the photo -- or the 360 -- in the
             // bottom corner farthest from the item, 8 dp in (NudgePad.box), and only while he is using it: gone the
-            // moment its item is no longer picked and held (NudgePad.after), which is asked here as well as at every
-            // event, so it is never drawn a frame too long. Drawn LAST: its cells take a press before the photo does.
-            val padNow = if (marking) NudgePad.after(prep, pad, pick, quoteStage) else null
-            if (padNow != null) {
-                SpNudgePad(padNow, Modifier.align(if (padNow.corner == NudgePad.Corner.LEFT) Alignment.BottomStart else Alignment.BottomEnd)) { k -> finePress(k) }
+            // moment its item is no longer picked and held (NudgePad.after -- fineNow, asked at the top of this box as
+            // well as at every event), so it is never drawn a frame too long. Drawn LAST: its cells take a press before
+            // the photo does.
+            if (fineNow != null) {
+                SpNudgePad(fineNow, Modifier.align(if (fineNow.corner == NudgePad.Corner.LEFT) Alignment.BottomStart else Alignment.BottomEnd)) { k -> finePress(k) }
             }
         }
     }
@@ -2483,6 +2492,9 @@ private fun SpPhoto(
     /** Where the open panel's top edge is on the SCREEN, px, as it moves; null: no panel is open. Read only where the
      *  photo is placed, so a panel sliding up moves the photo without recomposing it. */
     panelTop: () -> Float?,
+    /** FINE MOVE WHILE ITS PAD IS UP, else null: the part it nudges is drawn SOLID on the held item (NudgePad.solid) --
+     *  one tab, corner or end, or every handle when the arrows move the whole item. */
+    fine: NudgePad.State?,
     /** 1 · Lines: a press took a line, its end or the reference rectangle -- the lines' own selection. */
     onLineGrab: (SpSel) -> Unit,
     /** The keypad's uncommitted digits (MeasurePad.live), drawn on the gold plate; null: none. */
@@ -3422,7 +3434,9 @@ private fun SpPhoto(
                             // THE PICKED ITEM'S CODE IS A CHIP (port 63 slice I2b; SurveyPrepTouch.codeChip): on 2 · Mark,
                             // with no tool on -- held or not, at every stage: it is the way to its panel
                             chip = mode == StepRoute.MARK && !SurveyPrepPalette.armed(tool),
-                            shown = if (which == "main") shown else null), mm, u)
+                            shown = if (which == "main") shown else null,
+                            // THE PART FINE MOVE NUDGES IS DRAWN SOLID (NudgePad.solid), on the editing photo alone
+                            nudge = if (which == "main") fine else null), mm, u)
                     }
                 }
                 tags.clear()
@@ -3523,14 +3537,19 @@ private fun SpPhoto(
  * cell that reads the step and switches it between 1 and 5 mm, and ✓ in its top right corner -- 3 x 3 cells of 40 dp
  * (NudgePad.GRID, CELL_DP), 8 dp inside the photo's corner (EDGE_DP; the caller aligns it to the corner NudgePad chose).
  * An arrow the part being nudged does not answer to is drawn dim (NudgePad.live) and still takes its press -- which
- * then moves nothing -- so a thumb a little off never falls through to the photo and lets the item go. An empty cell
- * is the photo's.
+ * then moves nothing -- so a thumb a little off never falls through to the photo and lets the item go.
+ * NOTHING ON THE PAD IS THE PHOTO'S (NudgePad.swallows; the review of I2, finding 5): a key takes its press over its
+ * WHOLE 40 dp cell -- the press is on the cell, the 2 dp inset is only how the key is drawn, so there is no gutter
+ * between two keys -- and the pad itself, its three empty cells and the 8 dp round it, takes every press no key took
+ * and does nothing with it. A slip between ▶ and ▼ used to land on the photo, let the item go and end Fine move.
  */
 @Composable
 private fun SpNudgePad(st: NudgePad.State, modifier: Modifier, onKey: (NudgePad.Key) -> Unit) {
     val tx = LocalTx.current
     val shape = RoundedCornerShape(8.dp)
-    Column(modifier.padding(NudgePad.EDGE_DP.toFloat().dp)) {
+    // a pointer input that does nothing: the pad's whole box, edge included, is hit before the photo under it, so a
+    // press no key takes ends here (NudgePad.swallows)
+    Column(modifier.pointerInput(Unit) { detectTapGestures { } }.padding(NudgePad.EDGE_DP.toFloat().dp)) {
         for (row in NudgePad.GRID) {
             Row {
                 for (k in row) {
@@ -3542,10 +3561,10 @@ private fun SpNudgePad(st: NudgePad.State, modifier: Modifier, onKey: (NudgePad.
                         val live = NudgePad.live(st, k)
                         val words = if (step) NudgePad.stepText(st) else NudgePad.glyph(k)
                         val said = if (step) NudgePad.stepLabel(tx, st) else if (done) NudgePad.doneLabel(tx) else words
-                        Box(cell.padding(2.dp).clip(shape).background(if (done) SP_GOLD else Color(0xE61E211B))
-                            .border(1.dp, if (done) SP_GOLD else if (live) SP_LINE_BORDER else Color(0xFF2A2D25), shape)
-                            .clickable(role = Role.Button) { onKey(k) }
-                            .semantics { contentDescription = said },
+                        Box(cell.clickable(role = Role.Button) { onKey(k) }
+                            .semantics { contentDescription = said }
+                            .padding(2.dp).clip(shape).background(if (done) SP_GOLD else Color(0xE61E211B))
+                            .border(1.dp, if (done) SP_GOLD else if (live) SP_LINE_BORDER else Color(0xFF2A2D25), shape),
                             contentAlignment = Alignment.Center) {
                             Text(words, color = if (done) Color(0xFF1A1A12) else if (live) SP_FG else SP_DIM,
                                 fontSize = if (step) 11.sp else 16.sp, lineHeight = if (step) 14.sp else 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
