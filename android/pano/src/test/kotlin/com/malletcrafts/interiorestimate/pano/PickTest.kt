@@ -543,61 +543,94 @@ class PickTest {
         assertEquals("These four lines do not make a closed shape yet", PhaseTools.routeRefusal(Tx.EN))
     }
 
-    // ------------------------------------------------------------------ what a held item shows (slice I1 only)
+    // ------------------------------------------------------------------ what a held item shows; and the way to its panel
 
-    @Test fun `the floating trash is drawn and pressed only while the item is held, with no tool armed, in 2 Mark`() {
+    @Test fun `a held item shows its handles - and the floating trash is gone, Delete is the panel's last act, held or not`() {
         val p = wall()
-        assertTrue(Pick.trash(sc(p), State(D1, true, "FD1.w"), toolArmed = false)); assertTrue(Pick.handles(State(D1, true, null), D1))
-        // a mark the walk reached has no delete control near the laser's thumb, and no handles
-        assertFalse(Pick.trash(sc(p), State(D1, false, "FD1.w"), toolArmed = false)); assertFalse(Pick.handles(State(D1, false, "FD1.w"), D1))
-        assertFalse(Pick.handles(State(D1, true, null), W1))
-        assertFalse(Pick.trash(sc(p), Pick.NONE, toolArmed = false)); assertFalse(Pick.trash(sc(p), State(D1, true, null), toolArmed = true))
-        assertFalse(Pick.trash(sc(p, SURVEY, StepRoute.PANO), State(D1, true, null), toolArmed = false))
-        // where the phase hides the held item's delete (a mark past Existing at Client approved has none: it is never held there anyway)
-        assertTrue(Pick.trash(sc(p, 1), State(D2, true, null), toolArmed = false))
+        assertTrue(Pick.handles(State(D1, true, null), D1))
+        // a mark the walk reached has no handles, and nothing near the laser's thumb deletes it
+        assertFalse(Pick.handles(State(D1, false, "FD1.w"), D1)); assertFalse(Pick.handles(State(D1, true, null), W1))
+        // PORT 63 SLICE I2b: `Pick.trash` and the disc it drew are gone. DELETE IS THE PANEL'S LAST ACT, for the picked
+        // item whether it is held or not -- behind a deliberate tap on its code chip (row 7), which is not a slip
+        for (st in listOf(State(D1, true, "FD1.w"), State(D1, false, "FD1.w"))) {
+            assertTrue(Pick.tap(sc(p), st, SurveyPrepTouch.Hit.Code).options)
+            val acts = MarkSheet.acts(Tx.EN, p, D1, SURVEY, null)
+            assertEquals(SurveyPrepEdit.DELETE, acts.all.last().id); assertSame(acts.delete, acts.line2.last())
+        }
+        // where the phase hides the item's delete the panel draws no delete cell (a surveyed mark after Survey) ...
+        assertNull(MarkSheet.acts(Tx.EN, p, D1, 1, null).delete)
+        // ... and A MARK PAST EXISTING never has one, in the phase that edits it: Drop is its STATE move
+        assertTrue(Pick.mayHold(sc(p, 1), D2)); assertNull(MarkSheet.acts(Tx.EN, p, D2, 1, null).delete)
+        // nothing picked: no chip, nothing to open
+        assertFalse(Pick.options(Pick.NONE).options)
+        val src = com.malletcrafts.interiorestimate.pano.i18n.I18n.android.resolve("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pick.kt").readText()
+        for (gone in listOf("fun trash(", "fun row(", "class Row(")) assertFalse(src.contains(gone), "Pick still has $gone")
     }
 
-    @Test fun `a picked item that cannot be held still has its row - its label opens its Mark sheet at every stage`() {
+    @Test fun `a picked item that cannot be held still reaches its panel - by its code chip, at every stage`() {
         // the review of I1, finding 1: 0.3.345 drew the picked mark's row for ANY picked mark, and its label was the one
         // way to the Mark sheet's moves (Existing -> Client wish at the Wish list, the acts) on a mark the phase holds
-        // read-only. Each of these is picked by a tap on its body and NOT held -- and each has a row whose label opens it.
+        // read-only. Slice I2b took the row away; THE CODE CHIP stands for any picked item, held or not, and a tap on it
+        // opens the panel (row 7). Each of these is picked by a tap on its body and NOT held -- and each reaches its panel.
         val p = wall()
+        fun chip(s: Pick.Scene, t: State, id: String) {
+            assertTrue(Pick.tap(s, t, SurveyPrepTouch.Hit.Code).options, "$id: a tap on its chip asks for its options")
+            assertEquals(t, Pick.tap(s, t, SurveyPrepTouch.Hit.Code).state, "$id: and changes nothing")
+            assertTrue(MarkSheet.panelOpens(p, id), id); assertNotNull(MarkSheet.openPanel(p, id, 0L), id)
+        }
         // a SURVEYED window at the Wish list: not held (the Wish list edits only what was born a wish) ...
         val ws = sc(p, PhaseTools.WISH_LIST)
         val tapped = Pick.body(ws, Pick.NONE, W1).state
         assertEquals(W1, tapped.picked); assertFalse(tapped.held)
-        Pick.row(ws, tapped)!!.let { assertTrue(it.sheet, "its label opens its sheet"); assertFalse(it.nudges); assertFalse(it.padlock, "an earlier phase's padlock is hidden") }
-        // ... and that sheet is where "-> Client wish" is: the move the stage is for
+        chip(ws, tapped, W1)
+        // ... its panel has NO act -- an earlier phase's padlock is hidden, it is not nudged, copied or deleted -- and its
+        // sheet's own blocks, where "-> Client wish" is: the move the stage is for
+        val wp = MarkSheet.panel(Tx.EN, p, MarkSheet.openPanel(p, W1, 0L)!!, PhaseTools.WISH_LIST, null)!!
+        assertTrue(wp.acts.all.isEmpty(), "${wp.acts.all.map { it.id }}"); assertNotNull(wp.body?.state)
+        assertTrue(wp.body!!.state!!.moves.any { it.to == MarkLife.WISH })
         assertTrue(MarkLife.MOVE_TABLE.any { it.from == MarkLife.EXIST && it.to == MarkLife.WISH && PhaseTools.moveOk(it.from, it, PhaseTools.WISH_LIST) })
         // EVERY mark at Estimation and at Client approved -- 2 · Mark is the view there, nothing is held
         for (st in listOf(PhaseTools.ESTIMATION, PhaseTools.APPROVED)) for (id in listOf(D1, W1, D2, W2)) {
             val s = sc(p, st); val t = Pick.body(s, Pick.NONE, id).state
-            assertFalse(t.held, "$id at $st"); Pick.row(s, t)!!.let { assertTrue(it.sheet, "$id at $st"); assertFalse(it.nudges, "$id at $st") }
-            // ... and with no tool row there, the row stands ALONE under the photo, not nothing
-            assertEquals(StepRoute.Under.ROW, StepRoute.underMark(PhaseTools.can(PhaseTools.Tool.PALETTE, st), row = true, keypad = false), "$st")
+            assertFalse(t.held, "$id at $st"); chip(s, t, id)
+            assertFalse(MarkSheet.fineOk(p, id, st), "$id at $st: nothing moves there")
+            // ... and with no tool row there, NOTHING stands under the photo: the chip is on the photo
+            assertEquals(StepRoute.Under.NOTHING, StepRoute.underMark(PhaseTools.can(PhaseTools.Tool.PALETTE, st), keypad = false), "$st")
         }
-        // a LOCKED mark at Survey: picked, never held -- its label opens its sheet, and its padlock unlocks it
+        // a LOCKED mark at Survey: picked, never held -- its panel's first act unlocks it, and it has no Fine move
         lock(p, D1)
         val lk = Pick.body(sc(p), Pick.NONE, D1).state
-        assertFalse(lk.held); Pick.row(sc(p), lk)!!.let { assertTrue(it.sheet); assertFalse(it.nudges); assertTrue(it.padlock) }
-        // a LINE the walk reached is named in its row (P4: its code is shown nowhere else)
+        assertFalse(lk.held); chip(sc(p), lk, D1)
+        val la = MarkSheet.acts(Tx.EN, p, D1, SURVEY, null)
+        assertEquals(SurveyPrepEdit.LOCK, la.line1.first().id); assertEquals("Unlock", la.line1.first().text); assertFalse(la.has(MarkSheet.FINE))
+        // a LINE the walk reached is named on its chip (P4: its code is shown nowhere else)
         val q = wall(); read(q, *WALL.takeWhile { it != "F-M1.len" }.toTypedArray())
         val walked = Pick.next(sc(q), Pick.NONE, "front").state
         assertEquals("m1", walked.picked); assertFalse(walked.held)
-        assertNotNull(Pick.row(sc(q), walked)); assertEquals("F-M1", PhotoFigures.nameOf(q, walked))
+        assertEquals("F-M1", PhotoFigures.nameOf(q, walked)); assertEquals("F-M1 ▾", SurveyPrepTouch.chipText(PhotoFigures.nameOf(q, walked)!!))
+        assertTrue(Pick.tap(sc(q), walked, SurveyPrepTouch.Hit.Code).options); assertTrue(MarkSheet.panelOpens(q, "m1"))
     }
 
-    @Test fun `the held item's row is what moves it - a label that opens its sheet, nudges, a padlock - no value and no Delete`() {
+    @Test fun `what stood in the picked item's row is the panel's now - its name on the chip, Lock and Fine move among its acts - no value and no row`() {
         val p = wall()
-        Pick.row(sc(p), State(D1, true, "FD1.w"))!!.let { assertTrue(it.sheet); assertTrue(it.nudges); assertTrue(it.padlock) }
-        // a Line's and an area's code opens the sheet; a Tape's and a chain's do not; none has nudges
-        Pick.row(sc(p), State("m1", true, null))!!.let { assertTrue(it.sheet); assertFalse(it.nudges); assertTrue(it.padlock) }
-        for (id in listOf("t1", "k1")) Pick.row(sc(p), State(id, true, null))!!.let { assertFalse(it.sheet, id); assertFalse(it.nudges, id); assertTrue(it.padlock, id) }
-        // PICKED, NOT HELD (the review of I1, findings 1 and 6): still its row -- its label, which opens its sheet, and
-        // its padlock -- but NO nudges: only a held item moves. Nothing picked: no row at all.
-        Pick.row(sc(p), State(D1, false, "FD1.w"))!!.let { assertTrue(it.sheet); assertFalse(it.nudges); assertTrue(it.padlock) }
-        assertNull(Pick.row(sc(p), Pick.NONE)); assertNull(Pick.row(sc(p), State("no-such-id", false, null)))
-        // the row has two things to say and neither is a figure or a delete: its class has no such field
-        assertEquals(setOf("sheet", "nudges", "padlock"), Pick.Row::class.java.declaredFields.map { it.name }.toSet())
+        // a held mark at Survey: Lock · Duplicate · Fine move, then Lock all and Delete
+        val a = MarkSheet.acts(Tx.EN, p, D1, SURVEY, null)
+        assertEquals(listOf(SurveyPrepEdit.LOCK, SurveyPrepEdit.DUPLICATE, MarkSheet.FINE), a.line1.map { it.id })
+        assertEquals(listOf(SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), a.line2.map { it.id })
+        // a Line's, an area's and a Tape's: the same -- they move by Fine move too; a chain's has no Fine move (and no
+        // Duplicate while the chain tool is off)
+        for (id in listOf("m1", "m2", "t1")) assertTrue(MarkSheet.acts(Tx.EN, p, id, SURVEY, null).has(MarkSheet.FINE), id)
+        assertEquals(listOf(SurveyPrepEdit.LOCK), MarkSheet.acts(Tx.EN, p, "k1", SURVEY, null, chains = false).line1.map { it.id })
+        // EVERY item has a panel -- a Tape and a chain too, which have no sheet of their own: the head and the acts
+        for (id in listOf(D1, "m1", "m2", "t1", "k1")) assertTrue(MarkSheet.panelOpens(p, id), id)
+        for (id in listOf("t1", "k1")) { assertFalse(MarkSheet.opens(p, id), id); assertNull(MarkSheet.openPanel(p, id, 0L)!!.draft, id) }
+        // PICKED, NOT HELD: the same panel -- and Fine move, an act that edits position, then HOLDS it (row 16)
+        val walked = State(D1, false, "FD1.w")
+        assertTrue(Pick.options(walked).options); assertTrue(MarkSheet.fineOk(p, D1, SURVEY))
+        assertEquals(State(D1, true, "FD1.w"), Pick.shaped(sc(p), walked, D1).state)
+        // nothing picked, or an id that is no item: nothing opens
+        assertFalse(Pick.options(Pick.NONE).options); assertFalse(MarkSheet.panelOpens(p, "no-such-id")); assertNull(MarkSheet.openPanel(p, "no-such-id", 0L))
+        // and UNDER THE PHOTO there are three things only, none of them the picked item's
+        assertEquals(listOf("NOTHING", "TOOLS", "KEYPAD"), StepRoute.Under.values().map { it.name })
     }
 }

@@ -6,17 +6,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,28 +34,25 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.malletcrafts.interiorestimate.pano.DeleteGuard
-import com.malletcrafts.interiorestimate.pano.SurveyPrepEdit
 
 /**
- * SURVEY PREP'S LOCKS, ITS LONG-PRESS MENU AND ITS SNACKBAR (prototype v52; v52 slice 8). Amit, 14 Oct 2026
+ * SURVEY PREP'S LOCKS AND ITS SNACKBAR (prototype v52; v52 slice 8). Amit, 14 Oct 2026
  * 02:39 IST: "Give locking lines for reference and outer box lines so it won't move accidentally. In fact each
  * mark type should also be locked." The rules are SurveyPrepEdit in :pano; these only draw them.
  *
  *  - [SpSnack]: v42.css .snack -- 48 dp at least, #ECEEE8 with #1A1A12 text at 14 sp and an UNDO in #8A3A00,
  *    five seconds; the no-UNDO variant (.snack.lkmsg: #FFE9A8 on #3D3410) for a refusal, which wraps rather
  *    than cuts ("FD1 is locked — unlock first" is whole at 360 dp).
- *  - [SpCtxMenu]: v42.css .ctxm -- #2A2D25, 10 dp corners, at least 156 dp wide, a gold monospace head, rows
- *    40 dp tall, Delete in #FF8A8A -- and, since port 63 slice F1, Delete LAST and APART: 16 dp of dead menu above it
- *    and a quiet red outline round it (DeleteGuard), where the prototype had it first, right under the finger.
- *  - [SpPadlock] / [SpLinesLock]: sp.js LOCKSVG -- lit gold when locked; a tap toggles.
+ *  - THE LONG-PRESS MENU IS GONE (port 63 slice I2b): a long press on an item opens the panel that slides up
+ *    (app/MarkSheet.kt), whose acts are the menu's rows -- Lock, Duplicate, Lock all, and Delete last and apart.
+ *  - [SpPadlock] / [SpLinesLock]: sp.js LOCKSVG -- lit gold when locked; a tap toggles. A mark's padlock is the
+ *    panel's Lock / Unlock now; [SpPadlock] is the reference rectangle's, in 1 · Lines.
  *  - [SpTwoTap]: ⋮'s Clear this surface… / Clear whole room…, armed by the first tap, done by the second.
  */
 
@@ -68,12 +61,7 @@ private val SN_FG = Color(0xFF1A1A12)
 private val SN_UNDO = Color(0xFF8A3A00)
 private val SN_LK_BG = Color(0xFF3D3410)
 private val SN_LK_FG = Color(0xFFFFE9A8)
-private val CM_BG = Color(0xFF2A2D25)
 private val CM_LINE = Color(0xFF3A3E35)
-private val CM_FG = Color(0xFFECEEE8)
-/** The delete row's word and its outline (DeleteGuard.INK / OUTLINE: the one look every delete control has). */
-private val CM_DEL = Color(SurveyPrepDraw.argb(DeleteGuard.INK))
-private val CM_DEL_LINE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))
 private val LK_GOLD = Color(0xFFE0B040)
 private val LK_INK = Color(0xFF14160F)
 private val LK_OFF = Color(0xFF7E847A)
@@ -106,46 +94,6 @@ internal fun SpSnack(text: String, undo: Boolean, modifier: Modifier, onUndo: ()
     }
 }
 
-/**
- * The long-press menu on a mark: [header] ("FD1 Door", "🔒 FD1 Door"), then [items] as (action, text) --
- * Duplicate · Lock · Lock all Door · Cancel · Delete (SurveyPrepEdit.menuItems). The caller places it at the press.
- *
- * DELETE CANNOT BE PRESSED BY ACCIDENT (port 63 slice F1; Amit, 16 Nov 2026: "same for delete button for any item").
- * The menu opens with its head under the finger that held the mark, and the prototype's first row was Delete: a
- * second tap that came down a little low deleted the mark it had only meant to lock. SurveyPrepEdit puts the delete
- * row LAST now (DeleteGuard.last); here it stands DeleteGuard.CLEAR_DP of dead menu below the row before it -- a
- * Spacer, which takes no tap -- inside a quiet red outline, its word in the same red. One tap still deletes: "FD1
- * deleted" with UNDO says what went. The delete row is the menu's foot -- DeleteGuard.MENU_ROW_DP tall,
- * DeleteGuard.MENU_FOOT_DP of padding under it -- which is what DeleteGuard.menuTop needs to know to keep that row from
- * ever opening under the finger (the caller places the menu with it).
- */
-@Composable
-internal fun SpCtxMenu(header: String, items: List<Pair<String, String>>, modifier: Modifier, onPick: (String) -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
-    Column(modifier.width(IntrinsicSize.Max).widthIn(min = 156.dp).shadow(10.dp, shape).clip(shape).background(CM_BG)
-        .border(1.dp, CM_LINE, shape).padding(vertical = DeleteGuard.MENU_FOOT_DP.dp)) {
-        Text(header, color = LK_GOLD, fontSize = 12.sp, lineHeight = 16.sp, fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 220.dp).padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 2.dp))
-        for ((k, t) in items) {
-            if (k == SurveyPrepEdit.DELETE) {
-                val del = RoundedCornerShape(8.dp)
-                Spacer(Modifier.height(DeleteGuard.CLEAR_DP.dp))
-                Box(Modifier.fillMaxWidth().padding(horizontal = 6.dp).height(DeleteGuard.MENU_ROW_DP.dp).clip(del).border(1.5.dp, CM_DEL_LINE, del)
-                    .clickable(role = Role.Button) { onPick(k) }.padding(horizontal = 8.dp),
-                    contentAlignment = Alignment.CenterStart) {
-                    Text(t, color = CM_DEL, fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1)
-                }
-            } else {
-                Box(Modifier.fillMaxWidth().height(DeleteGuard.MENU_ROW_DP.dp).clickable(role = Role.Button) { onPick(k) }.padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart) {
-                    Text(t, color = CM_FG, fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1)
-                }
-            }
-        }
-    }
-}
-
 /** The padlock glyph on a 24 grid (sp.js LOCKSVG): shut and filled when [on], open and outlined when not. */
 private fun DrawScope.drawPadlock(on: Boolean, c: Color) {
     val k = size.width / 24f
@@ -159,8 +107,8 @@ private fun DrawScope.drawPadlock(on: Boolean, c: Color) {
     else drawRoundRect(c, Offset(5f * k, 10.5f * k), Size(14f * k, 10f * k), CornerRadius(2f * k, 2f * k), style = Stroke(width = 2f * k))
 }
 
-/** A mark's padlock (the selection row): 30 dp wide, lit gold when locked; [label] says what a tap does. [offColour]: the
- *  glyph unlocked -- the reference's own padlock is cyan (v42.css .refrow2 .lk2, v52 slice 12). */
+/** A padlock, 30 dp wide, lit gold when locked; [label] says what a tap does. [offColour]: the glyph unlocked -- the
+ *  reference's own padlock is cyan (v42.css .refrow2 .lk2, v52 slice 12). */
 @Composable
 internal fun SpPadlock(on: Boolean, label: String, modifier: Modifier = Modifier, offColour: Color = LK_OFF, onClick: () -> Unit) {
     Box(modifier.width(30.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onClick() }

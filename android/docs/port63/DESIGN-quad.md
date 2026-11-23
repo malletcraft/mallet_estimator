@@ -951,9 +951,22 @@ it moved. **Three sections are new and held to `030a2f7f5`** — `gold`, `trash`
    360 dp) a press low on the photo has the delete row under the finger again (0 dp at 336 and 348, 8 dp at 360).
    Nothing draws six rows today. **The commit that turns `shape` on has to settle it** — a shorter menu in landscape,
    or the row somewhere else — and `QuadMeetsF1Test` holds the figures so that commit cannot miss them.
-2. **The menu's one call** passes `shape = true` BY NAME: the sixth parameter is `chains`.
+   **SETTLED by port 63 slice I2b (23 Nov 2026), ahead of Q2: the long-press menu is gone.** A long press opens the
+   panel that slides up (`DESIGN-imagemeter` §6, §8.2), and the menu's rows are its acts (`MarkSheet.acts`): the shape
+   row is line 2's FIRST cell, in a column that stood empty, Delete stays in the last column 24 dp from the act beside
+   it, and in landscape the one line of six ends 16 dp short of Done. Nothing is placed by where the finger was, so
+   there is nothing left for Q2 to settle here; `QuadMeetsF1Test`'s second test holds the panel's figures instead of
+   the menu's. `DeleteGuard.menuTop` and `menuClear` went with the menu.
+2. **The menu's one call** passes `shape = true` BY NAME: the sixth parameter is `chains`. **Since slice I2b it is
+   the panel's two calls:** `MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)` (what is drawn) and
+   `MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)` (what a tap on an act does) each gain `shape = true`
+   by name, and `panelAct`'s `when (step.act)` gains the two shape acts where it reads `else -> Unit` today.
 3. **The trash:** `drawnMarks()`' corners go to `keepOfMark(bb, spot, corners)` as well, and `Sp360` passes its one
-   `free` to `trashOf` beside `tabsOf`.
+   `free` to `trashOf` beside `tabsOf`. **Since slice I2b there is no floating trash**, on the photo or on the 360
+   (`trashSpot`, `keepOfMark`, `keepOfLine` and `Pano360.trashOf` are deleted). What stands beside the picked mark is
+   its CODE CHIP: `drawnMarks()`' corners go to the chip's handles instead,
+   `SurveyPrepTouch.handlesOf(bb, spot, corners)` in `SurveyPrepDraw.drawMarks` — the chip keeps the bounding box and
+   stands 16 dp clear of the four corners as they stand (`QuadMeetsF1Test`'s third test). The 360 draws no chip.
 4. **H1's gold frame** round the mark being measured is drawn by `:app` from the mark's box
    (`SurveyPrepDraw.measuring`). For a four-corner mark Q2 draws it round the shape, as §3.4 says of the outline and
    the dim hole.
@@ -966,11 +979,12 @@ it moved. **Three sections are new and held to `030a2f7f5`** — `gold`, `trash`
 
    | The line of `:app` today | Q2 | Pinned by |
    |---|---|---|
-   | the menu's one call, `SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)` (`SurveyPrepScreen.kt:2258`) | gains `shape = true` (note 2) | `PhaseToolsTest` 823, its first count (the two beside it stay: `menuItemsOf(tx, prep, c.id)` at 0, and `menuItemsOf(` once at 824); `FeaturesTest` 621; `DeleteGuardTest` 376, with `val rows = ` before it; `QuadMeetsF1Test` 347 |
-   | the phase guard, `if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(` | a third beside the padlock's and Duplicate's: the shape's act, 2 → 3 | `PhaseToolsTest` 830 (§6's "801") |
-   | the menu's height before it is first measured, `(232 + DeleteGuard.CLEAR_DP).dp.toPx()` (`:2254`) | the height of six rows; and what note 1 settles may rewrite the `DeleteGuard.menuTop(` call pinned beside it at 378 | `DeleteGuardTest` 380 |
-   | the trash's keep, `SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)` (`:3365`) | gains the corners (note 3) | `DeleteGuardTest` 383, with `else ` before it; `QuadMeetsF1Test` 352 |
-   | the 360's trash, `Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { … }, dpx.toDouble())` (`SurveyPrep360.kt:703`) | gains `free` (note 3) | `DeleteGuardTest` 387; `QuadMeetsF1Test` 353 |
+   | the panel's drawing call, `MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)` (`SurveyPrepScreen.kt`; until port 63 slice I2b the menu's one call, `SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)`) | gains `shape = true` (note 2) | `PhaseToolsTest`; `FeaturesTest`; `DeleteGuardTest`; `MarkSheetTest`; `QuadMeetsF1Test` |
+   | the panel's act call, `MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)` (`SurveyPrepScreen.kt`, new in slice I2b) | gains `shape = true` (note 2) | `PhaseToolsTest`; `FeaturesTest`; `DeleteGuardTest`; `QuadMeetsF1Test` |
+   | the phase guard, `if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(` | a third beside the padlock's and Duplicate's: the shape's act, 2 → 3 | `PhaseToolsTest` |
+   | ~~the menu's height before it is first measured, `(232 + DeleteGuard.CLEAR_DP).dp.toPx()`~~ | **gone in port 63 slice I2b** with the long-press menu (note 1) | — |
+   | the chip's handles, `SurveyPrepTouch.handlesOf(bb, spot)` in `SurveyPrepDraw.drawMarks` (until slice I2b the trash's keep, `SurveyPrepTouch.keepOfMark(bb, …)`, in the screen) | gains the corners (note 3) | `MeasureScreenTest`; `NotePinTest`; `QuadMeetsF1Test` |
+   | ~~the 360's trash, `Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { … }, dpx.toDouble())`~~ | **gone in port 63 slice I2b**: nothing stands beside the picked item on the 360 | — |
    | ~~`sayCheck`'s two lines, `MeasureFlow.checkEst(prep, c) { ab(it) }` and `say(MeasureText.photoSays(tx, est))`~~ | **gone in port 63 slice I1b** (no photo estimate is said: `DESIGN-imagemeter` §18), so Q2 has nothing to rewrite here | — |
    | the dim's hole, `val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->` (`SurveyPrepDraw.kt:502`) | the hole is the shape's for a four-corner mark | `NotePinTest` 116 — it moves only if this opening line is rewritten; a branch added after the spot's leaves it |
    | the plates, since port 63 slice I1b `PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)` in `SurveyPrepDraw.figures` (it replaced `DimLayout.mark(…)` there) | is passed `free` | `QuadMeetsF1Test` 357; `MeasureScreenTest` (I1b's painter pins) |
@@ -990,6 +1004,13 @@ it moved. **Three sections are new and held to `030a2f7f5`** — `gold`, `trash`
    (FaceWriter's `Marks(`); `SheetMarksTest` 401 (`drawMarks`' signature: `Marks` gains `free`, the function nothing);
    `DeleteGuardTest` 307 (the nudge's row) and 347 (`DELETE -> deleteMark(mid)`); `LockTest` (it reads no screen
    source).
+
+   **After port 63 slice I2b (23 Nov 2026).** The table above is as that slice left it; the two paragraphs under it
+   are older and name lines I2b deleted — the nudge's row and the menu's `DELETE -> deleteMark(mid)` branch are gone
+   (Fine move's pad and the panel's Delete, `DESIGN-imagemeter` §23.3), and `MeasureScreenTest`'s pin on the tail of
+   the screen's `Marks(…)` now ends `shown = if (which == "main") shown else null), mm, u)`: `free` goes before
+   `chip =`. `QuadMeetsF1Test`'s "the screen's calls …" test pins, since I2b, the panel's two calls and the chip's
+   `handlesOf(` in place of the menu's call and the two trash keeps.
 7. **`:app`'s line numbers in §3 to §9 are `7c49835`'s** (the same finding). H1 and F1 moved them. As they stand at
    this commit — and to be re-read at build time all the same, since batch-next moves on: the menu's call
    `SurveyPrepScreen.kt:2228` → `:2258`; the long press that sets `ctx` `:1400` → `:1410`; `Drawn(…)` `:2696` →

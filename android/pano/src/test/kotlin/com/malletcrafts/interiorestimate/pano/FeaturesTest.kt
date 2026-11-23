@@ -626,14 +626,18 @@ class FeaturesTest {
         assertTrue(Regex("""val chainOn = mode == "[^"]*" && tool0 == SurveyPrepPalette\.CHAIN""").containsMatchIn(screen))
         assertEquals(1, count(p3, "val order = Pano360.order(tool0, drafting)"))
         for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "prep.addChain("), "$rel plots a chain")
-        // ENTRY 3: the menu and the act both ask the copy rule, with no answer of their own
-        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)"))
+        // ENTRY 3: the panel's acts (the long-press menu's rows until port 63 slice I2b) and the act both ask the copy
+        // rule, with no answer of their own: drawn and asked through MarkSheet, which hands the menu's rule the switch
+        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)"))
+        assertEquals(0, count(screen, "menuItemsOf("))
         val dup = screen.indexOf("if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }")
         val made = screen.indexOf("SurveyPrepEdit.duplicateChain(prep, mid, a[0], a[1], nid)")
         assertTrue(dup in 0 until made, "the copy rule is asked before the one call that copies a chain")
         for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "duplicateChain("), rel)
         // NOTHING OF THE CHAIN WAS DELETED: its model, its file's reader and writer, its two gesture branches, its
-        // drawing on the photo, the 360 and the Plan, its icon, its row, and its own tests
+        // drawing on the photo, the 360 and the Plan, its icon, and its own tests. (ITS ROW under the photo went in port 63
+        // slice I2b WITH EVERY ITEM'S ROW -- not a chain's alone: a room's chain is now named by its code chip on the
+        // photo, as every picked item is, and its padlock and its Delete are the acts of the panel that chip opens.)
         val kept = mapOf(
             pano + "SurveyChain.kt" to listOf("object SurveyChain", "fun press(d: Draft?,", "fun finish(d: Draft): Finish", "fun vals(c: SurveyPrep.Chain,", "fun nodeMove(",
                 "fun duplicate(p: SurveyPrep.Prep,", "fun chipText(tx: Tx, points: Int)", "fun openKeys(c: SurveyPrep.Chain,"),
@@ -644,13 +648,19 @@ class FeaturesTest {
             pano + "MeasureWalk.kt" to listOf("chains"),
             app + "SurveyPrepScreen.kt" to listOf("fun finishChain(d: SurveyChain.Draft)", "fun flushChain()", "fun chainPress(mm: DoubleArray, tol: Double): Int?",
                 "fun nodeGrab(cid: String, i: Int): SpGrab?", "fun hitChain(sx: Float, sy: Float): String?", "pickChain = { s, cid ->",
-                "val sk = prep.surface(tab).chains.firstOrNull { it.id == sl.id }", "else if (chainTool) SurveyChain.chipText(tx, chainN)"),
-            app + "SurveyPrepDraw.kt" to listOf("private fun drawChains(c: Canvas,", "if (o.mode != "),
+                "else if (chainTool) SurveyChain.chipText(tx, chainN)"),
+            app + "SurveyPrepDraw.kt" to listOf("private fun drawChains(c: Canvas,", "if (o.mode != ",
+                "val pk = if (pm == null) sf.chains.firstOrNull { it.id == o.selId && it.nodes.isNotEmpty() } else null", "chipInk = if (pk != null) SurveyChain.COLOUR"),
             app + "SurveyPrepTools.kt" to listOf("private fun DrawScope.drawChainIcon(c: Color)", "SurveyPrepPalette.CHAIN -> drawChainIcon(col)"),
             app + "SurveyPrep360.kt" to listOf("Pano360.Pick.Chain -> chainOn = true", "is Pano360.Pick.Node -> {", "fun chainAt(x: Double, y: Double): Int?"),
         )
         for ((rel, has) in kept) { val c = code(rel); for (dcl in has) assertTrue(dcl in c, "$rel still has `$dcl`") }
         assertTrue(I18n.android.resolve(tests + "ChainTest.kt").isFile, "the chain's own tests still run")
+        // a chain a room already has still has its panel -- the head, Lock, Lock all and Delete -- and no Duplicate while the switch is off
+        val room = SurveyPrep.fresh(3319.0, 2678.0, 2677.0)
+        room.addChain("front", "x", listOf(doubleArrayOf(300.0, 600.0), doubleArrayOf(900.0, 600.0)), listOf(null, null), "k1")
+        assertTrue(MarkSheet.panelOpens(room, "k1"))
+        assertEquals(listOf(SurveyPrepEdit.LOCK, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), MarkSheet.acts(Tx.EN, room, "k1", 0, null).all.map { it.id })
         // every text of the chain is still keyed, for the chains a room already has and for the day the switch goes on
         for (tx in listOf(Tx.EN, Tx.MR)) {
             assertTrue(tx.common_chain.isNotBlank()); assertTrue(SurveyChain.chipText(tx, 2).isNotBlank()); assertTrue(SurveyChain.doneLabel(tx).isNotBlank())

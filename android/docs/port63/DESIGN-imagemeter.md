@@ -1848,3 +1848,145 @@ Line numbers below are this commit's. `SPS` = `SurveyPrepScreen.kt`, `MS` = `Mar
 **Type-checked here, and what that cannot prove.** kotlinc 2.0.21 from the Gradle cache, the real `:pano` classes and the stand-ins of §20: `SurveyPrepScreen.kt` whole, with its seven companions, has NO error (the 235 left are the same stub gaps in the five files this commit did not touch, count for count). With the two new branches taken out the compiler reports exactly the two `when`s as not exhaustive, so the check sees what it is there for. Both added lines use only `pickS` (declared in `SpPhoto` above them, and used by the branch beside it) and the type `SurveyPrepTouch.Hit.Code`. Not proven: anything the Compose compiler plugin or lint adds, and everything about a phone.
 
 **Where to look first if CI's `:app` compile is red.** `SurveyPrepScreen.kt`, `pressId` (`SPS:2797-2804`) and `markGrab` (`SPS:2816-2820`): the two `Hit.Code` branches. Nothing else in `:app` changed.
+
+### 23.3 I2b — I2 as built: the panel on screen, and nothing in a row under the photo but the tool row
+
+**I2b switches the screen over to the rules of §23.2 and deletes what they replace.** Branch `port63-i2`, over I2a
+(`ab47739`). `:app` is compiled only by CI; nothing has been seen on a phone. Nothing on the wire changes: no record
+key, no reading key, no route. `Features.HELP_TOURS`, `SITE_PROGRESS` and `CHAINS` stay false; every mark type and kind
+stays.
+
+`SPS` = `SurveyPrepScreen.kt`, `MS` = `MarkSheet.kt` (the composable), `SPL` = `SurveyPrepLocks.kt`,
+`SPD` = `SurveyPrepDraw.kt`, `SP360` = `SurveyPrep360.kt`, all under `APP/`; line numbers are this commit's.
+
+**What Amit sees (2 · Mark, portrait, unless said).**
+
+1. **Picking a mark changes nothing under the photo.** The row that named the picked item — its code, "move" /
+   "corner" / "locked", its four nudges, its padlock — is gone. Under the photo stands the tool row, or the keypad in
+   its place while a figure is being typed, or nothing where the phase has no tool row (Estimated, Client approved).
+2. **The picked item's code is a chip on the photo**: a dark pill outlined in the item's own colour, reading `FW1 ▾`,
+   standing over the item's top edge (or where §23.2's decisions 8–10 put it when that is not clear). It is drawn for
+   the picked item whether held or not, at every stage, while no tool is on. Where the chip stands, the item's old
+   code label is not drawn a second time.
+3. **A tap on the chip opens the panel. So does a long press on any item** — the item is picked and held at the press
+   (its handles are the sign that the press took) and the panel opens **when the finger lifts**, not under it.
+4. **The panel slides up from the bottom.** It opens at half the window when its rows need more than that, else at its
+   own height, with a small grip to pull it up whole. Its head reads the code, the item's name and its trade, with
+   **Done at the right end of the head** — there is no ✕ and no Done at the foot. Under the head, **two lines of acts**:
+   `Lock` (or `Unlock`) · `Duplicate` · `Fine move`, then `Lock all` (or `Unlock all`) and, **last and apart in a red
+   outline, `Delete`**. Then KIND, TRADE, STATE and NOTE as the Mark sheet had them. A Tape and a chain, which had no
+   sheet, get the head and the acts. A surveyed mark after Survey has no act at all, as its menu had none.
+5. **Back, a swipe down and a tap on the dimmed photo cancel the panel**, losing what was typed, as the sheet did.
+   Done keeps it. An act is Done followed by the act; Delete drops what was typed and deletes ("FW1 deleted", with
+   UNDO). A refused act says why in the panel, in one line under the acts, and leaves it open.
+6. **The panel takes no tap for its first 300 ms**, so the finger that opened it cannot press Delete or close it.
+7. **The photo moves up under the panel** so the item the panel is about stays in view above it, and goes back when
+   the panel closes. In landscape the panel opens whole, with the acts on one line, and the photo does not move.
+8. **`Fine move` closes the panel and puts a pad over the photo**, in the bottom corner farthest from the item: four
+   arrows, the step in the middle (1 mm / 5 mm, a tap switches) and a gold `✓` at its top right. The arrows nudge the part last touched
+   — the whole item, or the tab, corner or end he last pressed. The pad goes at `✓`, at a tap on empty photo, or when
+   a reading lands.
+9. **Delete has one place: the panel's last act.** The red disc that floated beside a held mark is gone, on the photo
+   and on the 360; the long-press menu is gone; no row deletes.
+10. **On the 360** the panel opens by a long press only (no chip is drawn there), and Fine move's pad stands on the
+    right.
+
+**What was deleted.**
+
+| Where | What went |
+|---|---|
+| `SPS` | The held item's row in `markPanel` (label, the two-line "what", the four nudges, the padlock, the open-sheet label) with `nudgeMark`; the long-press menu's state and block (`ctx`, `SpCtx`, `ctxSize`, `rootLeft`, `rootW`) with `ctxPick`; the floating trash — its press block in the gesture, its drawing, `trashAt`, `onDelete`; `markSheet` (the sheet's old state: `panel` holds it now) |
+| `SPL` | `SpCtxMenu` with its four colours and the imports only it used |
+| `SP360` | The 360's floating trash: `trashAt`, its press block, `P3Draw.trash`, the ink's trash paint, `P3Actions.delete` |
+| `MS` | `MsDone` (the foot's Done) and the head's ✕ |
+| `:pano` `DeleteGuard` | `menuTop`, `menuClear` and their four `MENU_*` constants. `last`, `CLEAR_DP`, `OUTLINE`, `INK` stay |
+| `:pano` `SurveyPrepTouch` | The floating trash: `TRASH_DP`, `TrashKeep`, `keepOfMark`, `keepOfLine`, `trashSpot` |
+| `:pano` `Pano360` | `Trash`, `trashOf` |
+| `:pano` `Pick` | `trash`, `Row`, `row` (the row's own rules) |
+| `:pano` `StepRoute` | `heldRowDp`, `Under.HELD`, `Under.ROW`: under the photo is `NOTHING`, `TOOLS` or `KEYPAD` |
+| Tests | `TrashSpotTest` (12 tests) deleted with what it tested. Every other test that pinned what went was REWRITTEN to pin what stands in its place — see Tests below |
+| Texts | Four keys, each read only by the row: `life.aria.open_mark_sheet_x`, `sp.corner`, `sp.locked`, `sp.move` |
+
+**Added in `:pano` beside §23.2's, each with its test** — the screen had four small decisions to make that were not
+yet rules: `SurveyPrepTouch.chipText` (the chip's words); `MarkSheet.standsWhole`, `opensTyping`, `opensWhole(land,
+view)` (when the panel is whole: decision 2 below); `NudgePad.onBody`, `touched`, `afterEvent` (which part Fine move
+nudges after each event, and when the pad goes).
+
+**Decided here, where the design was silent — each can be turned round.**
+
+1. **Back always answers; the first 300 ms stop a swipe down and a tap on the dimmed photo.** §23.2's decision 4
+   says the same. The sheet asks `MarkSheet.answers` before a swipe or the dimmed photo hides it; the library's own
+   back press does not ask, and `onCancel` is not guarded, so a sheet can never be hidden and left with its window up.
+2. **The panel stands whole while a box has the keyboard, and opens whole where it opens on a box** (a Note just
+   placed, a Drop's Why). At the half rest the keyboard would cover the box he is typing in. In portrait, after the
+   keyboard closes, the first Back brings the whole panel to its half rest and the second closes it (the library's).
+3. **The reference rectangle's long press is nothing now.** It is no item and has no panel; its padlock already stands
+   in 1 · Lines' row, which is the one place it locks. The menu was not kept alive for it alone. A long press on
+   1 · Lines does nothing.
+4. **Done on a Note with no words says so in the panel** (the line under the acts), not in the note line under the
+   photo, which the panel covers.
+5. **Fine move's pad is drawn by Compose over the photo pane** (and so over the 360), last, so its cells take a press
+   before the photo. A dim arrow still takes its press and does nothing; the three empty cells are the photo's.
+6. **A tap on an END of the held Tape, Line or area keeps it held** and makes that end the part last touched. It used
+   to fall through as a tap on empty photo and let the item go — which would also have dropped the pad.
+7. **The part last touched survives a tap on the chip**, so "press a corner, open the panel, Fine move" nudges that
+   corner.
+8. **The chip has no screen-reader node of its own** (it is drawn on the photo's canvas); the panel's title reads
+   "Options for FW1".
+9. **`stateFirst` is not acted on in `:app`.** STATE starts about 200 dp down, above the half rest, and a focused Why
+   box brings itself into view; no scroll was added.
+
+**What §23.2 left for I2b to settle.** The reference rectangle's long press: decision 3. The 360: long press only,
+its trash gone. The hand-anchored height plate beside a chip that falls right of a tall mark: not changed, still to be
+looked at on the phone. The four-corner closing check's sentence: still Q2's.
+
+**Left in `:pano` with no screen caller, not deleted in this slice:** `SurveyPrepEdit.menuHeaderOf` and `menuItems`,
+and `SurveyRef.menuHeader` / `menuItems` (the reference rectangle's Lock · Cancel rows), with their tests.
+`SurveyPrepEdit.menuItemsOf` stays in use: `MarkSheet.acts` builds the panel's acts from it, so the phase's cuts are
+kept in one place. `deleteMark`'s Restore and Drop-sheet branches cannot be reached from the screen any more (a mark
+past Existing has no Delete cell) and are kept as they were.
+
+**Tests.** `:pano`: 111 test classes, 1,572 tests, 0 failures, 0 errors (I2a: 112 and 1,578; `TrashSpotTest`'s 12 gone,
+6 added). `MeasureScreenTest` (15 → 17) now pins: **nothing stands under the photo but the tool row** (no figure text
+in any state, the picked item's row gone); **no delete control anywhere but the panel** (no row, no disc on the photo
+or the 360, no menu — and in the panel it is the last act); **Done is in the panel's head** (no close glyph, no foot
+Done; half rest in portrait, whole in landscape and while typing); and the chip, the long press at the lift and the
+photo's lift. Rewritten, not deleted: `DeleteGuardTest`, `Pano360Test`, `CodeChipTest`, `PickTest`, `OneStepTest`,
+`QuadMeetsF1Test` (and `DESIGN-quad.md` §10's notes, which named the row and the trash), `RectanglePinTest` (its
+`trash` section is `chip`), `NotePinTest`, `BodyMoveTest`, `FeaturesTest`, `PhaseToolsTest`, `MarkSheetTest`. Added:
+`NudgePadTest` +3, `MarkSheetPanelTest` +1.
+
+**Texts.** No key added. Four deleted with their last reader (above); `strings-mr.json` loses those four and nothing
+else. 1,932 keys; `Tx` regenerated (1,861 accessors); the ratchet lowered nothing; `unkeyed.tsv` stays empty;
+`mr-pending.tsv` unchanged at 29 keys; the accessors nothing calls by name stay 657.
+
+**Type-checked here, and what that cannot prove.** kotlinc 2.0.21 from the Gradle cache, the real `:pano` classes and
+hand-written stand-ins for Compose and Android in their real packages: `MS`, `SPS` and `SPD` have NO error; the 192
+left are stub gaps in files or lines this commit did not write (`SurveyPrepTools.kt` 134, `SPL` 33 — canvas drawing
+calls, `SP360` 13 — bitmaps, `SurveyPlanScreen.kt` 12), none on a changed line. Five errors planted in a copy (a name
+used where it is not in scope, twice; a `:pano` function that does not exist; two arguments swapped; a parameter that
+does not exist) are each reported. **Every name each added `:app` line uses was checked to be in scope where it is
+written** — a parameter of that composable, a `val` of that function declared above it, or an import — the fault of
+the last build's one compile error; local functions are declared above their callers. **Not proven:** the stand-ins
+are written from memory of the real signatures (`ModalBottomSheet`, `rememberModalBottomSheetState`, `SheetValue`,
+`SheetState.expand`, `LocalView`, `onFocusChanged`, `positionInRoot`, `Modifier.offset { }`), though `ScopeSheet.kt`
+already compiles the same sheet state with a `confirmValueChange`; anything the Compose compiler plugin or lint adds;
+and everything about a phone — above all how the sheet rests, what Back does to it, and whether the grip reports the
+panel's top as it moves.
+
+**Where to look first if CI's `:app` compile is red.** (1) `MS:179-219`, `SpMarkSheet`: the sheet state with its veto,
+`sheet.expand()`, `dragHandle = grip`; and `MsGrip` (`MS:227`). (2) `MS:494` and `MS:556`, the two `onFocusChanged`.
+(3) `SPS:2625-2638`, `liftPx` in `SpPhoto`, and `SPS:3010-3011`, the two boxes with `offset { }`. (4) `SPS:3530`,
+`SpNudgePad`. (5) `SPD:537-579` and `SPD:716`, the chip. (6) `SP360:95-131`, `P3Actions`, with its one constructor
+call in `SPS`.
+
+**Three things for Amit to look at first, on the phone.**
+
+1. **Pick a window, tap its `FW1 ▾` chip.** The panel should come up half way with Done at the top right, the photo
+   should move up so the window is still in view, and Delete should be the last thing in the second line, in red, away
+   from the others. Then long-press a door: nothing should open until the finger lifts.
+2. **Look under the photo while picking and letting go of marks.** Only the tool row should ever be there. Nothing
+   should appear, move or change height as a mark is picked.
+3. **`Fine move` on a mark near the bottom of the wall.** The pad should stand in the corner away from the mark, the
+   arrows should move it 1 mm a press, and `✓` should take the pad away. Then press one corner of a mark, open its
+   panel, `Fine move`: the arrows should move that corner alone.

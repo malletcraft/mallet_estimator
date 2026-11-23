@@ -780,8 +780,9 @@ class PhaseToolsTest {
         assertEquals(1, count(screen, "val ask = PhaseTools.routeAsk(m, quoteStage) {"))
         // the palette and the More sheet are drawn only where the phase has a palette
         assertEquals(2, count(screen, "PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)"))
-        // ... and, since port 63 slice I1b, only where StepRoute.underMark puts the tool row (the keypad and the held row take its place)
-        assertTrue(screen.contains("val toolRow = PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)")); assertTrue(screen.contains("if (toolRow) SpPalette("))
+        // ... and, since port 63 slice I1b, only where StepRoute.underMark puts the tool row (the keypad takes its place; the
+        // picked item's row, which stood over it for one build, went with slice I2b)
+        assertTrue(screen.contains("val toolRow = PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)")); assertTrue(screen.contains("StepRoute.Under.TOOLS -> SpPalette("))
         assertTrue(screen.contains("if (moreOpen && marking && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))"))
         // the band: one line from one rule, drawn in both orientations
         assertEquals(1, count(screen, "val band = PhaseTools.band(tx, quoteStage, projectLine)"))
@@ -791,14 +792,17 @@ class PhaseToolsTest {
         // neither the stage nor the band's line has a default: a caller that forgot one would open every room under one rule
         assertTrue(screen.contains("    quoteStage: Int?,\n")); assertTrue(screen.contains("    projectLine: String?,\n"))
         assertEquals(2, count(main, "quoteStage = QuoteStageSync.prepStage(context,")); assertEquals(2, count(main, "projectLine = QuoteStageSync.prepLine(context,"))
-        // the menu's rows are the phase's, and both views are handed the stage
-        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)")); assertEquals(0, count(screen, "menuItemsOf(tx, prep, c.id)"))
-        assertEquals(1, count(screen, "menuItemsOf("), "the one menu, cut by the stage and the capture's chip")
+        // the panel's acts are the phase's (the long-press menu's rows until port 63 slice I2b: MarkSheet.acts takes them
+        // from SurveyPrepEdit.menuItemsOf, cut by the stage and the capture's chip), and both views are handed the stage
+        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)"))
+        assertEquals(0, count(screen, "menuItemsOf("), "the screen names no menu: the acts are MarkSheet's")
         assertEquals(2, count(screen, "stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })"), "2 · Mark's photo and the 360")
         // a refused act: the phase is asked BEFORE the lock, as sp.js asks it
         fun before(a: String, b: String) { val i = screen.indexOf(a); val j = screen.indexOf(b, i); assertTrue(i >= 0 && j > i, "$a before $b") }
         before("if (!PhaseTools.delOk(prep, mid, quoteStage)) { phaseRefuse(", "if (it0.locked) { refuse(code); return }")
-        before("if (!PhaseTools.editable(e, quoteStage)) { phaseRefuse(", "if (SurveyPrep.isLocked(e)) { refuse(e.code); return }")
+        // (the nudge row's own pair -- the phase, then the lock -- went with the row in port 63 slice I2b: Fine move is offered
+        // only where the phase AND the lock let the item move, MarkSheet.fineOk, and NudgePad.press moves no locked item)
+        assertEquals(0, count(screen, "fun nudgeMark(")); assertEquals(1, count(screen, "NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }"))
         assertEquals(2, count(screen, "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse("), "the padlock and Duplicate")
         // DUPLICATE ASKS ONE THING MORE (the L4 review, finding 1): the copy rule, before the undo step and before the
         // one call in the app that copies a mark -- a press that arrives where the row is hidden makes nothing
@@ -817,10 +821,11 @@ class PhaseToolsTest {
             assertEquals(4, count(src, "PhaseTools.refuseText(txS, "), "a mark, a chain's point, a Line's end and a Line's body")
             assertEquals(4, Regex("""PhaseTools\.refuseText\(txS, \w+, stageS\), (gate = true, )?said = true\)""").findAll(src).count(), "each said as it is, nothing moved")
         }
-        assertEquals(1, count(p3, "PhaseTools.delOk(prep, sid, stage)"), "the 360's trash"); assertEquals(1, count(p3, "PhaseTools.editable(prep, sid, stage)"), "the 360's tabs")
-        // 2 · Mark since port 63 slice I1b: the trash is Pick.trash (which asks PhaseTools.delOk) at its press and its drawing,
-        // and the tabs are drawn only on the HELD item, which Pick.mayHold let be held (it asks PhaseTools.editable)
-        assertEquals(2, count(screen, "Pick.trash(")); assertEquals(1, count(screen, "tabs = mode == StepRoute.MARK && pick.held"))
+        assertEquals(0, count(p3, "PhaseTools.delOk(prep, sid, stage)"), "the 360's trash is gone (port 63 slice I2b)"); assertEquals(1, count(p3, "PhaseTools.editable(prep, sid, stage)"), "the 360's tabs")
+        // 2 · Mark: the floating trash is gone too -- whether an item has a Delete is MarkSheet.acts' answer, which asks
+        // PhaseTools.delOk through the menu's rule -- and the tabs are drawn only on the HELD item, which Pick.mayHold let
+        // be held (it asks PhaseTools.editable)
+        assertEquals(0, count(screen, "Pick.trash(")); assertEquals(1, count(screen, "tabs = mode == StepRoute.MARK && pick.held"))
         assertEquals(0, count(screen, "PhaseTools.delOk(prep, sid, stage)")); assertEquals(0, count(screen, "PhaseTools.editable(prep, sid, stage)"))
     }
 }

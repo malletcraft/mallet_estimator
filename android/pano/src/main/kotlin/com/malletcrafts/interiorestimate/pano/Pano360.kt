@@ -514,58 +514,6 @@ object Pano360 {
         return if (chain) LookTap.CHAIN else if (meas) LookTap.MEAS else LookTap.LET_GO
     }
 
-    // ------------------------------------------------------------------ the floating trash
-
-    /** The trash's place, on the screen: [box] round the picked item, and what the disc keeps clear of beside it
-     *  ([keep]: the item's own handles, [SurveyPrepTouch.TrashKeep]). */
-    class Trash(val box: SurveyPrepTouch.Box, val keep: SurveyPrepTouch.TrashKeep)
-
-    /**
-     * THE FLOATING TRASH ON THE 360 (sp.js fTrashP3): with [tool] Select and [selId] picked, the screen box of its points
-     * in its surface's mm (sp.js itemMM) -- a mark's four corners, a Tape's / Line's / area's points, a chain's nodes --
-     * through the view [v]. Null with another tool on, for the reference (never deleted), on a surface not bounded ([fr]
-     * has no frame for it), or when no point is in front of the camera. SurveyPrepTouch.trashSpot places the disc from this.
-     *
-     * WHAT THE DISC KEEPS 16 DP CLEAR OF (port 63 slice F1; [DeleteGuard]), each through the same view: a box mark's
-     * eight tabs where they are DRAWN ([tabsOf]) -- a spot's own centre; a Tape's, a Line's or an area's points and
-     * the pieces of its line (a tape's as wide as its band there, [measLine]); a chain's points and its line. [dpPx]
-     * px per dp, for the tape's band.
-     *
-     * A MARK WHOSE CORNERS ARE FREE ([free]: [Quad.free], the one rule, asked by the caller as for [tabsOf]; the merge
-     * of port 63 slices F1 and Q1): the handles drawn are its FOUR CORNERS, so those are what the disc keeps clear of
-     * ([tabsOf] with the same [free]). Its [Trash.box] is still the box round its BOUNDING rectangle's corners
-     * (DESIGN-quad §3.4: the floating trash keeps the bounding box). [free] defaults to false: the eight tabs, as every
-     * caller has them until slice Q2.
-     */
-    fun trashOf(v: View, fr: Map<String, SurveyPrep.Frame>, prep: SurveyPrep.Prep, tool: String, selId: String?, dpPx: Double = 1.0,
-                free: Boolean = false): Trash? {
-        if (tool != SurveyPrepPalette.SEL || selId == null || SurveyRef.isId(selId)) return null
-        fun boxOf(q: List<DoubleArray>) = SurveyPrepTouch.Box(q.minOf { it[0] }, q.minOf { it[1] }, q.maxOf { it[0] }, q.maxOf { it[1] })
-        prep.markById(selId)?.let { (s, e) ->
-            val f = fr[s] ?: return null
-            val q = listOf(doubleArrayOf(e.x0, e.y0), doubleArrayOf(e.x1, e.y0), doubleArrayOf(e.x1, e.y1), doubleArrayOf(e.x0, e.y1))
-                .mapNotNull { toS(v, s, f, it[0], it[1]) }
-            if (q.isEmpty()) return null
-            val pts = if (SurveyPrep.isSpot(e.t)) listOfNotNull(toS(v, s, f, (e.x0 + e.x1) / 2, (e.y0 + e.y1) / 2))
-                      else tabsOf(e, free).mapNotNull { (_, mm) -> toS(v, s, f, mm[0], mm[1]) }
-            return Trash(boxOf(q), SurveyPrepTouch.TrashKeep(pts))
-        }
-        prep.measById(selId)?.let { (s, m) ->
-            val f = fr[s] ?: return null
-            val q = m.pts.mapNotNull { toS(v, s, f, it[0], it[1]) }
-            if (q.isEmpty()) return null
-            val line = measLine(v, s, f, m, dpPx)
-            return Trash(boxOf(q), SurveyPrepTouch.TrashKeep(q, line.segs, line.widen))
-        }
-        prep.chainById(selId)?.let { (s, c) ->
-            val f = fr[s] ?: return null
-            val q = c.nodes.mapNotNull { toS(v, s, f, it[0], it[1]) }
-            if (q.isEmpty()) return null
-            return Trash(boxOf(q), SurveyPrepTouch.TrashKeep(q, segsOf(v, s, f, c.nodes, false)))
-        }
-        return null
-    }
-
     // ------------------------------------------------------------------ the view's pixels
 
     /**

@@ -161,7 +161,7 @@ object PhotoFigures {
 
     /**
      * WHAT THE PICKED ITEM IS NAMED BY -- its CODE, `FW1`, `F-M1`, `F-T1`, `FK1` -- the one place an item's code is shown
-     * once its figures are the number alone (P4): the picked item's own label (its row in I1, its chip from I2). Null
+     * once its figures are the number alone (P4): the picked item's own code chip ([SurveyPrepTouch.chipText]). Null
      * when nothing is picked, or what is picked is gone. A mark's code on its box is drawn as it always was, picked or
      * not: it names the mark, it is no measurement.
      */

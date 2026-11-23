@@ -110,9 +110,11 @@ class NotePinTest {
         val app = java.io.File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")
         fun code(name: String) = java.io.File(app, name).readLines().filter { l -> l.trimStart().let { !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") } }.joinToString("\n")
         val screen = code("SurveyPrepScreen.kt"); val draw = code("SurveyPrepDraw.kt"); val p3 = code("SurveyPrep360.kt")
-        // the press (its Drawn's spot) and the floating trash's box on 2 · Mark; the dimmed hole; the 360's tabs, pressed and drawn
+        // the press (its Drawn's spot) on 2 · Mark; the picked mark's box, which its code chip stands beside (port 63 slice
+        // I2b: where the floating trash's box was read); the dimmed hole; the 360's tabs, pressed and drawn
         assertTrue(screen.contains("spot = if (SurveyPrep.isSpot(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)"))
-        assertTrue(screen.contains("else if (SurveyPrep.isSpot(picked!!.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->"))
+        assertTrue(draw.contains("val spot = SurveyPrep.isSpot(sm.t)\n                val bb = if (spot) spotOf(sm, sq, m, o.dp).let { d ->"))
+        assertTrue(draw.contains("SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot),"), "a Note's pin and a point: the chip keeps clear of its middle, it has no tabs")
         assertTrue(draw.contains("val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->"))
         assertTrue(p3.contains("if (SurveyPrep.isLocked(e) || SurveyPrep.isSpot(e.t) || !PhaseTools.editable(e, stageS)) emptyList()"))
         assertTrue(p3.contains("if (sm != null && st.tabs && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isSpot(sm.second.t)) {"))

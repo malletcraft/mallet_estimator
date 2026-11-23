@@ -321,4 +321,58 @@ class NudgePadTest {
         meas(p, "m2").pts.removeAt(2)
         assertEquals("body", NudgePad.after(p, area, Pick.State("m2", true, null), 0)!!.part)
     }
+
+    // ------------------------------------------------------------------ as the screen runs it (port 63 slice I2b)
+
+    @Test fun `the part last touched is kept from event to event - a handle sets it, a body or another pick clears it, the chip leaves it`() {
+        val p = wall(); val s = sc(p)
+        val held = Pick.State(W1, true, null)
+        // a handle of the held item pressed: THAT is the part
+        assertEquals("t", NudgePad.touched("body", held, Pick.handle(held, "t"), body = false))
+        assertEquals("p1", NudgePad.touched("t", Pick.State("m1", true, null), Pick.handle(Pick.State("m1", true, null), NudgePad.pointPart(1)), false))
+        // A TAP ON THE CODE CHIP LEAVES IT (Pick row 7 changes nothing) -- the edge he dragged a moment ago is the edge Fine
+        // move's arrows then move; so does a tap on one of its figures, held
+        assertEquals("t", NudgePad.touched("t", held, Pick.options(held), false))
+        assertEquals("t", NudgePad.touched("t", held, Pick.figure(s, held, "FW1.h"), false))
+        // a tap, or a long press, on a body: the whole item again -- its own, or another's
+        assertEquals("body", NudgePad.touched("t", held, Pick.body(s, held, W1), body = true))
+        assertEquals("body", NudgePad.touched("t", held, Pick.longPress(s, held, D1), body = true))
+        // another item picked by its figure, the hold gone (a reading's walk, empty photo, a lock): the whole item
+        assertEquals("body", NudgePad.touched("t", held, Pick.figure(s, held, "FD1.w"), false))
+        assertEquals("body", NudgePad.touched("t", held, Pick.empty(held), false))
+        assertEquals("body", NudgePad.touched("t", held, Pick.locked(s, held, W1), false))
+        assertEquals("body", NudgePad.touched("t", held, Pick.next(s, held, "front"), false))
+        // a handle "pressed" on an item that is not held is no handle: nothing is touched
+        assertEquals("body", NudgePad.touched("body", Pick.State(W1, false, null), Pick.handle(Pick.State(W1, false, null), "t"), false))
+        // ... and Fine move then starts on it: the top edge, by the panel the chip opened
+        val part = NudgePad.touched("t", held, Pick.options(held), false)
+        assertEquals("t", NudgePad.start(p, W1, 0, part, null, w, h, dp)!!.part)
+    }
+
+    @Test fun `a tap is on a body when the hit says so - a mark whole, the picked tape's band, a line picked by its line - never a handle, a figure or the chip`() {
+        assertTrue(NudgePad.onBody(SurveyPrepTouch.Hit.Mark(W1, "body"), null)); assertTrue(NudgePad.onBody(SurveyPrepTouch.Hit.Body, null))
+        assertTrue(NudgePad.onBody(null, "m1"))
+        for (part in SurveyPrepTouch.TABS + Quad.PARTS) assertFalse(NudgePad.onBody(SurveyPrepTouch.Hit.Mark(W1, part), null), part)
+        assertFalse(NudgePad.onBody(SurveyPrepTouch.Hit.Tag("FW1.w"), null)); assertFalse(NudgePad.onBody(SurveyPrepTouch.Hit.Code, null))
+        assertFalse(NudgePad.onBody(SurveyPrepTouch.Hit.Node("k1", 1), null)); assertFalse(NudgePad.onBody(null, null), "empty photo")
+    }
+
+    @Test fun `after every event - a handle re-aims the pad, a body aims it at the whole item, a figure leaves it, and it goes with the hold`() {
+        val p = wall(); val s = sc(p)
+        val held = Pick.State(W1, true, null); val st = start(p, W1, "t")!!
+        fun after(o: Pick.Out, body: Boolean = false) = NudgePad.afterEvent(p, st, o.state, 0, o.nudge, body)
+        // a tap on another handle of the same item: that is the part nudged, the step and the corner kept
+        val re = assertNotNull(after(Pick.handle(held, "rb")))
+        assertEquals("rb", re.part); assertEquals(st.copy(part = "rb"), re)
+        // a tap on its body: the whole item again; on one of its figures: the pad as it is
+        assertEquals("body", after(Pick.body(s, held, W1), body = true)!!.part)
+        assertSame(st, after(Pick.figure(s, held, "FW1.h")))
+        // the chip: the panel opens over the pad's item, which stays held -- the pad stays aimed
+        assertSame(st, after(Pick.options(held)))
+        // whatever leaves its item not held ends it, aimed or not: empty photo, another item's body, a reading's walk
+        assertNull(after(Pick.empty(held))); assertNull(after(Pick.body(s, held, D1), body = true)); assertNull(after(Pick.next(s, held, "front")))
+        assertNull(NudgePad.afterEvent(p, null, held, 0, "t", false), "no pad: none appears")
+        // a part the item does not have is nobody's: the aim stays
+        assertSame(st, after(Pick.Out(held, nudge = "p7")))
+    }
 }

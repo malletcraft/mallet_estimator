@@ -7311,17 +7311,6 @@
    "aria-label"
   ]
  },
- "life.aria.open_mark_sheet_x": {
-  "en": "Open the Mark sheet for {code}",
-  "where": "v53build/life53.js:187 · nlAttrs",
-  "kind": "template",
-  "placeholders": {
-   "code": "e.code"
-  },
-  "flags": [
-   "aria-label"
-  ]
- },
  "life.aria.place_marks_x_tap": {
   "en": "Place marks {v} — tap to change",
   "where": "v53build/life53.js:119 · asChipHTML",
@@ -10784,14 +10773,6 @@
    "v": "g.ctx.length?` · grey: what it sees, codes only (${g.ctx.length})`:''"
   }
  },
- "sp.corner": {
-  "en": "corner",
-  "where": "v53build/sp.js:915 · what",
-  "kind": "static",
-  "flags": [
-   "fragment"
-  ]
- },
  "sp.delete_x": {
   "en": "Delete {label}",
   "where": "v53build/sp.js:1466 · it0",
@@ -11556,14 +11537,6 @@
    "name": "g.name"
   }
  },
- "sp.locked": {
-  "en": "locked",
-  "where": "v53build/sp.js:1501 · lk",
-  "kind": "static",
-  "flags": [
-   "fragment"
-  ]
- },
  "sp.locked_tap_unlock": {
   "en": "Locked — tap to unlock",
   "where": "v53build/sp.js:853 · lockBtn",
@@ -11741,14 +11714,6 @@
   },
   "flags": [
    "prototype-only"
-  ]
- },
- "sp.move": {
-  "en": "move",
-  "where": "v53build/sp.js:1498 · what",
-  "kind": "static",
-  "flags": [
-   "fragment"
   ]
  },
  "sp.msg.bluetooth_refused": {

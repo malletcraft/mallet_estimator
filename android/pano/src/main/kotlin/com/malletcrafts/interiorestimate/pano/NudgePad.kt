@@ -250,4 +250,47 @@ object NudgePad {
         if (st == null || pick.picked != st.id || !pick.held || !MarkSheet.fineOk(p, st.id, stage)) return null
         return if (st.part in parts(p, st.id)) st else st.copy(part = BODY)
     }
+
+    /**
+     * WHETHER A TAP WAS ON AN ITEM'S BODY -- [hit] and [line] as the screen hands them to [Pick.tap]: a mark pressed
+     * whole, the picked Tape's, Line's or area's band, or the Tape, Line, area or chain whose line the finger was on.
+     * Not a handle, a figure, the code chip, or empty photo.
+     */
+    fun onBody(hit: SurveyPrepTouch.Hit?, line: String?): Boolean = when (hit) {
+        is SurveyPrepTouch.Hit.Mark -> hit.part == BODY
+        is SurveyPrepTouch.Hit.Body -> true
+        null -> line != null
+        else -> false
+    }
+
+    /**
+     * THE PART LAST TOUCHED -- what Fine move nudges as it starts ([start]'s `part`), kept by the screen from one
+     * [Pick] event to the next ([part] before the event, [before] the pick before it, [out] Pick's answer, [body]: the
+     * event was a tap or a long press on an item's body): a handle, a corner or an end pressed IS the part
+     * ([Pick.Out.nudge]); a press on a body, another item picked, or the hold gone, and it is the whole item again;
+     * ANYTHING ELSE LEAVES IT -- a tap on the code chip above all, which opens the panel `Fine move` is in: the edge he
+     * dragged a moment ago is the edge its arrows then move. (Until slice I2b every event but a handle's reset it, and
+     * the row's nudges, always on screen, did not care.)
+     */
+    fun touched(part: String, before: Pick.State, out: Pick.Out, body: Boolean): String {
+        val nudge = out.nudge
+        return when {
+            nudge != null -> nudge
+            body || out.state.picked != before.picked || !out.state.held -> BODY
+            else -> part
+        }
+    }
+
+    /**
+     * THE FINE MOVE AFTER A [Pick] EVENT, AIM AND ALL -- what the screen asks after every event it hands to Pick (port
+     * 63 slice I2b): first the aim, then [after]. [nudge]: the event's own answer to "which part do the nudges move"
+     * ([Pick.Out.nudge] -- a handle, a corner, an end of the held item pressed or tapped): THAT is the part nudged now
+     * ([aim]). [body]: the event was a tap on an item's BODY -- the whole item again (decision 11 of I2a). Neither: the
+     * aim stays -- a tap on one of its figures turns it gold and leaves the pad as it is. Then [after]: the pad goes
+     * whenever its item is no longer picked and held.
+     */
+    fun afterEvent(p: SurveyPrep.Prep, st: State?, pick: Pick.State, stage: Int?, nudge: String?, body: Boolean): State? {
+        val aimed = st?.let { s -> if (nudge != null) aim(p, s, nudge) else if (body) aim(p, s, BODY) else s }
+        return after(p, aimed, pick, stage)
+    }
 }

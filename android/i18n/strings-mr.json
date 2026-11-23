@@ -2851,10 +2851,6 @@
  "life.aria.marks_are_placed_x": {
   "mr": "या फेजमध्ये मार्क {v} ठेवले जातात"
  },
- "life.aria.open_mark_sheet_x": {
-  "mr": "{code} चा मार्क तपशील उघडा",
-  "note": "review fix 6: was \"{code} ची मार्क शीट उघडा\" -- the sheet is मार्क तपशील everywhere else"
- },
  "life.aria.place_marks_x_tap": {
   "mr": "मार्क {v} ठेवा — बदलण्यासाठी टॅप करा"
  },
@@ -4207,9 +4203,6 @@
   "mr": "रंगीत{v}",
   "note": "{v} embeds English — use sp.grey_what_sees_codes"
  },
- "sp.corner": {
-  "mr": "कोपरा"
- },
  "sp.delete_x": {
   "mr": "{label} हटवा"
  },
@@ -4446,9 +4439,6 @@
   "mr": "सर्व {name} लॉक करा",
   "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.x_all_x as a whole key, when !g.all"
  },
- "sp.locked": {
-  "mr": "लॉक"
- },
  "sp.locked_tap_unlock": {
   "mr": "लॉक — अनलॉकसाठी टॅप करा"
  },
@@ -4512,9 +4502,6 @@
  "sp.mi_a3_x_dp": {
   "mr": "Mi A3 · {v} dp",
   "note": "device frame label — prototype-only — no APK equivalent"
- },
- "sp.move": {
-  "mr": "हलवा"
  },
  "sp.msg.bluetooth_refused": {
   "mr": "ब्लूटूथची परवानगी नाकारली — लेझर कनेक्ट होऊ शकत नाही",

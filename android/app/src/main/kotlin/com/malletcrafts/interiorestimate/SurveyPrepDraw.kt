@@ -247,7 +247,31 @@ internal object SurveyPrepDraw {
         /** The phase keys readings (MeasureFlow.canRead): false after Survey, where the picked item shows its READ figures
          *  only and no `?` -- nothing there can be read (the review of I1, finding 5; PhotoFigures.layout's `ask`). */
         val ask: Boolean = true,
+        /** Port 63 slice I2b, the editing photo: THE PICKED ITEM'S CODE IS DRAWN AS A CHIP outside it
+         *  (SurveyPrepTouch.codeChip), and not inside its box -- a tap on the chip opens the panel that slides up. */
+        val chip: Boolean = false,
+        /** Filled with what was drawn of the picked item -- its box and its chip -- for the press, the lift under the
+         *  panel and Fine move's corner ([Shown]); null: nobody asks. */
+        val shown: Shown? = null,
     )
+
+    /**
+     * WHAT THE EDITING PHOTO LAST DREW OF THE PICKED ITEM (port 63 slice I2b), canvas px: [id] the item; [item] its box
+     * -- a mark's as drawn (a spot's own square), the box round a Tape's, a Line's, an area's or a chain's points;
+     * [chip] its code chip, where SurveyPrepTouch.codeChip put it, or null: none could be placed, or none is drawn;
+     * and the canvas's own size, [w] x [h]. Written by the drawing as [Marks.tags] is; read by the press (the chip's tap
+     * box, SurveyPrepTouch.hit), by the lift under the panel (PhotoLift) and by Fine move (NudgePad.start's corner).
+     * A plain holder: nothing composes from it.
+     */
+    class Shown {
+        var id: String? = null
+        var item: SurveyPrepTouch.Box? = null
+        var chip: SurveyPrepTouch.Chip? = null
+        var w: Double = 0.0
+        var h: Double = 0.0
+        /** A new frame of a [w] x [h] canvas: nothing is picked on it until the drawing says so. */
+        fun clear(w: Double, h: Double) { id = null; item = null; chip = null; this.w = w; this.h = h }
+    }
 
     /**
      * A point's spot on the canvas (v52): its centre x, y and its radius -- the 50 mm it is
@@ -503,6 +527,56 @@ internal object SurveyPrepDraw {
             codePen.textSize = size
             codes.add(SurveyPrepTouch.Box(x.toDouble(), (y - size).toDouble(), (x + codePen.measureText(text)).toDouble(), (y + size * .25f).toDouble()))
         }
+        // THE PICKED ITEM'S CODE IS A CHIP (port 63 slice I2b; DESIGN-imagemeter §2.2; SurveyPrepTouch.codeChip): the code
+        // and `▾`, outside the item -- above its top-left corner, below its bottom-left where it touches the photo's top
+        // -- its tap box 16 dp clear of every tab, corner and end, so nothing else takes its press first. A HELD mark's
+        // stands above its hand-anchored width plate (chipLift). Placed HERE, before the figures: its tap box is handed
+        // to their layout as a box to keep clear, as a tab is. A Tape's, a Line's, an area's and a chain's is the one
+        // place its code is shown (PhotoFigures.nameOf; P4). WHERE NO PLACE IS CLEAR THERE IS NO CHIP, and a mark's code
+        // is then drawn inside its box as it always was: a long press still opens the panel.
+        var chipOf: SurveyPrepTouch.Chip? = null
+        var chipSays = ""
+        var chipInk = 0
+        val chipFs = DimLayout.textSize(true, o.dp.toDouble())
+        if (o.mode == "main" && o.selId != null) {
+            val cw = o.width.toDouble(); val ch = o.height.toDouble(); val dpx = o.dp.toDouble()
+            val name = PhotoFigures.nameOf(o.prep, o.pick ?: Pick.State(o.selId, false, o.active))
+            var itemBox: SurveyPrepTouch.Box? = null
+            if (sm != null) {
+                val spot = SurveyPrep.isSpot(sm.t)
+                val bb = if (spot) spotOf(sm, sq, m, o.dp).let { d ->
+                        SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
+                    else { val p0 = m(sq.x(sm.x0), sq.y(sm.y1)); val q0 = m(sq.x(sm.x1), sq.y(sm.y0))
+                        SurveyPrepTouch.Box(min(p0[0], q0[0]).toDouble(), min(p0[1], q0[1]).toDouble(), max(p0[0], q0[0]).toDouble(), max(p0[1], q0[1]).toDouble()) }
+                itemBox = bb
+                if (o.chip && name != null) {
+                    // its code, and ✓ once everything it asks is measured -- as on its box
+                    chipSays = SurveyPrepTouch.chipText(if (MarkDims.done(o.prep, s, sm, o.a, o.b)) name + MarkDims.DONE_GLYPH else name)
+                    chipInk = SurveyPrep.typeOf(s, sm.t).colour
+                    // it shows its tabs -- held, and no spot (a point and a Note's pin have none): the width plate is hand-anchored
+                    val hand = o.tabs && !SurveyPrep.isLocked(sm) && !spot
+                    chipOf = SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot), pen(chipFs, true).measureText(chipSays).toDouble(),
+                        cw, ch, dpx, SurveyPrepTouch.chipLift(hand, chipFs, u.toDouble(), dpx), o.keep)
+                }
+            } else {
+                val sf = o.prep.surface(s)
+                val pm = sf.meas.firstOrNull { it.id == o.selId && it.pts.isNotEmpty() }
+                val pk = if (pm == null) sf.chains.firstOrNull { it.id == o.selId && it.nodes.isNotEmpty() } else null
+                val pts: List<DoubleArray>? = pm?.pts ?: pk?.nodes
+                if (pts != null) {
+                    val scr = pts.map { pq -> m(sq.x(pq[0]), sq.y(pq[1])).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } }
+                    itemBox = SurveyPrepTouch.Box(scr.minOf { it[0] }, scr.minOf { it[1] }, scr.maxOf { it[0] }, scr.maxOf { it[1] })
+                    if (o.chip && name != null) {
+                        chipSays = SurveyPrepTouch.chipText(name)
+                        chipInk = if (pk != null) SurveyChain.COLOUR else if (pm?.kind == SurveyMeas.TAPE) TAPE_C else LINE_C
+                        chipOf = SurveyPrepTouch.codeChipOfLine(scr, pen(chipFs, true).measureText(chipSays).toDouble(), cw, ch, dpx, o.keep)
+                    }
+                }
+            }
+            o.shown?.let { sh -> sh.id = o.selId; sh.item = itemBox; sh.chip = chipOf }
+        }
+        // the chip's tap box is kept clear by the figures' layout, with the codes
+        chipOf?.let { k -> codes.add(k.tap) }
         if (sm != null && dim) {
             val pad = 6f * u
             // a picked spot -- a point, or a Note's pin (slice L6; sp.js 5082): the hole is round its dot, as drawn
@@ -553,9 +627,13 @@ internal object SurveyPrepDraw {
                 if (!thin) {
                     // its state (port 62 slice L2): the ring round the dot, then the tag after its code
                     lifeRing(c, e, d[0], d[1], d[2], col, u)
-                    label(c, code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, col, (if (o.all) 26f else 13f) * u, u)
-                    if (o.mode == "main") codeAt(code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, 13f * u)
-                    lifeTagOf(c, tx, e, code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, (if (o.all) 26f else 13f) * u, u, false, faded)
+                    // the picked item's code is its chip (slice I2b): not drawn here as well; its state's tag stays
+                    val chipped = sel && chipOf != null
+                    if (!chipped) {
+                        label(c, code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, col, (if (o.all) 26f else 13f) * u, u)
+                        if (o.mode == "main") codeAt(code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, 13f * u)
+                    }
+                    lifeTagOf(c, tx, e, if (chipped) "" else code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, (if (o.all) 26f else 13f) * u, u, false, faded)
                     if (locked && o.mode == "main") padPill(c, d[0] + d[2] + 30f * u, d[1] - d[2] - 16f * u, col, u)
                     // a saved picture's own figures (mode "sheet"): the editing photo's are drawn once, after every mark ([figures])
                     if (o.mode == "sheet" && (sel || o.all)) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
@@ -575,10 +653,15 @@ internal object SurveyPrepDraw {
                 c.drawRect(p[0], p[1], q[0], q[1], stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u))
             }
             if (!thin) {
-                label(c, code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, col, (if (o.all) 26f else 13f) * u, u)
-                if (o.mode == "main") codeAt(code, p[0] + 6f * u, p[1] + 16f * u, 13f * u)
+                // the picked item's code is its chip, outside the box (slice I2b): not drawn inside it as well -- inside,
+                // at the top-left, it lay in the `lt` tab's reach. Its state's tag stays where it was, from the corner.
+                val chipped = sel && chipOf != null
+                if (!chipped) {
+                    label(c, code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, col, (if (o.all) 26f else 13f) * u, u)
+                    if (o.mode == "main") codeAt(code, p[0] + 6f * u, p[1] + 16f * u, 13f * u)
+                }
                 // ... and after its code its act, ✎, V+ and pill; the pill is its first word on a box under 90 u wide
-                lifeTagOf(c, tx, e, code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, (if (o.all) 26f else 13f) * u, u, q[0] - p[0] < 90f * u, faded)
+                lifeTagOf(c, tx, e, if (chipped) "" else code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, (if (o.all) 26f else 13f) * u, u, q[0] - p[0] < 90f * u, faded)
                 if (locked && o.mode == "main") padPill(c, q[0] - 3f * u, p[1] + 3f * u, col, u)
                 if (sel && o.mode == "main" && !locked && o.tabs) {
                     val xm = (p[0] + q[0]) / 2; val ym = (p[1] + q[1]) / 2; val h = 5f * u
@@ -621,6 +704,22 @@ internal object SurveyPrepDraw {
         // v52 slice 12: the reference rectangle after the chains, as sp.js overlay draws it (drawRefSq) -- not in the loupe
         if (o.mode != "loupe") drawRefSq(c, tx, s, o, m, u)
         if (o.mode == "main") o.guide?.takeIf { it.s == s && o.guideAlpha > 0f }?.let { g -> drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp) }
+        // THE CODE CHIP, over everything: it is a button
+        chipOf?.let { k -> codeChip(c, k, chipSays, chipInk, chipFs, o.dp) }
+    }
+
+    /**
+     * THE PICKED ITEM'S CODE CHIP, DRAWN (port 63 slice I2b; where it stands is SurveyPrepTouch.codeChip's): a pill the
+     * height of its box, dark, outlined in the item's own colour -- its type's, a Line's blue, a tape's yellow, a
+     * chain's -- its words ("FW1 ▾") white, bold and monospace at the picked figures' size, centred.
+     */
+    private fun codeChip(c: Canvas, k: SurveyPrepTouch.Chip, words: String, colour: Int, fs: Double, dp: Float) {
+        val b = k.box
+        val r = RectF(b.l.toFloat(), b.t.toFloat(), b.r.toFloat(), b.b.toFloat()); val rad = (b.b - b.t).toFloat() / 2f
+        c.drawRoundRect(r, rad, rad, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, 0xd9) })
+        c.drawRoundRect(r, rad, rad, stroke(argb(colour), 1.5f * dp))
+        c.drawText(words, ((b.l + b.r) / 2).toFloat(), ((b.t + b.b) / 2 + fs * 0.36).toFloat(),
+            pen(fs, true).apply { color = argb(0xffffff); textAlign = Paint.Align.CENTER })
     }
 
     // ------------------------------------------------------------ v52 slice 10: the plane grid and the guide

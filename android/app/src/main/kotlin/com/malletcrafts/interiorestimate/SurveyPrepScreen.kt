@@ -78,6 +78,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -103,7 +104,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.malletcrafts.interiorestimate.pano.DeleteGuard
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
 import com.malletcrafts.interiorestimate.pano.Landing
 import com.malletcrafts.interiorestimate.pano.LaserChip
@@ -112,9 +112,11 @@ import com.malletcrafts.interiorestimate.pano.MarkSheet
 import com.malletcrafts.interiorestimate.pano.MeasureFlow
 import com.malletcrafts.interiorestimate.pano.MeasurePad
 import com.malletcrafts.interiorestimate.pano.MeasureText
+import com.malletcrafts.interiorestimate.pano.NudgePad
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.PhaseTools
+import com.malletcrafts.interiorestimate.pano.PhotoLift
 import com.malletcrafts.interiorestimate.pano.PhotoFigures
 import com.malletcrafts.interiorestimate.pano.Pick
 import com.malletcrafts.interiorestimate.pano.PlanSave
@@ -188,11 +190,22 @@ import kotlin.math.roundToInt
  *    drawn, and one a room already has is kept, drawn, measured (FK1.1 … and
  *    its total FK1.t) and can be deleted. A HELD Tape, Line or area moves
  *    whole by a drag on its body, as a mark does (slice F1; SurveyGuide).
- *  - The Mark sheet (port 62 slice L3, SpMarkSheet): a tap on a mark's code --
- *    on the held item's row under the photo -- opens it: the moves the
- *    project's quote stage offers the mark (→ Client wish ...), the four acts,
- *    its note, and the trade of an Other, a Line or an area. Every rule and
- *    every write is MarkSheet / MarkLife in :pano.
+ *  - THE PANEL THAT SLIDES UP (port 63 slice I2b; DESIGN-imagemeter §6; the Mark
+ *    sheet of port 62 slice L3 with the acts; SpMarkSheet). Amit, 16 Nov 2026:
+ *    "a slide up screen in imagemeter give more options." The picked item's
+ *    CODE IS A CHIP on the photo (SurveyPrepTouch.codeChip); a tap on it, and a
+ *    long press on any item when the finger lifts, open the panel -- half way
+ *    in portrait, the photo lifted under it so the item stays in view
+ *    (PhotoLift), whole in landscape. Its head: the code, the name, the trade
+ *    and DONE; its ACTS: Lock · Duplicate · Fine move, then Lock all and
+ *    DELETE, last and apart -- THE ONE PLACE ANYTHING IS DELETED; then the Mark
+ *    sheet's own blocks: the moves the project's quote stage offers the mark
+ *    (→ Client wish ...), the four acts, its note, and the trade of an Other, a
+ *    Line or an area. A Tape and a chain have the head and the acts. FINE MOVE
+ *    puts a small pad over the photo while he is using it (NudgePad). NOTHING
+ *    STANDS UNDER THE PHOTO BUT THE TOOL ROW: the picked item's row, the
+ *    long-press menu and the floating trash are gone. Every rule and every
+ *    write is MarkSheet / MarkLife in :pano.
  *  - The ten new types, their kinds and the Note (port 62 slice L6): More ▸ is
  *    one row per trade; a type with kinds names the kind on its chip ("Placing
  *    Wardrobe ▾ · tap the photo") and a tap on those words lists them; the Mark
@@ -326,10 +339,11 @@ internal fun SurveyPrepDialog(
     var pick by remember { mutableStateOf(Pick.NONE) }
     // 1 · LINES' OWN SELECTION: a boundary line's slot, or the reference rectangle -- never an item, which is `pick`'s
     var lineSel by remember { mutableStateOf<SpSel?>(null) }
-    // the part of the held item its row's nudges move: the tab, corner or point last pressed (Pick.handle), else its body
-    var part by remember { mutableStateOf("body") }
-    /** What is selected NOW, as the painters, the row and the 360 take it: the picked item with the part its nudges
-     *  move, else 1 · Lines' own selection. Read from state on every call. */
+    // the part of the held item LAST TOUCHED -- the tab, corner or end last pressed (Pick.handle), else its body: what
+    // Fine move nudges as it starts (NudgePad.touched keeps it from one event to the next)
+    var part by remember { mutableStateOf(NudgePad.BODY) }
+    /** What is selected NOW, as the painters and the 360 take it: the picked item with the part last touched, else
+     *  1 · Lines' own selection. Read from state on every call. */
     fun selNow(): SpSel? = pick.picked?.let { pid -> prep.itemById(pid)?.let { o -> SpSel(o.s, id = pid, part = part) } } ?: lineSel
     // THE KEYPAD (DESIGN-imagemeter §5): open or hidden -- opened only by a tap on the gold figure (Pick.Pad.OPEN) -- and
     // the digits typed on it. They belong to ONE reading, [padKey], the one that was gold when the first key was
@@ -346,9 +360,19 @@ internal fun SurveyPrepDialog(
     var ringSeq by remember { mutableIntStateOf(0) }
     // THE GOLD MOVED BY ITSELF (a reading, `▸`): bumped, and the photo pans only if the new gold figure is off screen
     var walked by remember { mutableIntStateOf(0) }
-    // THE MARK SHEET (port 62 slice L3): open on one item, or null -- declared with the state, because a reading that
-    // lands while it is open waits for it to close (sheetOrFinger, below)
-    var markSheet by remember { mutableStateOf<MarkSheet.State?>(null) }
+    // THE PANEL THAT SLIDES UP (port 63 slice I2b; the Mark sheet of port 62 slice L3 with the acts): open on one item,
+    // or null -- declared with the state, because a reading that lands while it is open waits for it to close
+    // (sheetOrFinger, below). MarkSheet.Panel in :pano, a value: its draft, when it opened, what it last refused.
+    var panel by remember { mutableStateOf<MarkSheet.Panel?>(null) }
+    // where the open panel's top edge is on the SCREEN, px, as it moves (null: no panel): the photo lifts from it (PhotoLift)
+    var panelTop by remember { mutableStateOf<Float?>(null) }
+    // FINE MOVE (the panel's act; NudgePad): the pad over the photo while he is using it, or null
+    var pad by remember { mutableStateOf<NudgePad.State?>(null) }
+    // what the photo last drew of the picked item -- its box, its code chip, the canvas's size: written by the drawing,
+    // read by the press (the chip's tap box), the lift and Fine move's corner. Never read by composition.
+    val shown = remember { SurveyPrepDraw.Shown() }
+    // px a dp, for Fine move's corner -- read HERE, above the local functions that use it
+    val pxPerDp = LocalDensity.current.density.toDouble()
     // what the hand feels when a laser reading lands, fails the guard or is thrown away (Landing.pulses) -- his eyes are
     // on the laser dot, not the phone. Read once, here.
     val haptic = LocalHapticFeedback.current
@@ -403,8 +427,6 @@ internal fun SurveyPrepDialog(
     var snackText by remember { mutableStateOf<String?>(null) }
     var snackUndo by remember { mutableStateOf(true) }
     var snackSeq by remember { mutableIntStateOf(0) }
-    // THE LONG-PRESS MENU (v52 slice 8): the mark it is for, and where the press was (root px)
-    var ctx by remember { mutableStateOf<SpCtx?>(null) }
     // ⋮'s clears, armed by a first tap (SurveyPrepEdit.SURF / ROOM), done by a second within 4 s
     var armedClear by remember { mutableStateOf<String?>(null) }
     // SAY (sp.js say): a note lasts 2.6 s from the LAST time it was said -- the same words said again restart the
@@ -429,7 +451,7 @@ internal fun SurveyPrepDialog(
     fun snack(text: String, undo: Boolean = true) { snackText = text; snackUndo = undo; snackSeq++; snackHist = hist.size }
     fun hideSnack() { snackText = null }
     /** A locked mark's move, resize or delete refused: the no-UNDO snackbar, and no undo entry (sp.js refuse). */
-    fun refuse(code: String) { ctx = null; snack(SurveyPrepEdit.refusal(tx, code), undo = false) }
+    fun refuse(code: String) { snack(SurveyPrepEdit.refusal(tx, code), undo = false) }
 
     // ---- the size sheet (v51): L, W, H boxes, Cancel / Apply
     var lwhOpen by remember { mutableStateOf(false) }
@@ -465,7 +487,7 @@ internal fun SurveyPrepDialog(
     }
     /** An act the phase does not allow on an item (the prototype's spRefuse): said for 2.6 s, nothing changed, no undo
      *  entry. Its control is hidden, so this is only ever reached by a drag, or by a press already on its way. */
-    fun phaseRefuse(text: String?) { ctx = null; if (text != null) say(text) }
+    fun phaseRefuse(text: String?) { if (text != null) say(text) }
 
     // Saved a moment after each change, then read back: the tick is only shown when what is on disk matches.
     val unsaved = remember { booleanArrayOf(false) }
@@ -535,8 +557,8 @@ internal fun SurveyPrepDialog(
     var refShot by remember { mutableStateOf<SurveyRef.Shot?>(null) }
     /**
      * A LONG PRESS ON A MARK THE FINGER'S DRIFT HAD ALREADY MOVED (v52 slice 8 review): the press's own undo step is
-     * taken back off and its geometry put back, so the menu opens on the mark where it was -- nothing moved, nothing
-     * snapped, no undo entry, nothing to save (sp.js never opens its menu on a grab that moved). Readings are kept.
+     * taken back off and its geometry put back, so its panel opens on the mark where it was -- nothing moved, nothing
+     * snapped, no undo entry, nothing to save (sp.js never opened its menu on a grab that moved). Readings are kept.
      */
     fun revertPress() {
         if (hist.isEmpty()) return
@@ -639,16 +661,20 @@ internal fun SurveyPrepDialog(
     /**
      * WHAT A Pick EVENT ANSWERED, DONE (port 63 slice I1; DESIGN-imagemeter §19.2): the keypad as the answer says --
      * AFTER Pick was asked, never before, or a tap on the gold plate would store half a figure -- then picked / held /
-     * gold, the part the nudges move, and what the screen says: the refusal, the wall-finished note, or the check's
+     * gold, the part last touched, and what the screen says: the refusal, the wall-finished note, or the check's
      * sentence when the plate that turned gold carries `!`. [face]: the face a wall-finished note names. An answer
-     * that says "no change at all" (Pick.Out.stay) changes nothing here either.
+     * that says "no change at all" (Pick.Out.stay) changes nothing here either. [body]: the event was a tap or a long
+     * press on an item's BODY (NudgePad.onBody) -- the part last touched is the whole item again.
+     * FINE MOVE FOLLOWS EVERY EVENT (NudgePad.afterEvent): a handle pressed while its pad is up is the part it nudges
+     * now, and the pad goes the moment its item is no longer picked and held.
      */
-    fun took(o: Pick.Out, face: String = tab) {
+    fun took(o: Pick.Out, face: String = tab, body: Boolean = false) {
         if (o.stay) return
         val before = pick
         padDoes(o.pad)
         pick = o.state
-        part = o.nudge ?: "body"
+        part = NudgePad.touched(part, before, o, body)
+        pad = NudgePad.afterEvent(prep, pad, pick, quoteStage, o.nudge, body)
         // the keypad is the gold figure's: with nothing gold it is not asked for any more
         if (o.state.gold == null) padOpen = false
         if (o.byItself) walked++
@@ -668,7 +694,10 @@ internal fun SurveyPrepDialog(
         val before = pick
         padDoes(a.pad)
         pick = a.state
-        part = "body"
+        // a reading that landed dropped the hold (Pick rows 18, 19): nothing is being touched, and a Fine move ends as
+        // ✓ ends it -- every nudge is already written (NudgePad.after; DESIGN-imagemeter §4.3, 6)
+        part = NudgePad.BODY
+        pad = NudgePad.after(prep, pad, pick, quoteStage)
         if (a.state.gold == null) padOpen = false
         buzz(a.haptic)
         a.note?.let { line -> say(line(tx)) }
@@ -677,9 +706,9 @@ internal fun SurveyPrepDialog(
         goldTurned(before)
         rev++
     }
-    /** A sheet or the menu is open, or a finger is on the photo: a reading that lands now is written, and the gold
-     *  WAITS for the release (Pick row 20). */
-    fun sheetOrFinger(): Boolean = photoBusy || markSheet != null || moreOpen || ctx != null
+    /** The panel or the More sheet is open, or a finger is on the photo: a reading that lands now is written, and the
+     *  gold WAITS for the release (Pick row 20). Fine move's pad holds nothing back: it is no sheet (NudgePad.after). */
+    fun sheetOrFinger(): Boolean = photoBusy || panel != null || moreOpen
     /** The sheet closed, or the finger lifted: a reading that landed meanwhile moves the gold on now (Landing.released). */
     fun released() {
         val code = waiting ?: return
@@ -694,7 +723,7 @@ internal fun SurveyPrepDialog(
         // owner -- a mark, a Line's or an area's (v52 slice 9), a chain's FK1.1 … FK1.t (slice 11); and a code handed
         // out since is not handed out again: the web may hold readings under it (v52 slice 8). SurveyPrepEdit.undoTo, tested
         val back = SurveyPrepEdit.undoTo(prep, old)
-        hideSnack(); ctx = null
+        hideSnack()
         prep = back; lineSel = null
         // ↶ (Pick row 23): the gold is kept while its owner is still there, and its owner is then the picked item; else
         // nothing is picked. Never held. What was typed for a reading let go here is written (Pick.Pad.SHUT_STORE).
@@ -768,7 +797,7 @@ internal fun SurveyPrepDialog(
         if (moved || fix.changed) changed()
         // readings came or went under the pick: what is gold must still be asked (Pick.settle)
         val kept = Pick.settle(scene(), pick)
-        if (kept != pick) { pick = kept; if (kept.gold == null) padOpen = false; rev++ }
+        if (kept != pick) { pick = kept; pad = NudgePad.after(prep, pad, pick, quoteStage); if (kept.gold == null) padOpen = false; rev++ }
         // what had to be said -- a conflict applied, an orphan re-deleted -- rendered in the language on when ⋮ opens
         // (Readings.conflictText / orphanText, port 61c slice M3b)
         val clean = applied.isEmpty() && orphans.isEmpty()
@@ -855,40 +884,51 @@ internal fun SurveyPrepDialog(
      *  the room and the phase still allow them (Pick.settle). */
     fun settled() {
         val kept = Pick.settle(scene(), pick)
-        if (kept != pick) { pick = kept; part = "body"; if (kept.gold == null) padOpen = false; rev++ }
+        if (kept != pick) { pick = kept; part = NudgePad.BODY; pad = NudgePad.after(prep, pad, pick, quoteStage); if (kept.gold == null) padOpen = false; rev++ }
     }
     /**
      * THE 360's PRESS (its gestures stay as built, DESIGN-imagemeter §11): a thing pressed there is picked and held as
-     * a tap on its body is (Pick.body; nothing is ever gold on the 360), with the part grabbed -- the part its row's
-     * nudges move. A press that is no item's (the reference) is 1 · Lines' kind of selection.
+     * a tap on its body is (Pick.body; nothing is ever gold on the 360), and a tab it was grabbed by is the part last
+     * touched (Pick.handle). A press that is no item's (the reference) is 1 · Lines' kind of selection.
      */
     fun grabbed360(g: SpSel) {
         val gid = g.id
         if (gid == null || prep.itemById(gid) == null) { lineSel = g; rev++; return }
-        took(Pick.body(scene(), pick, gid))
-        part = g.part
+        took(Pick.body(scene(), pick, gid), body = true)
+        if (g.part != NudgePad.BODY) took(Pick.handle(pick, g.part))
     }
-    /** A LONG PRESS ON AN ITEM (Pick row 3): picked and held, and its options open -- until slice I2 today's menu, at
-     *  the press ([at], root px). On the reference rectangle: its own Lock · Cancel, as before. */
-    fun longPressed(mid: String, at: Offset) {
+    // ---- THE PANEL THAT SLIDES UP (port 63 slice I2b; DESIGN-imagemeter §6; the prototype's L53 sheet, index61c2.html
+    // 3012-3115, with the acts): open on one item, or null. It is MarkSheet.Panel in :pano, a value: every tap and
+    // keystroke REPLACES it through MarkSheet's pure functions, and nothing reaches the prep until Done (panelDone) or
+    // an act (panelAct). Its state is declared with the screen's; its opening HERE, above the two placements, which
+    // open a new Note's panel -- a local function is visible only below its declaration.
+    /**
+     * THE PANEL OPENS FOR THE ITEM [mid] -- by a tap on its code chip, when a long press on it lifts ([longPress]), for
+     * a Note just placed ([fresh]: it opens on its note field, and knows how many undo steps the screen holds now, the
+     * placement's the last), or on a move's Why box ([focusMove]). Every item has one: a mark, a Note, a Line, an area,
+     * and a Tape and a chain, with the head and the acts. The reference rectangle is no item: nothing opens. It takes
+     * no tap for its first 300 ms (MarkSheet.answers), counted from here.
+     */
+    fun openPanel(mid: String, focusMove: String? = null, fresh: Boolean = false, longPress: Boolean = false) {
+        panel = MarkSheet.openPanel(prep, mid, SystemClock.uptimeMillis(), longPress, focusMove, fresh, hist.size)
+    }
+    /**
+     * A LONG PRESS ON AN ITEM (Pick row 3): it is picked and HELD at once -- its handles are the sign that the press
+     * took -- and ITS PANEL OPENS WHEN THE FINGER LIFTS (longLifted): the press is made over the photo, where the
+     * half-open panel then stands. True: there is a panel to open at the lift. The reference rectangle is no item and
+     * has none -- its padlock stands in 1 · Lines' own row -- so a long press on it is nothing more than the press was.
+     */
+    fun longPressed(mid: String): Boolean {
         armedClear = null
-        if (SurveyRef.isId(mid)) { ctx = SpCtx(mid, at.x, at.y); return }
+        if (prep.itemById(mid) == null) return false
         val o = Pick.longPress(scene(), pick, mid)
-        took(o)
-        if (o.options) ctx = SpCtx(mid, at.x, at.y)
+        took(o, body = true)
+        return o.options
     }
-    // ---- THE MARK SHEET (port 62 slice L3; the prototype's L53 sheet, index61c2.html 3012-3115): open on one item, or
-    // null. Its state is MarkSheet.State in :pano, a value: every tap and keystroke REPLACES it through MarkSheet's pure
-    // functions, and nothing reaches the prep until Done (sheetDone). Its state is declared with the screen's; its
-    // opening HERE, above the two placements, which open a new Note's sheet -- a local function is visible only below
-    // its declaration.
-    /** A tap on a mark's code (or a Line's, an area's): its sheet opens. [focusMove]: the move whose Why box it opens on
-     *  -- Dropped, when a tap on Drop opened it. A Tape, a chain and the reference have no sheet: nothing opens.
-     *  [fresh] (slice L6): the sheet of a Note the tap before it placed -- it opens on the note field, and knows how many
-     *  undo steps the screen holds now, the placement's the last. */
-    fun openSheet(mid: String, focusMove: String? = null, fresh: Boolean = false) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove, fresh, hist.size) }
-    /** A mark just placed: A NOTE OPENS ITS SHEET at once, on its note field (L53.placed: `openSheet(e.id,{fresh:true})`). */
-    fun notePlaced(e: SurveyPrep.Mark) { if (MarkLife.isNote(e)) openSheet(e.id, fresh = true) }
+    /** ... the finger lifted: the panel, for the item still picked (DESIGN-imagemeter §6, "when the finger LIFTS"). */
+    fun longLifted(mid: String) { if (pick.picked == mid) openPanel(mid, longPress = true) }
+    /** A mark just placed: A NOTE OPENS ITS PANEL at once, on its note field (L53.placed: `openSheet(e.id,{fresh:true})`). */
+    fun notePlaced(e: SurveyPrep.Mark) { if (MarkLife.isNote(e)) openPanel(e.id, fresh = true) }
     /**
      * A TAP WITH A TYPE ON PLACES IT WHERE THE FINGER IS (v52 slice 7; Amit, 11 Oct 2026 20:35: "electric points
      * are spots . dont let them resize. have its da 50 mm." -- a spot centred where he taps): the type's default
@@ -1017,43 +1057,46 @@ internal fun SurveyPrepDialog(
         snack(MarkSheet.emptyRemoved(tx), undo = false)
     }
     /**
-     * DONE on the Mark sheet (the prototype's apply, 3071-3088): MarkSheet.apply writes through MarkLife, Trades and
-     * MarkTypes -- the kind, the trade, the note, then the move or the act -- and takes ONE undo step through the
-     * snapshot handed to it, just before its first write (none for a new Note's sheet: its placement took the step);
-     * nothing changed closes the sheet with no undo step at all. A move the office is told of says "After the estimate
-     * — tell the office". The sheet stays open while the move picked still needs its why. A kind that was changed is
-     * remembered by the tool (slice L6); a new Note with no words goes again (noteRemoved).
+     * DONE, in the panel's head (the prototype's apply, 3071-3088): MarkSheet.panelDone writes through MarkLife, Trades
+     * and MarkTypes -- the kind, the trade, the note, then the move or the act -- and takes ONE undo step through the
+     * snapshot handed to it, just before its first write (none for a new Note's panel: its placement took the step);
+     * nothing changed closes the panel with no undo step at all, and a Tape's and a chain's has nothing to write. A move
+     * the office is told of says "After the estimate — tell the office". The panel stays open while the move picked
+     * still needs its why, and while a Note has no words -- which it then says in the panel itself (the photo's
+     * snackbar is under it). A kind that was changed is remembered by the tool (slice L6); a new Note with no words
+     * goes again (noteRemoved). What Done did, or null: no panel was open.
      */
-    fun sheetDone() {
-        val st = markSheet ?: return
-        val done = MarkSheet.apply(prep, st, quoteStage, java.time.Instant.now()) { snapshot() }
-        markSheet = done.state
+    fun panelDone(): MarkSheet.Outcome? {
+        val pn = panel ?: return null
+        val done = MarkSheet.panelDone(prep, pn, quoteStage, java.time.Instant.now()) { snapshot() }
+        val kept = done.state
+        panel = if (kept == null) null
+                else pn.copy(draft = kept, said = if (done.outcome == MarkSheet.Outcome.NEEDS_WORDS) MarkSheet.needsWords(tx) else null)
         done.kind?.let { k -> SurveyPrepPalette.rememberSub(spKinds, k.t, k.s, k.sub) }
         when (done.outcome) {
             MarkSheet.Outcome.DONE -> { changed(); settled(); if (done.amber) say(MarkLife.afterEstimate(tx)) }
-            MarkSheet.Outcome.NEEDS_WORDS -> snack(MarkSheet.needsWords(tx), undo = false)
-            MarkSheet.Outcome.REMOVED -> noteRemoved(st)
-            MarkSheet.Outcome.GONE, MarkSheet.Outcome.UNCHANGED, MarkSheet.Outcome.STAYS -> Unit
+            MarkSheet.Outcome.REMOVED -> pn.draft?.let { st -> noteRemoved(st) }
+            MarkSheet.Outcome.NEEDS_WORDS, MarkSheet.Outcome.GONE, MarkSheet.Outcome.UNCHANGED, MarkSheet.Outcome.STAYS -> Unit
         }
+        return done.outcome
     }
-    /** ✕, the scrim, ◁ and a swipe down on the Mark sheet (the prototype's cancel, 3065-3067): it closes and what was
-     *  typed is lost -- and a Note just placed, still with no words, goes again (MarkSheet.cancel removes it). */
-    fun sheetCancel() {
-        val st = markSheet ?: return
-        markSheet = null
-        if (MarkSheet.cancel(prep, st)) noteRemoved(st)
+    /** THE DIMMED PHOTO, ◁ AND A SWIPE DOWN on the panel (the prototype's cancel, 3065-3067): it closes and what was
+     *  typed is lost -- and a Note just placed, still with no words, goes again (MarkSheet.panelCancel removes it). */
+    fun panelCancel() {
+        val pn = panel ?: return
+        panel = null
+        if (MarkSheet.panelCancel(prep, pn)) pn.draft?.let { st -> noteRemoved(st) }
     }
-    /** DELETE (the floating trash while the item is held, and the long-press menu -- no row under the photo deletes,
-     *  port 63 slice I1): '<code> deleted' with
+    /** DELETE -- THE PANEL'S LAST ACT, AND NOTHING ELSE (port 63 slice I2b; DESIGN-imagemeter §6: the floating trash and
+     *  the long-press menu are gone, and no row under the photo deletes): '<code> deleted' with
      *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. A Tape, a
      *  Line or an area (v52 slice 9) the same: F-M1 takes F-M1.len with it, and the readings sync deletes it on the web. */
     fun deleteMark(mid: String) {
         // THE REFERENCE IS NEVER DELETED (v52 slice 12; Amit, 14 Oct 2026 06:45 IST: "can not be deleted"): every delete
         // path that reaches it answers so, with no UNDO and no undo entry (sp.js refNoDelete)
-        if (SurveyRef.isId(mid)) { ctx = null; snack(SurveyRef.noDelete(tx), undo = false); return }
+        if (SurveyRef.isId(mid)) { snack(SurveyRef.noDelete(tx), undo = false); return }
         val it0 = prep.itemById(mid) ?: return
         val code = it0.code
-        ctx = null
         // THE PHASE FIRST (port 62 slice L4; sp.js deleteMark's `!P54.spDelOk(e)`, before the lock and before Drop): an
         // item the phase holds read-only is not deleted, dropped or restored -- its control is hidden, and this says why
         if (!PhaseTools.delOk(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
@@ -1062,9 +1105,11 @@ internal fun SurveyPrepDialog(
         // 2940-2946): its control reads Drop, or Restore on a Dropped mark (MarkLife.deleteLabel), and
         // MarkLife.deleteAct says what a tap does. RESTORE moves it back at once to what it was born -- one ↶ step,
         // "FW1 restored to Client wish" with UNDO -- or, where the stage offers no move, says why with no UNDO and
-        // no undo entry. DROP needs its why, which is typed in the Mark sheet: the sheet opens HERE, on Dropped (slice
+        // no undo entry. DROP needs its why, which is typed in the panel: it opens HERE, on Dropped (slice
         // L3; interceptDelete's `openSheet(id,{focusMove:'drop'})`), with no undo step of its own -- its Done takes
         // the one step. Nothing is ever deleted (SurveyPrep.Prep.deleteMark refuses too).
+        // (Since port 63 slice I2b the panel draws NO delete cell on a mark past Existing -- Drop and Restore are its
+        // STATE moves -- so neither branch is reached from the screen; they stand for a delete that arrives any other way.)
         val lifeMark = prep.markById(mid)?.second
         if (lifeMark != null) when (MarkLife.deleteAct(lifeMark)) {
             MarkLife.DeleteAct.PLAIN -> Unit
@@ -1080,10 +1125,10 @@ internal fun SurveyPrepDialog(
                 snack(MarkLife.restoredText(tx, lifeMark)); changed()
                 return
             }
-            MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }
+            MarkLife.DeleteAct.DROP_SHEET -> { openPanel(mid, MarkLife.DROP); return }
         }
-        // ONE ↶ STEP, AND THE SCREEN SAYS WHAT WENT (port 63 slice F1): every one-tap delete -- the floating trash and
-        // the long-press menu, on the photo and on the 360 -- comes through here, takes exactly this one
+        // ONE ↶ STEP, AND THE SCREEN SAYS WHAT WENT (port 63 slice F1): the one one-tap delete -- the panel's last act,
+        // for an item on the photo or on the 360 -- comes through here, takes exactly this one
         // snapshot and answers "FD1 deleted" with UNDO, so a slip is seen and taken back at once.
         // NO STEP IS TAKEN AND THEN TAKEN BACK (the F1 review, finding 4; the note in RESTORE above): the model refuses
         // a LOCKED item and a mark PAST EXISTING and nothing else (DeleteGuardTest holds it to exactly those), and both
@@ -1094,17 +1139,8 @@ internal fun SurveyPrepDialog(
         snack(SurveyPrepEdit.deleted(tx, code))
         changed()
     }
-    fun nudgeMark(dx: Double, dy: Double) {
-        val sl = selNow() ?: return; val mid = sl.id ?: return
-        val e = prep.surface(sl.s).marks.firstOrNull { it.id == mid } ?: return
-        // a mark of an earlier phase is not nudged (slice L4; sp.js nudgeMark's `!P54.spEdit(e)`, before the lock)
-        if (!PhaseTools.editable(e, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, e, quoteStage)); return }
-        if (SurveyPrep.isLocked(e)) { refuse(e.code); return }
-        val a = ab(sl.s); snapshot()
-        SurveyPrep.moveMark(e, e.copy(), sl.part, dx, dy, a[0], a[1])     // buttons never snap
-        changed()
-    }
-    /** Lock or unlock one mark (its padlock, the menu's Lock): one undo step, nothing said (sp.js setLock). */
+    /** Lock or unlock one item (the panel's Lock / Unlock; the reference's padlock in 1 · Lines): one undo step,
+     *  nothing said (sp.js setLock). */
     fun toggleLock(mid: String) {
         // ... or the reference rectangle's padlock (v52 slice 12): one undo step, nothing said, as a mark's
         if (prep.itemById(mid) == null && SurveyRef.byId(prep, mid) == null) return
@@ -1112,11 +1148,11 @@ internal fun SurveyPrepDialog(
         // never the reference's padlock, which is not the phase's (PhaseTools.editable answers true for it)
         if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
         // A MARK IN SCOPE STAYS LOCKED (port 62 slice L2; the prototype's setLock, index61c2.html 5053): its padlock
-        // and the menu's Unlock answer "FW1 is in Scope — take it Out of scope in its sheet", with no UNDO and no
-        // undo entry (SurveyPrepEdit.setLocked refuses the unlock as well)
+        // and the panel's Unlock answer "FW1 is in Scope — take it Out of scope in its sheet", with no UNDO and no
+        // undo entry (SurveyPrepEdit.setLocked refuses the unlock as well; the panel says it first, MarkSheet.actStep)
         val scopeNo = SurveyPrepEdit.unlockRefusal(tx, prep, mid)
-        if (scopeNo != null) { ctx = null; snack(scopeNo, undo = false); return }
-        ctx = null; snapshot(); SurveyPrepEdit.setLocked(prep, mid, null); changed()
+        if (scopeNo != null) { snack(scopeNo, undo = false); return }
+        snapshot(); SurveyPrepEdit.setLocked(prep, mid, null); changed()
         // Lock or Unlock (Pick row 17): picked, NOT held -- a locked item never is, an unlocked one not until it is tapped
         if (prep.itemById(mid) != null) took(Pick.locked(scene(), pick, mid))
     }
@@ -1161,10 +1197,11 @@ internal fun SurveyPrepDialog(
     /** Lock all / Unlock all of type [t] on [s] -- or, with [kind], every tape or every Line mark (v52 slice 9): "Locked
      *  N items · front wall" with UNDO; no change, no undo entry. */
     fun lockAllOf(s: String, t: String?, on: Boolean, kind: String? = null) {
-        // LOCK ALL IS A SURVEY TOOL (slice L4; sp.js lockAll's `!P54.spBulk()`): outside Survey -- where the menu still
-        // offers it on a mark the phase lets be edited, as the prototype's does -- it says so and locks nothing
+        // LOCK ALL IS A SURVEY TOOL (slice L4; sp.js lockAll's `!P54.spBulk()`): outside Survey -- where the panel still
+        // draws it on a mark the phase lets be edited, as the prototype's menu does, and refuses it in its own line
+        // (MarkSheet.actStep) -- it says so and locks nothing
         if (!PhaseTools.bulk(quoteStage)) { phaseRefuse(PhaseTools.refuseBulk(tx, quoteStage)); return }
-        ctx = null; snapshot()
+        snapshot()
         val n = SurveyPrepEdit.lockAll(prep, s, t, on, kind)
         // UNLOCK ALL SKIPS SCOPE MARKS (port 62 slice L2; the prototype's lockAll, index61c2.html 5055-5056): they stay
         // locked, and the snackbar says how many -- after what it unlocked, or alone and with no UNDO when it unlocked nothing
@@ -1184,11 +1221,11 @@ internal fun SurveyPrepDialog(
         if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
         // ... AND A MARK IS COPIED ONLY WHERE THAT UNSTAMPED BOX IS WHAT A TAP WOULD PLACE (the L4 review, finding 1;
         // PhaseTools.copyOk): at Survey, and while the stage is unread with the chip on "as Existing". Anywhere else the
-        // copy of a mark born a wish would leave the office as a thing that is in the room. The row is not on the menu
+        // copy of a mark born a wish would leave the office as a thing that is in the room. The act is not in the panel
         // there; a press that still arrives makes nothing, takes no undo step and says nothing -- the prototype has no
         // line for it (Q-list 8)
         if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }
-        val a = ab(s); ctx = null; snapshot()
+        val a = ab(s); snapshot()
         if (tab != s) tab = s
         val nid = java.util.UUID.randomUUID().toString().take(8)
         if (prep.markById(mid) != null) {
@@ -1208,17 +1245,72 @@ internal fun SurveyPrepDialog(
         }
         changed()
     }
-    /** A menu row picked (SurveyPrepEdit.menuItems). */
-    fun ctxPick(mid: String, k: String) {
-        // a row the phase hides is not on the menu (SurveyPrepEdit.menuItemsOf with the stage); each act asks again
-        when (k) {
-            SurveyPrepEdit.DELETE -> deleteMark(mid)
-            SurveyPrepEdit.DUPLICATE -> duplicateMark(mid)
-            SurveyPrepEdit.LOCK -> toggleLock(mid)
-            // a mark's type, or every tape, or every Line mark -- never the other (SurveyPrepEdit.lockGroupOf)
-            SurveyPrepEdit.LOCK_ALL -> SurveyPrepEdit.lockGroupOf(prep, mid)?.let { (s, g) ->
-                lockAllOf(s, g.t, !g.all, g.kind) } ?: run { ctx = null }
-            else -> ctx = null
+    /**
+     * FINE MOVE BEGINS (the panel's act; NudgePad; DESIGN-imagemeter §6): the item is HELD (Pick row 16) -- a mark the
+     * walk had reached shows the handles the act needs -- and the pad stands over the photo, in the bottom corner
+     * farthest from the item, nudging the part last touched. It is there only while he is using it: ✓, a tap on empty
+     * photo or a reading that lands ends it (NudgePad.after).
+     */
+    fun fineMove(mid: String) {
+        val last = part
+        took(Pick.shaped(scene(), pick, mid))
+        // the item's box as the photo last drew it, on 2 · Mark; on the 360 there is none, and the pad stands on the right
+        val box = if (mode == StepRoute.MARK && shown.id == mid) shown.item else null
+        pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp)
+        rev++
+    }
+    /** A cell of Fine move's pad pressed: an arrow nudges the part by the step and never snaps, the centre cell switches
+     *  1 mm and 5 mm, ✓ ends it. ONE ↶ step for a whole Fine move, taken just before its first nudge that moves anything
+     *  (NudgePad.press). */
+    fun finePress(key: NudgePad.Key) {
+        touched()
+        val st = NudgePad.after(prep, pad, pick, quoteStage)
+        val s = st?.let { cur -> prep.itemById(cur.id)?.s }
+        if (st == null || s == null) { pad = null; return }
+        val a = ab(s)
+        val r = NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }
+        pad = r.state
+        if (r.moved) changed() else rev++
+    }
+    /**
+     * ONE OF THE PANEL'S ACTS TAPPED (DESIGN-imagemeter §6: "An act is Done followed by the act ... except Delete, which
+     * drops the draft and deletes. Each act closes the panel."). What the tap does first is MarkSheet.actStep's answer:
+     * REFUSED -- nothing happens and the panel stays, saying why in its own line; DELETE -- the panel closes, what was
+     * typed is dropped, and the item is deleted ("FW1 deleted", with UNDO); every other act -- Done, and where that
+     * closed the panel with its item still there (MarkSheet.actRuns), the act: Lock / Unlock, Duplicate, Lock all, Fine
+     * move. DONE'S UNDO STEP AND THE ACT'S ARE ONE ↶ STEP (MarkSheet.stepsToDrop): when both took one the act's own is
+     * taken off again, and a snackbar the act showed keeps its UNDO on the step that is left.
+     */
+    fun panelAct(act: String) {
+        val pn = panel ?: return
+        if (!MarkSheet.answers(pn, SystemClock.uptimeMillis())) return
+        when (val step = MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)) {
+            is MarkSheet.ActStep.Refused -> panel = step.panel
+            is MarkSheet.ActStep.Delete -> {
+                panel = null
+                if (MarkSheet.panelCancel(prep, pn)) pn.draft?.let { st -> noteRemoved(st) } else deleteMark(pn.id)
+            }
+            is MarkSheet.ActStep.Run -> {
+                val before = hist.size
+                val out = panelDone() ?: return
+                val mid = hist.size
+                if (panel == null && MarkSheet.actRuns(out)) {
+                    when (step.act) {
+                        SurveyPrepEdit.LOCK -> toggleLock(pn.id)
+                        SurveyPrepEdit.DUPLICATE -> duplicateMark(pn.id)
+                        // a mark's type, or every tape, or every Line mark -- never the other (SurveyPrepEdit.lockGroupOf)
+                        SurveyPrepEdit.LOCK_ALL -> SurveyPrepEdit.lockGroupOf(prep, pn.id)?.let { (s, g) -> lockAllOf(s, g.t, !g.all, g.kind) }
+                        MarkSheet.FINE -> fineMove(pn.id)
+                        // (the shape row, Four corners / Rectangle, is slice Q2's: MarkSheet.acts draws none until then)
+                        else -> Unit
+                    }
+                    val drop = MarkSheet.stepsToDrop(before, mid, hist.size)
+                    if (drop > 0) {
+                        repeat(drop) { hist.removeAt(hist.size - 1) }
+                        if (snackHist > hist.size) snackHist = hist.size
+                    }
+                }
+            }
         }
     }
     /**
@@ -1290,7 +1382,7 @@ internal fun SurveyPrepDialog(
         snapshot()
         val r = SurveyPrepEdit.clearItems(prep, scope, tab)
         if (r.n == 0) { hist.removeAt(hist.size - 1); return }
-        lineSel = null; settled(); menuOpen = false; ctx = null; dropDrafts()
+        lineSel = null; settled(); menuOpen = false; dropDrafts()
         // a mark past Existing is kept, locked or not, and the snackbar names it (port 62 slice L2; SurveyPrepEdit.clearedSnack)
         snack(SurveyPrepEdit.clearedSnack(tx, r))
         changed()
@@ -1325,7 +1417,7 @@ internal fun SurveyPrepDialog(
         // THE FACE OPENS ON 2 · MARK ONCE ITS LINES ARE SET (port 63 slice I1b, P1), on 1 · Lines while they are not; the
         // Plan keeps the step, and 3 · 360 stays 3 · 360 (PhaseTools.openStep). 1 · Lines is one tap away on the strip.
         modeSet = PhaseTools.openStep(t, mode, quoteStage, linesSetOf(t))
-        tab = t; lineSel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++
+        tab = t; lineSel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false; armedClear = null; dropDrafts(); rev++
     }
     fun setMode(m: String) {
         // a step the phase does not show cannot be opened, and 2 · MARK ON A FACE WHOSE FOUR LINES DO NOT CLOSE is refused
@@ -1339,7 +1431,7 @@ internal fun SurveyPrepDialog(
         // 3 · 360 opens facing the open face (sp.js setMode: P3.face)
         if (m == StepRoute.PANO) p3Look = Pano360.faceView(tab, 1.0, 1.0)
         took(o)
-        modeSet = m; lineSel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
+        modeSet = m; lineSel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false; dropDrafts(); rev++
     }
 
     fun openLwh() {
@@ -1364,10 +1456,6 @@ internal fun SurveyPrepDialog(
     // where the size line and the screen are, for placing the size sheet under the line
     var rootTop by remember { mutableStateOf(0f) }
     var rootH by remember { mutableStateOf(0) }
-    // ... and for keeping the long-press menu on the screen: the root's left edge and width, the menu's own size (px)
-    var rootLeft by remember { mutableStateOf(0f) }
-    var rootW by remember { mutableStateOf(0) }
-    var ctxSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     var lwhRowBottom by remember { mutableStateOf(0f) }
     var lwhRowLeft by remember { mutableStateOf(0f) }
     var sheetH by remember { mutableStateOf(0) }
@@ -1382,7 +1470,7 @@ internal fun SurveyPrepDialog(
     val land = conf.screenWidthDp > conf.screenHeightDp
     // a FACE has lines, steps, marks and its own clear; the Plan tab has none of them (slice 13)
     val face = StepRoute.isFace(tab)
-    // 2 · Mark and 3 · 360 edit the same marks: the held item's row, the tool row and More ▸ serve both
+    // 2 · Mark and 3 · 360 edit the same marks: the tool row, More ▸, the panel and Fine move's pad serve both
     val marking = face && (mode == StepRoute.MARK || mode == StepRoute.PANO)
     val planTab = StepRoute.isPlan(tab)
     val dens = LocalDensity.current
@@ -1437,8 +1525,8 @@ internal fun SurveyPrepDialog(
         endGuide = { g -> endG = g; rev++ },
         say = { t -> say(t) },
         refuse = { code -> refuse(code) },
-        delete = { mid -> deleteMark(mid) },
-        longPress = { mid, at -> longPressed(mid, at) },
+        longPress = { mid -> longPressed(mid) },
+        options = { mid -> longLifted(mid) },
         look = { v -> p3Look = v },
         // ✕ on the chip: a chain half drawn is DROPPED, not plotted (sp.js d.cancel), then back to Select
         tool = { t -> kdraft = null; pickTool(t) },
@@ -1705,10 +1793,19 @@ internal fun SurveyPrepDialog(
                     sel = selNow(), pick = pick, scene = scene(),
                     // port 63 slice I1: what a TAP on the photo with nothing to place does is Pick.tap's -- a figure turns
                     // gold (the gold one opens the keypad), an item's body is picked and held, a handle of the held item
-                    // becomes the part its nudges move, empty photo lets the pick go or leaves the gold alone
-                    onTap = { hit, line -> took(Pick.tap(scene(), pick, hit, line)) },
-                    // a drag began on a part of the held item: that part is the one the row's nudges move (Pick.handle)
+                    // becomes the part last touched, empty photo lets the pick go or leaves the gold alone -- and, slice
+                    // I2b, A TAP ON THE PICKED ITEM'S CODE CHIP OPENS ITS PANEL (Pick row 7: Pick.Out.options)
+                    onTap = { hit, line ->
+                        val o = Pick.tap(scene(), pick, hit, line)
+                        took(o, body = NudgePad.onBody(hit, line))
+                        if (o.options) pick.picked?.let { pid -> openPanel(pid) }
+                    },
+                    // a handle of the held item pressed -- a tab, a corner, an end: that part is the one last touched,
+                    // and the one Fine move's pad nudges while it is up (Pick.handle)
                     onHandle = { pt -> took(Pick.handle(pick, pt)) },
+                    // what the drawing found of the picked item -- its box, its chip -- and where the open panel's top is,
+                    // from which the photo lifts so the item stays in view above it (PhotoLift)
+                    shown = shown, panelTop = { panelTop },
                     // the keypad's uncommitted digits for the gold plate; the hollow glyph while the laser is not ready;
                     // the plate that has just taken a reading; and the bump that pans to a gold figure off screen
                     live = MeasurePad.live(padNow()),
@@ -1717,14 +1814,15 @@ internal fun SurveyPrepDialog(
                     onBeforeChange = { snapshot() },
                     onMoved = { rev++ },
                     onChanged = { changed() },
-                    onDelete = { deleteMark(it) },
                     stepAt = { x, y -> routeS(x, y) },
                     onStep = { k -> goStepS(k) },
                     tool = tool,
                     onPlace = { t, mx, my -> placeMark(t, mx, my) },
                     // ✕ on the chip: a chain half drawn is DROPPED, not plotted (sp.js d.cancel), then back to Select
                     onTool = { t -> kdraft = null; pickTool(t) },
-                    onLongPress = { mid, at -> longPressed(mid, at) },
+                    // a long press on an item: picked and held at the press, its panel when the finger lifts
+                    onLongPress = { mid -> longPressed(mid) },
+                    onOptions = { mid -> longLifted(mid) },
                     onRefuse = { code -> refuse(code) },
                     onLinesLocked = { say(SurveyPrepEdit.linesRefusal(tx)) },
                     onRevert = { revertPress() },
@@ -1754,6 +1852,14 @@ internal fun SurveyPrepDialog(
             }
             bandOver()
             notesOver()
+            // FINE MOVE'S PAD (port 63 slice I2b; NudgePad; DESIGN-imagemeter §6): over the photo -- or the 360 -- in the
+            // bottom corner farthest from the item, 8 dp in (NudgePad.box), and only while he is using it: gone the
+            // moment its item is no longer picked and held (NudgePad.after), which is asked here as well as at every
+            // event, so it is never drawn a frame too long. Drawn LAST: its cells take a press before the photo does.
+            val padNow = if (marking) NudgePad.after(prep, pad, pick, quoteStage) else null
+            if (padNow != null) {
+                SpNudgePad(padNow, Modifier.align(if (padNow.corner == NudgePad.Corner.LEFT) Alignment.BottomStart else Alignment.BottomEnd)) { k -> finePress(k) }
+            }
         }
     }
 
@@ -1920,89 +2026,28 @@ internal fun SurveyPrepDialog(
         }
     }
 
-    // ---- under the photo in 2 · Mark and 3 · 360 (port 63 slice I1; DESIGN-imagemeter §2.1, §2.3, §14 I1). NOTHING HERE
-    // SHOWS A MEASUREMENT -- no bar, no figure box, no number, no word about a dimension -- NOTHING HERE DELETES, and
-    // nothing here fires the laser. What stands here is StepRoute.underMark's answer: the KEYPAD while it is open, in the
-    // tool row's place and the row's; else -- for this one build, slice I2 deletes it -- THE PICKED ITEM'S ROW, held or
-    // not, reduced to its name and what moves it (Pick.row: its label, which opens its Mark sheet, its nudges while it is
-    // held, its padlock), over the tool row; else the tool row alone; and where the phase has no tool row, that row alone.
+    // ---- under the photo in 2 · Mark and 3 · 360 (port 63 slices I1 and I2b; DESIGN-imagemeter §2.1, §2.3, §14). NOTHING
+    // HERE SHOWS A MEASUREMENT -- no bar, no figure box, no number, no word about a dimension -- NOTHING HERE DELETES,
+    // nothing here fires the laser, AND NOTHING HERE IS THE PICKED ITEM'S: its row went with slice I2b, so picking a
+    // mark changes nothing under the photo. What stands here is StepRoute.underMark's answer: THE TOOL ROW, the one row
+    // under the photo; the KEYPAD in its place while it is open; and nothing at all where the phase has no tool row.
+    // The picked item's name is its code chip on the photo, and its padlock, its nudges and its Delete are the acts of
+    // the panel that chip opens.
     val markPanel: @Composable () -> Unit = {
-        rev    // read: the held item, its lock and the gold follow every change
+        rev    // read: the gold follows every change
         val toolRow = PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)
-        val sl = selNow()?.takeIf { marking && it.s == tab && it.id != null }
-        val row = if (sl != null) Pick.row(scene(), pick) else null
-        val under = StepRoute.underMark(toolRow, row = row != null, keypad = padOpen && pick.gold != null)
-        if (under == StepRoute.Under.KEYPAD) {
+        when (StepRoute.underMark(toolRow, keypad = padOpen && pick.gold != null)) {
             // THE KEYPAD (DESIGN-imagemeter §5): no display line -- the digits are on the gold plate. Next ▸ stores and
             // moves the gold on as a reading does; ⌄ stores and hides it.
-            SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { nextFigure() }, onHide = { commitPad(); padOpen = false; rev++ })
-        } else {
-            // the PICKED item's row, held or not (the review of I1, findings 1 and 6): its label is the way to its Mark
-            // sheet at every stage -- over the tool row, or alone where the phase has none (Under.ROW) -- and a Line's,
-            // a Tape's or a chain's code is named here and nowhere else (P4)
-            if (row != null && sl != null && (under == StepRoute.Under.HELD || under == StepRoute.Under.ROW)) {
-                val sm = prep.surface(tab).marks.firstOrNull { it.id == sl.id }
-                val sq = prep.surface(tab).meas.firstOrNull { it.id == sl.id }
-                val sk = prep.surface(tab).chains.firstOrNull { it.id == sl.id }
-                Row(Modifier.fillMaxWidth().height(StepRoute.heldRowDp(land).dp).padding(horizontal = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (sm != null) {
-                        val p = sl.part
-                        val edge = p != "body"
-                        val horiz = edge && (p.contains('t') || p.contains('b')) && !(p.contains('l') || p.contains('r'))
-                        val vert = edge && (p.contains('l') || p.contains('r')) && !(p.contains('t') || p.contains('b'))
-                        val what = when (p) {
-                            "body" -> tx.sp_move
-                            "l" -> tx.edge_left_edge; "r" -> tx.edge_right_edge; "t" -> tx.edge_top_edge; "b" -> tx.edge_bottom_edge
-                            else -> if (p.length > 1) tx.sp_corner else p
-                        }
-                        val lk = SurveyPrep.isLocked(sm)
-                        // ITS STATE (port 62 slice L2; the prototype's nlAttrs, index61c2.html 2930): a 3 dp bar on the
-                        // label's left edge in the state's colour -- none for an Existing mark, whose label is v52's
-                        val lifeBar = MarkLife.barColour(sm)
-                        // ... and A TAP ON IT OPENS THE MARK SHEET (slice L3; nlAttrs' role=button, "Open the Mark sheet for FW1")
-                        Text("${sm.code}\n${if (lk) tx.sp_locked else if (row.nudges) what else ""}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.width(52.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
-                                if (lifeBar != null) drawRect(Color(SurveyPrepDraw.argb(lifeBar)), size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height))
-                            }.clickable(enabled = row.sheet, role = Role.Button) { openSheet(sm.id) }
-                                .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(sm.code) })
-                        val bs: List<Triple<String, Double, Double>> = when {
-                            horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0)) // text:value glyphs and mm
-                            vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0)) // text:value glyphs and mm
-                            else -> listOf(Triple("◀", -1.0, 0.0), Triple("▶", 1.0, 0.0), Triple("▼", 0.0, -1.0), Triple("▲", 0.0, 1.0)) // text:value glyphs
-                        }
-                        // THE NUDGES MOVE THE HELD MARK, a millimetre at a time and never snapping; a mark that is not
-                        // held has none (Pick.row). NO DELETE: the trash and the menu delete for this build.
-                        if (row.nudges) for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land) { nudgeMark(dx, dy) }
-                        else Spacer(Modifier.weight(1f))
-                        if (row.padlock) SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
-                    } else {
-                        // A PICKED TAPE, LINE, AREA OR CHAIN, held or not: its code -- a Line's and an area's opens its Mark sheet, for its
-                        // trade and its note (slice L3); a Tape and a chain have none -- and its padlock. NO VALUE: its
-                        // figure is on the photo and nowhere else.
-                        // its NAME is its code (P4: an item's code is shown only where it is named, never on its line)
-                        val code = PhotoFigures.nameOf(prep, pick) ?: sq?.code ?: sk?.code
-                        val oid = sq?.id ?: sk?.id
-                        val lk = sq?.let { SurveyPrep.isLocked(it) } ?: sk?.let { SurveyPrep.isLocked(it) } ?: false
-                        val ink = if (sk != null) SP_CHAIN
-                                  else Color(SurveyPrepDraw.argb(if (sq?.kind == SurveyMeas.TAPE) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR))
-                        if (code != null && oid != null) {
-                            Text(code, color = ink, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1,
-                                modifier = if (!row.sheet) Modifier else Modifier.clip(RoundedCornerShape(3.dp))
-                                    .clickable(role = Role.Button) { openSheet(oid) }
-                                    .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(code) })
-                            Spacer(Modifier.weight(1f))
-                            if (row.padlock) SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(code) else tx.sp_aria_lock_x(code)) { toggleLock(oid) }
-                        }
-                    }
-                }
-            }
+            StepRoute.Under.KEYPAD ->
+                SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { nextFigure() }, onHide = { commitPad(); padOpen = false; rev++ })
             // THE TOOL ROW (v52 slice 7; port 63 slice I1): Tape, Line, three types, More ▸ and `▸` LAST -- no Select slot:
             // with no tool on, a touch selects. Where the phase has one (port 62 slice L4): at Estimated and at Client
             // approved nothing new is marked, and the band over the screen says so.
-            if (toolRow) SpPalette(tab, tool, land,
+            StepRoute.Under.TOOLS -> SpPalette(tab, tool, land,
                 next = SurveyPrepPalette.nextSlot(tx, prep, tab, pick.gold, quoteStage, mode) { s -> ab(s) },
                 onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen }, onNext = { nextFigure() })
+            StepRoute.Under.NOTHING -> Unit
         }
     }
 
@@ -2101,7 +2146,7 @@ internal fun SurveyPrepDialog(
                         armed = false
                         val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
                         hist.clear(); lineSel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false
-                        ctx = null; armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
+                        armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
                         // ... and every mark past Existing, locked or not (port 62 slice L2): the note names those first
                         prep = r.prep; settled(); SurveyPrepEdit.startedOver(tx, r)?.let { say(it) }; changed()
                     }
@@ -2149,23 +2194,22 @@ internal fun SurveyPrepDialog(
     }
 
     // A READING THAT LANDED UNDER A SHEET OR A FINGER MOVES THE GOLD ON AT THE RELEASE (Pick row 20; Landing.released):
-    // asked whenever the last of them goes -- the Mark sheet, the More sheet, the menu, the finger on the photo
+    // asked whenever the last of them goes -- the panel, the More sheet, the finger on the photo
     val held0 = sheetOrFinger()
     LaunchedEffect(held0) { if (!held0) released() }
 
     // The phone's Back is the screen's own ←: nothing is lost, the work is already saved.
     // ... and with the size sheet open, Back closes the sheet only; with ⋮ open, the menu only.
     Dialog(onDismissRequest = {
-            if (ctx != null) ctx = null
-            else if (lwhOpen) lwhOpen = false
+            if (lwhOpen) lwhOpen = false
             else if (menuOpen) menuOpen = false
             else if (moreOpen) moreOpen = false
             else back()
         },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Surface(Modifier.fillMaxSize(), color = SP_BG) {
-          Box(Modifier.fillMaxSize().onGloballyPositioned { val at = it.positionInRoot(); rootTop = at.y; rootLeft = at.x }
-              .onSizeChanged { rootH = it.height; rootW = it.width }) {
+          Box(Modifier.fillMaxSize().onGloballyPositioned { rootTop = it.positionInRoot().y }
+              .onSizeChanged { rootH = it.height }) {
             rev    // read, so every model change recomposes the screen
             if (!land) {
                 // PORTRAIT, 360 x 780: bar 40 · tabs 64 + strip 28 = 92 · caption · THE PHOTO · what works on it
@@ -2186,7 +2230,7 @@ internal fun SurveyPrepDialog(
             } else {
                 // LANDSCAPE, 780 x 360 (a ~336 dp window under the status bar): the photo on the left at full height;
                 // on the right, 318 dp of controls -- bar 32 · tabs 56 + strip 24 = 80 · gap · what works on it (in
-                // 2 · Mark the tool row, the held item's row over it, or the keypad: StepRoute.landFits holds that each fits).
+                // 2 · Mark the tool row, or the keypad in its place: StepRoute.landFits holds that each fits).
                 // The salvaged-prep line sits on the left in landscape too, where it shortens the photo rather than
                 // clipping the panel under the controls.
                 Row(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp)) {
@@ -2233,32 +2277,6 @@ internal fun SurveyPrepDialog(
                     menu()
                 }
             }
-            // ---- THE LONG-PRESS MENU (v52 slice 8): Duplicate · Lock/Unlock · Lock all <type> · Cancel, and Delete LAST
-            // and apart (port 63 slice F1: it was the first row, right under the finger -- SurveyPrepEdit.menuItems), its
-            // top-left 24 dp left of and 12 dp above the press, kept 4 dp inside the screen in either orientation
-            // (sp.js 1471). Under it, the whole screen takes a press as Cancel, so nothing beneath moves while it is open.
-            // ... on a mark, a Tape or a Line (v52 slice 9: "Lock all tapes", "Lock all Line marks")
-            val cm = ctx?.let { c -> SurveyPrepEdit.menuHeaderOf(tx, prep, c.id)?.let { c to it } }
-            if (cm != null) {
-                val (c, head) = cm
-                Box(Modifier.fillMaxSize()
-                    .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume(); ctx = null } }
-                    .semantics { onClick(label = tx.sp_aria_close_menu) { ctx = null; true } })
-                val edge = with(dens) { 4.dp.toPx() }
-                val mw = if (ctxSize.width > 0) ctxSize.width.toFloat() else with(dens) { 180.dp.toPx() }
-                val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { (232 + DeleteGuard.CLEAR_DP).dp.toPx() }
-                val left = (c.x - rootLeft - with(dens) { 24.dp.toPx() }).coerceAtMost(rootW - mw - edge).coerceAtLeast(edge)
-                // ... less the rows the phase hides (port 62 slice L4): on a surveyed mark after Survey, its head and Cancel;
-                // and no Duplicate on a mark where its copy would not be what a tap places (the L4 review; copyOk)
-                val rows = SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)
-                // 12 dp above the press, kept on the screen -- and NEVER WITH ITS DELETE ROW UNDER THE FINGER (port 63
-                // slice F1; DeleteGuard.menuTop): low on the screen the menu is pushed up, and what lands under the
-                // finger is its last row, which is Delete now; there it opens above the press instead
-                val top = DeleteGuard.menuTop((c.y - rootTop).toDouble(), mh.toDouble(), rootH.toDouble(), dens.density.toDouble(),
-                    rows.any { it.first == SurveyPrepEdit.DELETE }).toFloat()
-                SpCtxMenu(head, rows,
-                    Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.onSizeChanged { ctxSize = it }) { k -> ctxPick(c.id, k) }
-            }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
             if (lwhOpen) {
                 Box(Modifier.fillMaxSize().background(Color(0x66000000))
@@ -2278,24 +2296,36 @@ internal fun SurveyPrepDialog(
                     onCancel = { lwhOpen = false },
                     onApply = { applyLwh() })
             }
-            // ---- THE MARK SHEET (port 62 slice L3): a bottom sheet over survey prep, in its own window -- ✕, the scrim
-            // and ◁ cancel it before anything of this screen. What it draws is MarkSheet.view for the stage this
-            // dialog was given; each tap and keystroke replaces the sheet's state, read as it stands when it lands.
-            markSheet?.let { st ->
-                val drawn = MarkSheet.view(tx, prep, st, quoteStage)
-                if (drawn == null) LaunchedEffect(st.id) { markSheet = null }   // its item is gone: the sheet closes
-                else SpMarkSheet(drawn, land, MarkSheetActions(
-                    onKind = { sub -> markSheet = markSheet?.let { cur -> MarkSheet.pickSub(prep, cur, sub) } },
-                    onMove = { to -> markSheet = markSheet?.let { cur -> MarkSheet.pickMove(prep, cur, quoteStage, to) } },
-                    onWhy = { to, typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeWhy(prep, cur, quoteStage, to, typed) } },
-                    onAct = { act -> markSheet = markSheet?.let { cur -> MarkSheet.pickAct(prep, cur, quoteStage, act) } },
-                    onNote = { typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeNote(cur, typed) } },
-                    onOffice = { office -> markSheet = markSheet?.let { cur -> MarkSheet.pickOffice(cur, office) } },
-                    onTrade = { markSheet = markSheet?.let { cur -> MarkSheet.togglePicker(prep, cur) } },
-                    onCat = { cat -> markSheet = markSheet?.let { cur -> MarkSheet.pickCat(cur, cat) } },
-                    onBare = { markSheet = markSheet?.let { cur -> MarkSheet.closePicker(cur) } },
-                    onDone = { sheetDone() },
-                    onCancel = { sheetCancel() }))
+            // ---- THE PANEL THAT SLIDES UP (port 63 slice I2b; DESIGN-imagemeter §6): a bottom sheet over survey prep, in
+            // its own window -- the dimmed photo, a swipe down and ◁ cancel it before anything of this screen. What it
+            // draws is MarkSheet.panel for the stage this dialog was given: the head with Done, the acts, and the Mark
+            // sheet's own blocks. Each tap and keystroke replaces the panel's draft, read as it stands when it lands --
+            // and NONE IS TAKEN IN ITS FIRST 300 MS (MarkSheet.answers): it opens under the finger that opened it.
+            panel?.let { pn ->
+                val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)
+                if (drawn == null) LaunchedEffect(pn.id) { panel = null }   // its item is gone: the panel closes
+                else {
+                    /** A tap or a keystroke in the panel's blocks: its draft as [f] leaves it -- once the panel answers. */
+                    fun typed(f: (MarkSheet.State) -> MarkSheet.State) {
+                        val cur = panel ?: return
+                        if (MarkSheet.answers(cur, SystemClock.uptimeMillis())) panel = cur.with(f)
+                    }
+                    SpMarkSheet(drawn, land, MarkSheetActions(
+                        onPanelAct = { act -> panelAct(act) },
+                        onKind = { sub -> typed { cur -> MarkSheet.pickSub(prep, cur, sub) } },
+                        onMove = { to -> typed { cur -> MarkSheet.pickMove(prep, cur, quoteStage, to) } },
+                        onWhy = { to, text -> typed { cur -> MarkSheet.typeWhy(prep, cur, quoteStage, to, text) } },
+                        onAct = { act -> typed { cur -> MarkSheet.pickAct(prep, cur, quoteStage, act) } },
+                        onNote = { text -> typed { cur -> MarkSheet.typeNote(cur, text) } },
+                        onOffice = { office -> typed { cur -> MarkSheet.pickOffice(cur, office) } },
+                        onTrade = { typed { cur -> MarkSheet.togglePicker(prep, cur) } },
+                        onCat = { cat -> typed { cur -> MarkSheet.pickCat(cur, cat) } },
+                        onBare = { typed { cur -> MarkSheet.closePicker(cur) } },
+                        onDone = { if (panel?.let { cur -> MarkSheet.answers(cur, SystemClock.uptimeMillis()) } == true) panelDone() },
+                        onCancel = { panelCancel() },
+                        answers = { panel?.let { cur -> MarkSheet.answers(cur, SystemClock.uptimeMillis()) } ?: true },
+                        onTop = { y -> panelTop = y }))
+                }
             }
             // ---- THE GUIDED TOUR (port 61c §31): survey prep is a Dialog — its OWN window, which
             // the activity's overlay cannot cover — so it hosts the second TourOverlay instance,
@@ -2368,9 +2398,6 @@ internal class SpRect(val key: String, val sq: SurveyPrep.Square, val bmp: Bitma
  *  (x + [ox], y + [oy]). */
 internal class SpCut(val bmp: Bitmap, val ox: Int, val oy: Int, val ext: IntArray)
 
-/** The long-press menu open on mark [id]; the press was at ([x], [y]) root px. */
-internal data class SpCtx(val id: String, val x: Float, val y: Float)
-
 /** A drag in progress: where it started on the picture, and what moving it does. [locked]: the mark under the finger
  *  is locked (v52 slice 8) -- it is picked, nothing moves, and a drag says why once: the mark's code. (Locked lines
  *  make no grab at all: they are refused at the press.) */
@@ -2395,8 +2422,10 @@ private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSl
                      val move: (Double, Double) -> Unit)
 
 /** A press on the selected Line's or tape's end (or an area's corner), v52 slice 10: with Select on, [grab] moves it;
- *  with Tape or Line on ([grab] null), a new one starts from exactly that point, [mm] on the face. */
-private class SpEnd(val grab: SpGrab?, val mm: DoubleArray)
+ *  with Tape or Line on ([grab] null), a new one starts from exactly that point, [mm] on the face. [i]: the point a
+ *  grab that MOVES is of (port 63 slice I2b) -- the part last touched, and the one Fine move's pad nudges
+ *  (NudgePad.pointPart); null for a new one's start and for an end that does not move. */
+private class SpEnd(val grab: SpGrab?, val mm: DoubleArray, val i: Int? = null)
 
 /** The magnifier(s) while dragging: picture points to centre on, and the finger, canvas px. */
 private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
@@ -2411,10 +2440,17 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
  * ONE STEP TO MARK AND MEASURE (port 63 slice I1b; DESIGN-imagemeter §3): with no
  * tool on, A PRESS PICKS NOTHING -- it acts when it lifts as a tap, and what the
  * tap does is Pick.tap's (onTap): a figure turns gold, an item's body is picked
- * and held, a handle of the held item becomes the part its nudges move, empty
+ * and held, a handle of the held item becomes the part last touched, empty
  * photo lets the pick go or leaves the gold alone. ONLY THE HELD ITEM MOVES
  * (Pick.drag): a drag on anything else pans, so a thumb resting on the photo while
  * the other hand holds the laser cannot drag a mark the walk has reached.
+ * THE PICKED ITEM'S CODE IS A CHIP (port 63 slice I2b; DESIGN-imagemeter §2.2):
+ * drawn outside the item, a tap on it opens the panel that slides up, and so does
+ * a long press on any item, when the finger lifts. NOTHING HERE DELETES: the
+ * floating trash is gone. WHILE THE PANEL IS OPEN THE PHOTO IS LIFTED UNDER IT
+ * (PhotoLift), moved and not rescaled, so the picked item stays in view above the
+ * panel; the lift is a layout offset of the whole photo, so every touch maps
+ * through it by construction.
  */
 @Composable
 private fun SpPhoto(
@@ -2437,9 +2473,16 @@ private fun SpPhoto(
     /** A TAP ON 2 · MARK WITH NO TOOL ON: what SurveyPrepTouch.hit found under it, and -- when it found nothing -- the
      *  Tape, Line, area or chain whose line the finger is on (12 dp). The dialog asks Pick.tap and does what it says. */
     onTap: (SurveyPrepTouch.Hit?, String?) -> Unit,
-    /** A drag began on a handle of the held item -- a tab, a corner, a chain's point: that part is the one its row's
-     *  nudges move (Pick.handle). */
+    /** A handle of the held item pressed -- a tab, a corner, a chain's point, a Tape's or a Line's end: that part is
+     *  the one last touched (Pick.handle), which Fine move nudges. */
     onHandle: (String) -> Unit,
+    /** WHAT THE DRAWING FOUND OF THE PICKED ITEM (port 63 slice I2b): its box and its code chip on the canvas, and the
+     *  canvas's size -- written here as the photo is drawn, read by the press (the chip's tap box), by the lift below
+     *  and by the dialog (Fine move's corner). */
+    shown: SurveyPrepDraw.Shown,
+    /** Where the open panel's top edge is on the SCREEN, px, as it moves; null: no panel is open. Read only where the
+     *  photo is placed, so a panel sliding up moves the photo without recomposing it. */
+    panelTop: () -> Float?,
     /** 1 · Lines: a press took a line, its end or the reference rectangle -- the lines' own selection. */
     onLineGrab: (SpSel) -> Unit,
     /** The keypad's uncommitted digits (MeasurePad.live), drawn on the gold plate; null: none. */
@@ -2453,8 +2496,6 @@ private fun SpPhoto(
     onBeforeChange: () -> Unit,
     onMoved: () -> Unit,
     onChanged: () -> Unit,
-    /** The floating trash pressed beside the picked mark: delete it. */
-    onDelete: (String) -> Unit,
     /** Which step of the strip a press at this root position (px) belongs to (StepRoute.stepFor), or null. */
     stepAt: (Float, Float) -> String?,
     /** A press routed to a step: open it. */
@@ -2466,13 +2507,16 @@ private fun SpPhoto(
     onPlace: (String, Double, Double) -> SurveyPrep.Mark?,
     /** ✕ on the tool chip: a tool picked (SurveyPrepPalette.SEL). */
     onTool: (String) -> Unit,
-    /** A long press on a mark with Select on (v52 slice 8): the mark's id, and the press in root px -- the menu opens there. */
-    onLongPress: (String, Offset) -> Unit,
+    /** A long press on an item with no tool on (Pick row 3): its id -- it is picked and held at the press. True: it
+     *  has a panel, which [onOptions] opens when the finger lifts. */
+    onLongPress: (String) -> Boolean,
+    /** The finger that long-pressed the item lifted: its panel opens (DESIGN-imagemeter §6). */
+    onOptions: (String) -> Unit,
     /** A locked mark dragged, resized or nudged: its code (the refusal snackbar, once per gesture). */
     onRefuse: (String) -> Unit,
     /** A locked surface's lines pressed: said at the press, and nothing is picked (sp.js hitLines). */
     onLinesLocked: () -> Unit,
-    /** A long press opened the menu on a grab the finger's drift had moved: put the press's change back. */
+    /** A long press took an item on a grab the finger's drift had moved: put the press's change back. */
     onRevert: () -> Unit,
     /** v52 slice 9: the Tape or Line being pulled (drawn, and named live on the chip), and a Line area's corners so far. */
     drag: SurveyMeas.Draft?,
@@ -2511,8 +2555,8 @@ private fun SpPhoto(
      *  for it to lift (sp.js surfV.busy). */
     onBusy: (Boolean) -> Unit,
     /** Port 62 slice L4: the project's quote stage, as the dialog was given it. A mark the phase holds read-only
-     *  (PhaseTools.editable) is picked by a press and does not move -- a drag says why, once -- and has no tabs and
-     *  no trash; the chip's second half says what a tap places a mark as. */
+     *  (PhaseTools.editable) is picked by a press and does not move -- a drag says why, once -- and has no tabs;
+     *  the chip's second half says what a tap places a mark as. */
     stage: Int?,
     /** What this capture's chip was last cycled to while the stage is unread, and a tap on that button. */
     asPicked: String?,
@@ -2542,7 +2586,7 @@ private fun SpPhoto(
     val onTapS by rememberUpdatedState(onTap); val onHandleS by rememberUpdatedState(onHandle)
     val onLineGrabS by rememberUpdatedState(onLineGrab)
     val onBeforeChangeS by rememberUpdatedState(onBeforeChange); val onMovedS by rememberUpdatedState(onMoved)
-    val onChangedS by rememberUpdatedState(onChanged); val onDeleteS by rememberUpdatedState(onDelete)
+    val onChangedS by rememberUpdatedState(onChanged); val onOptionsS by rememberUpdatedState(onOptions)
     val stepAtS by rememberUpdatedState(stepAt); val onStepS by rememberUpdatedState(onStep)
     val toolS by rememberUpdatedState(tool); val onPlaceS by rememberUpdatedState(onPlace)
     val onLongPressS by rememberUpdatedState(onLongPress); val onRefuseS by rememberUpdatedState(onRefuse)
@@ -2566,13 +2610,32 @@ private fun SpPhoto(
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
-    // The floating trash as last drawn: its centre x, y and radius, canvas px (null: none shown). Filled by the
-    // drawing, like [tags], and read by the gesture, which takes a press on it before anything under it.
-    val trashAt = remember { arrayOfNulls<FloatArray>(1) }
     var boxW by remember { mutableStateOf(1f) }
     var boxH by remember { mutableStateOf(1f) }
     // Where the photo and the fit button sit on screen, for keeping the magnifier off the button (v52 item 15)
     var photoAt by remember { mutableStateOf(Offset.Zero) }
+    // THE LIFT UNDER THE PANEL (port 63 slice I2b; PhotoLift): where the photo's own place is -- its box BEFORE any
+    // lift, in the dialog's root -- and that root's window, to put it on the screen beside the panel's top edge, which
+    // is another window's. How far the photo moves up is PhotoLift.lift's answer, asked each time the panel's top
+    // moves: nothing while no panel is open, nothing in landscape, and never more than the panel covers.
+    var paneAt by remember { mutableStateOf(Offset.Zero) }
+    val window = LocalView.current
+    val conf = LocalConfiguration.current
+    val land = conf.screenWidthDp > conf.screenHeightDp
+    val liftPx: () -> Int = {
+        val top = panelTop()
+        val item = shown.item
+        if (top == null || item == null) 0
+        else {
+            val at = IntArray(2)
+            window.getLocationOnScreen(at)
+            val y0 = at[1] + paneAt.y.toDouble()
+            // the item WITH its code chip: the chip is what he pressed, and it stands over the item's top
+            val tap = shown.chip?.tap
+            PhotoLift.lift(y0, y0 + boxH, top.toDouble(), y0 + min(item.t, tap?.t ?: item.t), y0 + max(item.b, tap?.b ?: item.b),
+                PhotoLift.MARGIN_DP * density.density, land).roundToInt()
+        }
+    }
     var fitAt by remember { mutableStateOf<Rect?>(null) }
     // ... and off the tool chip (v52 slice 7, ct52 FX14): read only while a chip is shown
     var chipAt by remember { mutableStateOf<Rect?>(null) }
@@ -2632,9 +2695,10 @@ private fun SpPhoto(
      * WHAT A FINGER TAKES ON 1 · LINES (v52 slice 12, sp.js hitLines; the order is SurveyRef.linesHit, tested in :pano):
      * the reference rectangle's corner within 20 dp -- it moves, like a line end; a LOCKED reference's corner -- picked,
      * nothing moves, and a drag says "Front wall reference is locked — unlock first"; a line's end within 18 dp; a line
-     * within 20 dp; else a press INSIDE the reference picks it ([picked] gets its id, so a long press opens its Lock ·
-     * Cancel) and nothing is grabbed. LOCKED LINES (v52 slice 8, sp.js 947-950): a grip or a line under the finger says
-     * so AT THE PRESS and nothing is picked -- no selection, no nudge row, no grab (a drag then pans).
+     * within 20 dp; else a press INSIDE the reference picks it ([picked] gets its id) and nothing is grabbed -- its
+     * padlock is in the row under the photo; it has no long press of its own since the menu went (port 63 slice I2b).
+     * LOCKED LINES (v52 slice 8, sp.js 947-950): a grip or a line under the finger says so AT THE PRESS and nothing is
+     * picked -- no selection, no nudge row, no grab (a drag then pans).
      */
     fun hitLines(sx: Float, sy: Float, picked: (String) -> Unit = {}): SpGrab? {
         val sf = prepS.surface(tab)
@@ -2751,7 +2815,7 @@ private fun SpPhoto(
      * never nudges it -- since port 63 slice I1b only the HELD one's (Pick.handleId), and only once the finger is
      * Pick.BODY_SLOP_DP from where it went down. As a held mark's body: no tool on, in 2 · Mark; a LOCKED one does not move,
      * and a drag says "F-T1 is locked — unlock to move it"; one the phase holds read-only says the phase's line; a long
-     * still press opens its menu. Its reading is not touched. WHETHER the press is on the body at all is
+     * still press opens its panel. Its reading is not touched. WHETHER the press is on the body at all is
      * SurveyGuide.bodyPress, tested in :pano. Null: it is not -- the press goes on down the hit order.
      */
     fun bodyGrab(sx: Float, sy: Float): SpGrab? {
@@ -2776,8 +2840,8 @@ private fun SpPhoto(
 
     /**
      * WHAT IS UNDER A PRESS ON 2 · MARK WITH NO TOOL ON (port 63 slice I1b; DESIGN-imagemeter §3, "The hit order"): the
-     * HELD item's handles first -- its tabs, a held chain's points -- then a figure, then the held Tape's, Line's or
-     * area's body, then the marks topmost first. Only the held item's handles take a press (Pick.handleId): a mark the
+     * HELD item's handles first -- its tabs, a held chain's points -- then THE PICKED ITEM'S CODE CHIP (slice I2b), then
+     * a figure, then the held Tape's, Line's or area's body, then the marks topmost first. Only the held item's handles take a press (Pick.handleId): a mark the
      * walk reached is pressed as any other mark is, by its body. The order is SurveyPrepTouch.hit, tested in :pano.
      * Nothing here picks or moves: the press is the tap's when it lifts (onTap), and only Pick.drag lets a drag move.
      */
@@ -2788,8 +2852,9 @@ private fun SpPhoto(
         val hid = Pick.handleId(pickS)
         val selId = hid?.takeIf { sid -> els.any { it.id == sid } }
         val nodes = hid?.let { sid -> chainsOnScreen().filter { it.first == sid }.map { (cid, pts) -> SurveyPrepTouch.Nodes(cid, pts) } } ?: emptyList()
+        // ... and the picked item's code chip, where the drawing put it: after the handles, before everything else
         return SurveyPrepTouch.hit(drawnMarks(), selId, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble(),
-            nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null)
+            nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)
     }
 
     /** The item a press under [h] is on ([h] what [markHit] found; [line] the line within 12 dp when it found nothing):
@@ -2798,7 +2863,7 @@ private fun SpPhoto(
         is SurveyPrepTouch.Hit.Mark -> h.id
         is SurveyPrepTouch.Hit.Node -> h.id
         is SurveyPrepTouch.Hit.Body -> pickS.picked
-        // the picked item's code chip (slice I2a): never found until slice I2b hands SurveyPrepTouch.hit a chip
+        // the picked item's code chip: the picked item's -- a long press on it is a long press on the item
         is SurveyPrepTouch.Hit.Code -> pickS.picked
         is SurveyPrepTouch.Hit.Tag -> prepS.ownerOf(h.code)?.id
         null -> line
@@ -2814,7 +2879,7 @@ private fun SpPhoto(
     fun markGrab(h: SurveyPrepTouch.Hit?, sx: Float, sy: Float): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         return when (h) {
-            // a press on the code chip grabs nothing, as one on a figure (slice I2a: never found until I2b hands hit a chip)
+            // a press on the code chip grabs nothing, as one on a figure: a drag from it pans
             null, is SurveyPrepTouch.Hit.Tag, is SurveyPrepTouch.Hit.Code -> null
             is SurveyPrepTouch.Hit.Body -> bodyGrab(sx, sy)
             is SurveyPrepTouch.Hit.Node -> if (Pick.handles(pickS, h.id)) nodeGrab(h.id, h.i) else null
@@ -2917,7 +2982,7 @@ private fun SpPhoto(
                 onEndGuideS(SurveyGuide.endGuide(s, m, e))
             }
         }
-        return SpEnd(g, p0)
+        return SpEnd(g, p0, i)
     }
 
     fun loupeFor(g: SpGrab, ix: Double, iy: Double, finger: Offset): SpLoupe {
@@ -2939,7 +3004,11 @@ private fun SpPhoto(
         }
     }
 
-    Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)
+    // THE PHOTO'S PLACE, AND THE PHOTO IN IT (port 63 slice I2b): the outer box keeps its place and cuts what leaves it;
+    // the photo inside is moved UP by the lift while the panel stands over its foot (liftPx; PhotoLift) -- a layout
+    // offset, so everything on the photo, drawn and pressed, moves with it and every touch maps through the lift.
+    Box(modifier.clip(RoundedCornerShape(12.dp)).onGloballyPositioned { paneAt = it.positionInRoot() }) {
+    Box(Modifier.fillMaxSize().offset { IntOffset(0, -liftPx()) }.background(Color.Black)
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .onGloballyPositioned { photoAt = it.positionInRoot() }
         // NOT KEYED ON THE PICTURE (review): in 1 · Lines a wider cut of the same wall is a new bitmap, and a restart
@@ -2957,29 +3026,9 @@ private fun SpPhoto(
                 first.consume()
                 // a press anywhere on the photo shuts the chip's list of kinds, and goes on to do its own work (sp.js 6811)
                 kindOpenS.value = false
-                // THE FLOATING TRASH is on top of everything: a press on it deletes the HELD item when it lifts there.
-                // Only while the item is held and no tool is on (Pick.trash; DESIGN-imagemeter §14 I1): with a type on, the
-                // disc is not there, so a placing tap beside the mark just placed can never land on it and delete that
-                // mark; and a mark the walk reached has no delete control anywhere near the laser's thumb
-                val tr = if (mode == StepRoute.MARK && Pick.trash(sceneS, pickS, SurveyPrepPalette.armed(toolS))) trashAt[0] else null
-                // ... except over the selected item's end handle: the handle is the end's, never the disc's (v52 slice
-                // 10 review: a clamped disc could sit on a handle and delete the tape the press meant to stretch)
-                if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2] &&
-                    endHit(first.position.x, first.position.y, SurveyPrepPalette.SEL) == null) {
-                    gc.reset()
-                    var at = first.position
-                    do {
-                        val ev = awaitPointerEvent()
-                        ev.changes.forEach { it.consume() }
-                        ev.changes.firstOrNull { it.id == first.id }?.let { at = it.position }
-                    } while (ev.changes.any { it.pressed })
-                    val picked = pickS.picked?.takeIf { pickS.held }
-                    if (picked != null && hypot(at.x - tr[0], at.y - tr[1]) <= tr[2]) onDeleteS(picked)
-                    return@awaitEachGesture
-                }
                 // A PRESS JUST UNDER THE STEP STRIP IS THE STEP'S (v52 slice 6, ct52 X1 / FX3): within 48 dp below a
                 // step's top it opens that step, on release, and is never a pan, a grab or a draw; 70 dp down it is the
-                // photo's again. The trash above and the fit button (its own tap) keep theirs.
+                // photo's again. The fit button (its own tap) keeps its own.
                 val routed = stepAtS(first.position.x + photoAt.x, first.position.y + photoAt.y)
                 if (routed != null) {
                     gc.reset()
@@ -2991,9 +3040,13 @@ private fun SpPhoto(
                     return@awaitEachGesture
                 }
                 var grab: SpGrab? = null; var pinch = false; var moved = false; var snapped = false
-                // a locked thing's refusal is said once per gesture; after a long press opened the menu the rest of
-                // the gesture is the menu's (nothing drags, pans or places)
+                // a locked thing's refusal is said once per gesture; after a long press took an item the rest of
+                // the gesture is spent (nothing drags, pans or places) -- its panel opens when the finger lifts
                 var refused = false; var spent = false
+                // the item a long press took, whose panel opens at the lift (port 63 slice I2b); and whether the gesture
+                // ended as a lift at all -- a system cancel (palm rejection) opens nothing
+                var longId: String? = null
+                var lifted = false
                 // 2 · MARK WITH NO TOOL ON (port 63 slice I1b): what was under the press -- the hit, and when nothing was hit
                 // the Tape, Line, area or chain whose line the finger was on -- for the tap it lifts as (onTap)
                 var pressHit: SurveyPrepTouch.Hit? = null
@@ -3025,8 +3078,6 @@ private fun SpPhoto(
                 // a long still press with Tape or Line on is a slow tap: it acts when the finger lifts without a drag
                 var heldTap = false
                 var gone = false
-                // with Select on, the Tape or Line a press picked (hit-order step 10): the long press opens its menu
-                var pickedMeas: String? = null
                 // v52 slice 10: with Tape or Line on, a press on the selected item's end starts the new one from that
                 // very point (tapes laid end to end, ct52 FX13); with Select on, the press grabbed an end
                 var startAt: DoubleArray? = null
@@ -3070,13 +3121,17 @@ private fun SpPhoto(
                             val eh = endHit(e.x.toFloat(), e.y.toFloat(), tool0)
                             val eg = eh?.grab
                             if (eh != null && eg == null) startAt = eh.mm
-                            else if (eg != null) { grab = eg; endGrabbed = true; gated = true; gc.grabbed() }
+                            else if (eg != null) {
+                                grab = eg; endGrabbed = true; gated = true; gc.grabbed()
+                                // an end of the held item pressed: that end is the part last touched (Pick.handle)
+                                eh?.i?.let { pi -> onHandleS(NudgePad.pointPart(pi)) }
+                            }
                             // CHAIN ON: a chain's point under the finger is grabbed (and its chain picked); else nothing yet
                             else if (chainOn) chainNodeAt(e.x.toFloat(), e.y.toFloat())?.let { g ->
                                 grab = g; gated = true; gc.grabbed() }
                             else if (mode == StepRoute.LINES) {
-                                // 1 · Lines: a press inside the reference picks it (v52 slice 12), so its long press opens Lock · Cancel
-                                val h = hitLines(e.x.toFloat(), e.y.toFloat()) { rid -> pickedMeas = rid }
+                                // 1 · Lines: a press inside the reference picks it (v52 slice 12)
+                                val h = hitLines(e.x.toFloat(), e.y.toFloat())
                                 // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it
                                 if (h != null) { grab = h; if (h.gate) gated = true; onLineGrabS(h.sel); gc.grabbed() }
                             } else if (selecting) {
@@ -3087,7 +3142,7 @@ private fun SpPhoto(
                                 val g = markGrab(h, e.x.toFloat(), e.y.toFloat())
                                 if (g != null) {
                                     grab = g; if (g.gate) gated = true; gc.grabbed()
-                                    // a drag on a handle of the held item makes that part the one its nudges move (Pick.handle)
+                                    // a handle of the held item pressed: that part is the one last touched (Pick.handle)
                                     val pt = g.sel.part
                                     if (g.locked == null && pt != "body") onHandleS(pt)
                                     else if (h is SurveyPrepTouch.Hit.Node && g.locked == null) onHandleS(Pick.nodePart(h.i))
@@ -3180,8 +3235,10 @@ private fun SpPhoto(
                         // An end that moved and still lifted as a tap is put back, with its undo step (review).
                         is GestureClassifier.Event.Tap -> {
                             if (SurveyGuide.revertOnTap(gated, moved)) { onRevertS(); moved = false; snapped = false }
-                            // 2 · Mark with no tool on: the press acts now, as Pick.tap says (port 63 slice I1b)
-                            if (selecting) onTapS(pressHit, pressLine)
+                            // 2 · Mark with no tool on: the press acts now, as Pick.tap says (port 63 slice I1b) -- but a tap on
+                            // an END of the held Tape, Line or area is that end's (Pick row 8: nothing moves, and it was made
+                            // the part last touched at the press): it is no tap on empty photo, which would let the item go
+                            if (selecting) { if (!endGrabbed) onTapS(pressHit, pressLine) }
                             else if (measOn) measTap(e.x, e.y, false) else if (chainOn) chainTap(e.x, e.y) else tapAt(e.x, e.y)
                         }
                         // a double tap closes a Line area of three corners or more (v52 slice 9), and ENDS a chain (slice 11,
@@ -3189,7 +3246,7 @@ private fun SpPhoto(
                         is GestureClassifier.Event.DoubleTap -> {
                             if (SurveyGuide.revertOnTap(gated, moved)) { onRevertS(); moved = false; snapped = false }
                             // (the double tap's zoom is slice I4's; until then it is a second tap, as it always was)
-                            if (selecting) onTapS(pressHit, pressLine)
+                            if (selecting) { if (!endGrabbed) onTapS(pressHit, pressLine) }
                             else if (measOn) measTap(e.x, e.y, true)
                             else if (chainOn) { if (grab == null) onChainFinishS() }
                             else tapAt(e.x, e.y)
@@ -3199,23 +3256,24 @@ private fun SpPhoto(
                         // the finger went down and a slide after it carries the mark. With Select on it opens the
                         // menu of the mark under it (below).
                         // with Chain on a long still press is a slow tap: a point where the finger went down, at the lift
-                        // 2 · Mark with no tool on (port 63 slice I1b): held on an item, its menu (Pick row 3); held on a
-                        // figure, a slow tap -- it acts at the lift; on empty photo, nothing
+                        // 2 · Mark with no tool on (port 63 slices I1b, I2b): held on an item, it is picked and held and its
+                        // PANEL opens when the finger lifts (Pick row 3); held on a figure, a slow tap -- it acts at the
+                        // lift; on empty photo, nothing
                         is GestureClassifier.Event.LongPress -> if (measOn) { heldTap = true } else if (chainOn) { if (grab == null) heldTap = true }
                         else if (selecting && pressHit is SurveyPrepTouch.Hit.Tag) { heldTap = true } else {
-                            val gid = if (selecting) pressId(pressHit, pressLine) else grab?.sel?.id ?: pickedMeas
+                            val gid = if (selecting) pressId(pressHit, pressLine) else null
                             if (grab == null && placing)
                                 placeGrab(e.x.toFloat(), e.y.toFloat(), tool0)?.let { grab = it; snapped = true; gc.grabbed() }
-                            // THE LONG-PRESS MENU (v52 slice 8, sp.js openCtx): with Select on, held on a mark (locked
-                            // or not), the menu opens at the press; on empty photo, nothing. A grab moved further than
-                            // GRAB_STILL_DP gets no long press (GestureClassifier); one the drift moved less is put
-                            // back first, with its undo step, so the menu never opens on a mark that has moved
-                            // ... and on 1 · Lines, held on the reference rectangle (its corner or inside it): Lock · Cancel
-                            // under "Front wall reference" (v52 slice 12, ct52 X4) -- a line's long press opens nothing
-                            else if (!placing && gid != null && (mode == StepRoute.MARK || SurveyRef.isId(gid))) {
+                            // A LONG PRESS ON AN ITEM (v52 slice 8, sp.js openCtx; port 63 slice I2b): with no tool on,
+                            // held on an item (locked or not), it is picked and held NOW and its panel opens WHEN THE
+                            // FINGER LIFTS; on empty photo, nothing. A grab moved further than GRAB_STILL_DP gets no
+                            // long press (GestureClassifier); one the drift moved less is put back first, with its undo
+                            // step, so the panel never opens on a mark that has moved. On 1 · Lines a long press is
+                            // nothing: the reference rectangle's padlock is in the row under the photo.
+                            else if (!placing && gid != null && mode == StepRoute.MARK) {
                                 if (moved) { onRevertS(); moved = false; snapped = false }
                                 grab = null; loupe = null; spent = true
-                                onLongPressS(gid, Offset(e.x.toFloat() + photoAt.x, e.y.toFloat() + photoAt.y))
+                                if (onLongPressS(gid)) longId = gid
                             }
                         }
                         is GestureClassifier.Event.DragEnd -> if (measOn) draft?.let { d -> draft = null; loupe = null; onDragEndS(d) }
@@ -3279,9 +3337,14 @@ private fun SpPhoto(
                             ev.changes.forEach { it.consume() }
                             val ch = ev.changes.firstOrNull { it.id == first.id } ?: ev.changes[0]
                             act(if (cancelled) gc.cancel() else gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
+                            lifted = !cancelled
                             break
                         }
                     }
+                    // THE FINGER THAT LONG-PRESSED AN ITEM HAS LIFTED: its panel opens now (DESIGN-imagemeter §6) -- not
+                    // after a pinch the press turned into, and not after a system cancel
+                    val opens = longId
+                    if (opens != null && lifted && !pinch) onOptionsS(opens)
                     // a slow tap with Tape or Line on: a corner (or the hint) where the finger went down
                     if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
                     if (chainOn && heldTap && !gone) chainTap(first.position.x.toDouble(), first.position.y.toDouble())
@@ -3290,7 +3353,7 @@ private fun SpPhoto(
                 } finally {
                     // a drag the loop left (the gesture ended any other way): nothing plotted
                     if (draft != null) { draft = null; onDragCancelS() }
-                    // an end let go (or cancelled, or its long press opened the menu): its guide fades out
+                    // an end let go (or cancelled, or taken by a long press): its guide fades out
                     if (endGrabbed) onEndGuideS(null)
                     loupe = null
                     if (moved) onChangedS() else tick++
@@ -3355,58 +3418,17 @@ private fun SpPhoto(
                             tabs = mode == StepRoute.MARK && pick.held,
                             live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,
                             // after Survey nothing is read here, so the picked item asks nothing: no `?` (the review of I1, finding 5)
-                            ask = MeasureFlow.canRead(scene.stage)), mm, u)
+                            ask = MeasureFlow.canRead(scene.stage),
+                            // THE PICKED ITEM'S CODE IS A CHIP (port 63 slice I2b; SurveyPrepTouch.codeChip): on 2 · Mark,
+                            // with no tool on -- held or not, at every stage: it is the way to its panel
+                            chip = mode == StepRoute.MARK && !SurveyPrepPalette.armed(tool),
+                            shown = if (which == "main") shown else null), mm, u)
                     }
                 }
                 tags.clear()
+                // what this frame draws of the picked item: nothing, until drawMarks says otherwise
+                shown.clear(size.width.toDouble(), size.height.toDouble())
                 overlay(nc, m, "main")
-                // ---- THE FLOATING TRASH (v52): a 36 dp red disc with a white ring beside the picked mark, placed
-                // by SurveyPrepTouch.trashSpot so it never covers one of its figures -- a tap on a figure never deletes
-                trashAt[0] = null
-                // with a type on the disc is not drawn (sp.js 801: "with a drawing tool on, the trash stays in the bar")
-                // ... nor where the phase hides the picked item's delete (port 62 slice L4; sp.js fTrashSurf's `!P54.spDelOk`)
-                // ... and ONLY WHILE THE ITEM IS HELD (port 63 slice I1b; Pick.trash, for this one build -- I2 deletes it)
-                val pickedId = if (mode == StepRoute.MARK && Pick.trash(scene, pick, SurveyPrepPalette.armed(tool))) pickedHere else null
-                val picked = pickedId?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } }
-                // ... or beside a picked Tape, Line or area (v52 slice 9): round the box of its points
-                val pickedM = if (picked == null) pickedId?.let { sid -> prep.surface(tab).meas.firstOrNull { it.id == sid && it.pts.isNotEmpty() } } else null
-                // ... or a picked chain (v52 slice 11): round the box of its points, clear of them
-                val pickedK = if (picked == null && pickedM == null) pickedId?.let { sid -> prep.surface(tab).chains.firstOrNull { it.id == sid && it.nodes.isNotEmpty() } } else null
-                val pickedPts: List<DoubleArray>? = pickedM?.pts ?: pickedK?.nodes
-                val rr = rect
-                if ((picked != null || pickedPts != null) && rr != null) {
-                    val dpx = density.density
-                    val bb = if (pickedPts != null) pickedPts.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])) }.let { ps ->
-                        SurveyPrepTouch.Box(ps.minOf { it[0] }.toDouble(), ps.minOf { it[1] }.toDouble(), ps.maxOf { it[0] }.toDouble(), ps.maxOf { it[1] }.toDouble()) }
-                    else if (SurveyPrep.isSpot(picked!!.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
-                        SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
-                    else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
-                        SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
-                    // DELETE CANNOT BE PRESSED BY ACCIDENT (port 63 slice F1; DeleteGuard): the disc keeps 16 dp clear of the
-                    // picked item's own handles -- a box mark's eight tabs (a spot's centre); a Tape's, a Line's, an area's
-                    // or a chain's points and its line, a tape's as wide as its band -- and of every figure; where no place
-                    // is that clear there is no disc (SurveyPrepTouch.trashSpot). It sat 2 dp off the corner tab until now.
-                    val scrPts = pickedPts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }
-                    val keep = if (scrPts != null) SurveyPrepTouch.keepOfLine(scrPts, pickedM?.kind == SurveyMeas.AREA,
-                            if (pickedM?.kind == SurveyMeas.TAPE) SurveyMeas.bandHalfPx(kk / rr.sq.mpp, dpx.toDouble()) else 0.0)
-                        else SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)
-                    SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(), keep)?.let { ts ->
-                        val rad = 18f * dpx; val tcx = ts.left.toFloat() + rad; val tcy = ts.top.toFloat() + rad
-                        val pt = Paint(Paint.ANTI_ALIAS_FLAG)
-                        pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); nc.drawCircle(tcx, tcy, rad, pt)
-                        pt.style = Paint.Style.STROKE; pt.strokeWidth = 2f * dpx; pt.color = android.graphics.Color.WHITE
-                        nc.drawCircle(tcx, tcy, rad - dpx, pt)
-                        // a bin: lid, handle, body with two ribs
-                        pt.strokeWidth = 1.8f * dpx; pt.strokeCap = Paint.Cap.ROUND
-                        val g = 5.5f * dpx
-                        nc.drawLine(tcx - 1.3f * g, tcy - g, tcx + 1.3f * g, tcy - g, pt)
-                        nc.drawLine(tcx - .45f * g, tcy - 1.4f * g, tcx + .45f * g, tcy - 1.4f * g, pt)
-                        nc.drawRect(tcx - g, tcy - .7f * g, tcx + g, tcy + 1.5f * g, pt)
-                        nc.drawLine(tcx - .35f * g, tcy - .3f * g, tcx - .35f * g, tcy + 1.1f * g, pt)
-                        nc.drawLine(tcx + .35f * g, tcy - .3f * g, tcx + .35f * g, tcy + 1.1f * g, pt)
-                        trashAt[0] = floatArrayOf(tcx, tcy, rad)
-                    }
-                }
                 // ---- the magnifier(s): three times the photo as it is shown
                 loupe?.let { lp ->
                     val dia = 120f * density.density; val sc = kk * 3
@@ -3490,6 +3512,46 @@ private fun SpPhoto(
                 // the zoom, whenever the view is out of fit (sp.js zl: hidden while fitted; two places below 1)
                 view.label()?.let { zl -> Text(zl, color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp)) }
+            }
+        }
+    }
+    }
+}
+
+/**
+ * FINE MOVE'S PAD (port 63 slice I2b; DESIGN-imagemeter §6; every rule is NudgePad in :pano): ▲ ◀ ▶ ▼ round a centre
+ * cell that reads the step and switches it between 1 and 5 mm, and ✓ in its top right corner -- 3 x 3 cells of 40 dp
+ * (NudgePad.GRID, CELL_DP), 8 dp inside the photo's corner (EDGE_DP; the caller aligns it to the corner NudgePad chose).
+ * An arrow the part being nudged does not answer to is drawn dim (NudgePad.live) and still takes its press -- which
+ * then moves nothing -- so a thumb a little off never falls through to the photo and lets the item go. An empty cell
+ * is the photo's.
+ */
+@Composable
+private fun SpNudgePad(st: NudgePad.State, modifier: Modifier, onKey: (NudgePad.Key) -> Unit) {
+    val tx = LocalTx.current
+    val shape = RoundedCornerShape(8.dp)
+    Column(modifier.padding(NudgePad.EDGE_DP.toFloat().dp)) {
+        for (row in NudgePad.GRID) {
+            Row {
+                for (k in row) {
+                    val cell = Modifier.size(NudgePad.CELL_DP.toFloat().dp)
+                    if (k == null) Spacer(cell)
+                    else {
+                        val step = k == NudgePad.Key.STEP
+                        val done = k == NudgePad.Key.DONE
+                        val live = NudgePad.live(st, k)
+                        val words = if (step) NudgePad.stepText(st) else NudgePad.glyph(k)
+                        val said = if (step) NudgePad.stepLabel(tx, st) else if (done) NudgePad.doneLabel(tx) else words
+                        Box(cell.padding(2.dp).clip(shape).background(if (done) SP_GOLD else Color(0xE61E211B))
+                            .border(1.dp, if (done) SP_GOLD else if (live) SP_LINE_BORDER else Color(0xFF2A2D25), shape)
+                            .clickable(role = Role.Button) { onKey(k) }
+                            .semantics { contentDescription = said },
+                            contentAlignment = Alignment.Center) {
+                            Text(words, color = if (done) Color(0xFF1A1A12) else if (live) SP_FG else SP_DIM,
+                                fontSize = if (step) 11.sp else 16.sp, lineHeight = if (step) 14.sp else 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        }
+                    }
+                }
             }
         }
     }

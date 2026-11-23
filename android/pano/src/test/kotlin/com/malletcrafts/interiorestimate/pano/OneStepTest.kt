@@ -74,24 +74,25 @@ class OneStepTest {
 
     // ------------------------------------------------------------------ what stands under the photo
 
-    @Test fun `under the photo in 2 Mark - the tool row, the picked item's row over it, or the keypad in their place - never a measurement`() {
-        assertEquals(Under.TOOLS, StepRoute.underMark(toolRow = true, row = false, keypad = false))
-        assertEquals(Under.HELD, StepRoute.underMark(toolRow = true, row = true, keypad = false))
-        // the keypad takes the tool row's place AND the picked row's: the photo never loses both
-        assertEquals(Under.KEYPAD, StepRoute.underMark(toolRow = true, row = true, keypad = true)); assertEquals(Under.KEYPAD, StepRoute.underMark(true, false, true))
-        // Estimation and Client approved: no tool row at all -- the PICKED item's row alone (the review of I1, finding 1:
-        // its label is the way to its Mark sheet there), else nothing
-        assertEquals(Under.NOTHING, StepRoute.underMark(toolRow = false, row = false, keypad = false)); assertEquals(Under.ROW, StepRoute.underMark(false, true, false))
-        // there are five things it can be, and none is a bar, a box or a list
-        assertEquals(listOf("NOTHING", "TOOLS", "HELD", "ROW", "KEYPAD"), Under.values().map { it.name })
+    @Test fun `under the photo in 2 Mark - the tool row, or the keypad in its place - never a measurement, never the picked item's row`() {
+        assertEquals(Under.TOOLS, StepRoute.underMark(toolRow = true, keypad = false))
+        // the keypad takes the tool row's place
+        assertEquals(Under.KEYPAD, StepRoute.underMark(toolRow = true, keypad = true)); assertEquals(Under.KEYPAD, StepRoute.underMark(false, true))
+        // Estimation and Client approved: no tool row at all -- NOTHING stands under the photo (the picked item's row,
+        // which stood there alone for the one build I1, went with slice I2b: its code is a chip on the photo)
+        assertEquals(Under.NOTHING, StepRoute.underMark(toolRow = false, keypad = false))
+        // there are three things it can be, and none is a bar, a box, a list or a row of the picked item: what is picked
+        // or held is not even asked
+        assertEquals(listOf("NOTHING", "TOOLS", "KEYPAD"), Under.values().map { it.name })
+        assertEquals(2, StepRoute::class.java.declaredMethods.single { it.name == "underMark" }.parameterCount)
     }
 
-    @Test fun `the photo's height in portrait - 514 with the row, 466 held, 388 with the keypad, 570 with no row`() {
+    @Test fun `the photo's height in portrait - 514 with the row whatever is picked, 388 with the keypad, 570 with no row`() {
         assertEquals(56, StepRoute.toolRowDp(false)); assertEquals(52, StepRoute.toolRowDp(true))
         assertEquals(182, StepRoute.keypadDp(false)); assertEquals(150, StepRoute.keypadDp(true))   // 6 + 4 x 44, 6 + 4 x 36
-        assertEquals(48, StepRoute.heldRowDp(false))
-        // DESIGN-imagemeter §2.4, "After I1"
-        assertEquals(514, StepRoute.markPhotoDp(Under.TOOLS)); assertEquals(466, StepRoute.markPhotoDp(Under.HELD))
+        // DESIGN-imagemeter §2.4, "After I2": picking a mark changes nothing under the photo -- 514 dp in every state but
+        // the keypad's (it was 466 while an item was picked, for the one build I1)
+        assertEquals(514, StepRoute.markPhotoDp(Under.TOOLS))
         assertEquals(388, StepRoute.markPhotoDp(Under.KEYPAD)); assertEquals(570, StepRoute.markPhotoDp(Under.NOTHING))
         // the chrome above the photo: the padding 12, the band 20, the top bar 40, tabs and strip 92, the caption 22
         assertEquals(186, StepRoute.PORTRAIT_CHROME_DP); assertEquals(12 + 20 + 40 + StepRoute.budgetDp(false, "front") + 22, StepRoute.PORTRAIT_CHROME_DP)
@@ -99,15 +100,19 @@ class OneStepTest {
         // photo is 60 dp taller while he types (328 -> 388), and a mark being measured by the walk costs no height at all
         val was = StepRoute.PORTRAIT_WINDOW_DP - StepRoute.PORTRAIT_CHROME_DP - 56 - StepRoute.PAD_ROWS * StepRoute.padRowDp(false) - 4 - 6
         assertEquals(328, was); assertEquals(60, StepRoute.markPhotoDp(Under.KEYPAD) - was)
+        // THE PANEL AT ITS HALF REST covers the tool row and the photo's lower part: 756 / 2 = 378 dp of panel over the
+        // 56 dp tool row and 322 of the photo's 514 -- 192 dp of photo above it (§2.4, §6), lifted so the item shows
+        assertEquals(378.0, MarkSheet.halfRestDp(StepRoute.PORTRAIT_WINDOW_DP.toDouble()))
+        assertEquals(192.0, StepRoute.markPhotoDp(Under.TOOLS) - (MarkSheet.halfRestDp(StepRoute.PORTRAIT_WINDOW_DP.toDouble()) - StepRoute.toolRowDp(false)))
     }
 
     @Test fun `in landscape everything 2 Mark can stand under the photo fits the column, and the photo keeps its height`() {
         assertEquals(212, StepRoute.landUnderDp())
         for (u in Under.values()) assertTrue(StepRoute.landFits(u), "$u: ${StepRoute.underDp(u, true)} dp")
-        assertEquals(listOf(0, 52, 86, 34, 150), Under.values().map { StepRoute.underDp(it, true) })
-        assertEquals(listOf(0, 56, 104, 48, 182), Under.values().map { StepRoute.underDp(it, false) })
-        // the keypad and the tool row do NOT both fit under a held row there (150 + 52 + 34): which is why the keypad takes their place
-        assertTrue(StepRoute.keypadDp(true) + StepRoute.toolRowDp(true) + StepRoute.heldRowDp(true) > StepRoute.landUnderDp())
+        assertEquals(listOf(0, 52, 150), Under.values().map { StepRoute.underDp(it, true) })
+        assertEquals(listOf(0, 56, 182), Under.values().map { StepRoute.underDp(it, false) })
+        // the keypad and the tool row do NOT both fit there with anything else: which is why the keypad takes the row's place
+        assertTrue(StepRoute.keypadDp(true) + StepRoute.toolRowDp(true) + 34 > StepRoute.landUnderDp())
     }
 
     // ------------------------------------------------------------------ the row, and the tool that goes off

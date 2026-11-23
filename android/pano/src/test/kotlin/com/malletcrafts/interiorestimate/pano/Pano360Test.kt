@@ -536,9 +536,8 @@ class Pano360Test {
         // a spot has no corners to free, whatever it is told: its outline is its ring
         val sp = p.addMarkAt("front", "E", 400.0, 400.0, W, H, "e1")
         assertFalse(Quad.free(sp, "e1", "q0")); assertEquals(16, Pano360.markPoly(v, "front", f, sp, DP)!!.pts.size)
-        // the floating trash keeps the bounding box
-        val tr = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "w1"))
-        val bl = Pano360.toS(v, "front", f, e.x0, e.y0)!!; assertEquals(bl[0], tr.box.l, 1e-6)
+        // (the floating trash kept the bounding box; it went in port 63 slice I2b -- on 2 · Mark the code chip keeps it,
+        // CodeChipTest, and on the 360 a long press opens the panel)
     }
 
     // ------------------------------------------------------------------ slice 17 review fixes
@@ -563,45 +562,40 @@ class Pano360Test {
         assertNull(Pano360.lookTap(GestureClassifier.Event.LongPress(1.0, 1.0), true, false, false))
     }
 
-    @Test fun `the floating trash on the 360 -- beside the picked mark, Tape or chain, with Select on, never for the reference`() {
-        val p = room(); val fr = frames(p)
-        val v = Pano360.faceView("front", 680.0, 840.0)
+    @Test fun `nothing on the 360 deletes by itself -- the floating trash is gone, and a long press opens the same panel as on the face`() {
+        // PORT 63 SLICE I2b: the 360's floating trash (sp.js fTrashP3; Pano360.trashOf) went with 2 · Mark's. What it did is
+        // the panel's last act, and the panel opens on the 360 by a long press on the thing, when the finger lifts -- for
+        // every kind of item the trash stood beside, and never for the reference.
+        val p = room()
         p.surface("front").marks.add(SurveyPrep.Mark("m1", "D", "F-D1", 900.0, 1800.0, 400.0, 2000.0))
         val t = p.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(400.0, 1000.0), doubleArrayOf(1400.0, 1000.0)), "t1")
-        // a mark: the box of its four corners as drawn; the disc keeps off its eight TABS where they are drawn (port 63
-        // slice F1: it sat 2 dp off the corner, inside the corner tab's reach) -- no line of its own
-        val m = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "m1", DP))
-        val corners = listOf(900.0 to 400.0, 1800.0 to 400.0, 1800.0 to 2000.0, 900.0 to 2000.0).map { (x, y) -> Pano360.toS(v, "front", fr.getValue("front"), x, y)!! }
-        assertEquals(corners.minOf { it[0] }, m.box.l, 1e-9); assertEquals(corners.maxOf { it[0] }, m.box.r, 1e-9)
-        assertEquals(corners.minOf { it[1] }, m.box.t, 1e-9); assertEquals(corners.maxOf { it[1] }, m.box.b, 1e-9)
-        val door = p.surface("front").marks.single()
-        assertEquals(Pano360.tabsOf(door).map { (_, mm) -> Pano360.toS(v, "front", fr.getValue("front"), mm[0], mm[1])!!.toList() }, m.keep.points.map { it.toList() })
-        assertEquals(8, m.keep.points.size); assertTrue(m.keep.body.isEmpty())
-        val ms = assertNotNull(SurveyPrepTouch.trashSpot(m.box, emptyList(), 680.0, 840.0, DP, m.keep))
-        assertTrue(m.keep.points.all { q -> kotlin.math.hypot(ms.left + 18 * DP - q[0], ms.top + 18 * DP - q[1]) >= (18 + DeleteGuard.CLEAR_DP) * DP })
-        // a Tape: its two ends are the box; the disc keeps off both ends AND its band, which takes a press too (it moves
-        // the tape whole) -- one piece, as wide as the band is drawn there
-        val tt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, t.id, DP))
-        assertEquals(2, tt.keep.points.size); assertEquals(1, tt.keep.body.size)
-        assertEquals(Pano360.measLine(v, "front", fr.getValue("front"), t, DP).widen, tt.keep.bodyHalf, 1e-9); assertTrue(tt.keep.bodyHalf > 0)
-        val ts = assertNotNull(SurveyPrepTouch.trashSpot(tt.box, emptyList(), 680.0, 840.0, DP, tt.keep))
-        assertTrue(tt.keep.body.all { (a, b) -> SurveyMeas.segDist(ts.left + 18 * DP, ts.top + 18 * DP, a, b) >= (18 + DeleteGuard.CLEAR_DP) * DP + tt.keep.bodyHalf })
-        // a chain a room already has: its points, and the pieces between them
         val ch = p.addChain("front", "x", listOf(doubleArrayOf(300.0, 600.0), doubleArrayOf(900.0, 600.0), doubleArrayOf(1500.0, 600.0)), listOf(null, null, null), "k1")
-        val kt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, ch.id, DP))
-        assertEquals(3, kt.keep.points.size); assertEquals(2, kt.keep.body.size); assertEquals(0.0, kt.keep.bodyHalf)
-        // a point: its own centre
         p.surface("front").marks.add(SurveyPrep.Mark("e1", "E", "FE1", 400.0, 450.0, 300.0, 350.0))
-        val et = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "e1", DP))
-        assertEquals(listOf(Pano360.toS(v, "front", fr.getValue("front"), 425.0, 325.0)!!.toList()), et.keep.points.map { it.toList() })
-        // with a tool on, nothing picked, the reference, or the item behind the camera: no trash
-        assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.TAPE, "m1"))
-        assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, null))
-        assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "${SurveyRef.KEY}:front"))
-        assertNull(Pano360.trashOf(Pano360.faceView("back", 680.0, 840.0), fr, p, SurveyPrepPalette.SEL, "m1"))
-        // on a surface whose lines are not all set: no trash
-        val q = room(); q.surface("front").marks.add(SurveyPrep.Mark("m1", "D", "F-D1", 900.0, 1800.0, 400.0, 2000.0))
-        q.surface("front").set[SurveyPrep.SLOTS[0]] = false
-        assertNull(Pano360.trashOf(v, Pano360.frames(q, L, W, H), q, SurveyPrepPalette.SEL, "m1"))
+        for (id in listOf("m1", t.id, ch.id, "e1")) {
+            // a long press picks and holds it and asks for its options (Pick row 3) ...
+            val sc = Pick.Scene(p, 0, StepRoute.PANO) { doubleArrayOf(W, H) }
+            val o = Pick.longPress(sc, Pick.NONE, id)
+            assertTrue(o.options && o.state.picked == id && o.state.held, id); assertNull(o.state.gold, "$id: nothing is ever gold on the 360")
+            // ... its panel opens, and Delete is that panel's last act -- the one place it is
+            assertTrue(MarkSheet.panelOpens(p, id), id)
+            val pn = assertNotNull(MarkSheet.openPanel(p, id, 0L, longPress = true), id)
+            val acts = assertNotNull(MarkSheet.panel(Tx.EN, p, pn, 0, null), id).acts
+            assertEquals(SurveyPrepEdit.DELETE, acts.all.last().id, id); assertTrue(acts.all.last().delete, id)
+            assertTrue(MarkSheet.actStep(Tx.EN, p, pn.copy(openedAt = -1000L), SurveyPrepEdit.DELETE, 0, null) is MarkSheet.ActStep.Delete, id)
+        }
+        // the reference is no item: a long press on it opens nothing, and it is never deleted
+        val ref = "${SurveyRef.KEY}:front"
+        assertFalse(MarkSheet.panelOpens(p, ref)); assertNull(MarkSheet.openPanel(p, ref, 0L, longPress = true))
+        assertFalse(Pick.longPress(Pick.Scene(p, 0, StepRoute.PANO) { doubleArrayOf(W, H) }, Pick.NONE, ref).options)
+        // the rule that placed the disc is gone from :pano, and the screen's 360 neither draws nor presses one
+        val android = com.malletcrafts.interiorestimate.pano.i18n.I18n.android
+        val pano = android.resolve("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt").readText()
+        for (gone in listOf("fun trashOf(", "class Trash(")) assertFalse(pano.contains(gone), "Pano360 still has $gone")
+        val p3 = android.resolve("app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt").readText()
+        for (gone in listOf("trashAt", "actS.delete(", "P3Draw.trash(", "trashSpot(")) assertFalse(p3.contains(gone), "SurveyPrep360.kt still has $gone")
+        // the long press takes the thing at the press, and its panel opens when the finger lifts -- not after a pinch or a cancel
+        assertTrue(p3.contains("if (actS.longPress(gid)) longId = gid"))
+        assertTrue(p3.contains("if (opens != null && lifted && !pinch) actS.options(opens)"))
+        assertTrue(p3.indexOf("if (actS.longPress(gid)) longId = gid") < p3.indexOf("if (opens != null && lifted && !pinch) actS.options(opens)"))
     }
 }

@@ -22,16 +22,19 @@ import kotlin.test.assertTrue
  *  1. THE MENU. F1: the delete row is the LAST row. Q1: the shape row stands after Duplicate, before Lock. So:
  *     `Duplicate · Four corners · Lock · Lock all … · Cancel · Delete`; where the phase hid Duplicate the shape row is
  *     the first row; it is never after Delete. `menuItemsOf`'s sixth parameter is F1's `chains`, its seventh Q1's `shape`.
- *     NOT SETTLED HERE, AND HELD FOR SLICE Q2: with the shape row the menu is six rows, and on the phone's landscape
- *     window F1's placement can no longer keep its delete row 16 dp from the finger (the second test).
+ *     SETTLED BY PORT 63 SLICE I2b (23 Nov 2026): the long-press menu is gone and the rows are THE PANEL'S ACTS
+ *     (MarkSheet.acts, DESIGN-imagemeter §6, §8.2), where the shape row is line 2's first and Delete is still last and
+ *     apart in both orientations (the second test) -- what the six-row menu could not do on the landscape window.
  *  2. THE PRESS on 2 · Mark. F1: the picked Tape's body comes before the marks. Q1: a free mark's corners stand where
  *     the eight tabs do, and its body counts only inside its shape. So a tape across a four-corner window is moved by
  *     its band, the window by the rest of its SHAPE, and the empty corner of its bounding box is neither.
- *  3. THE FLOATING TRASH. F1: the disc is 16 dp from the picked item's OWN handles. Q1: a free mark's handles are its
- *     four corners, and the trash keeps the bounding box. So the disc is placed beside the bounding box and kept clear
- *     of the four corners as they stand -- not of eight tabs that are not drawn.
+ *  3. THE CODE CHIP (the floating trash until slice I2b, which took it away). F1: what deletes is 16 dp from the
+ *     picked item's OWN handles. Q1: a free mark's handles are its four corners, and the bounding box is kept. The
+ *     trash is gone; the picked item's CODE CHIP took its place by the same two rules (DESIGN-imagemeter §8.2): it
+ *     keeps the bounding box's top-left and stands 16 dp clear of the four corners as they stand -- not of eight tabs
+ *     that are not drawn.
  *  4. THE 360. The same two rules through the view: tabs (the free corners) before a chain's point before the picked
- *     tape's body before the marks, whose outline is the real shape; the trash keeps off the corners.
+ *     tape's body before the marks, whose outline is the real shape. (Nothing on the 360 deletes since slice I2b.)
  *  5. GOLD. H1: the one being measured is gold whatever its state. Q1: two new roles, SIDE and DIAG, and a `!` on the
  *     sloping side. So a side being measured is gold like any figure, its line is there to be drawn gold, and its `!`
  *     takes the gold plate's dark ink.
@@ -116,28 +119,45 @@ class QuadMeetsF1Test {
         assertEquals(6, SurveyPrepEdit.menuItemsOf(en, p, "d1", 0, null, shape = true).size)
     }
 
-    @Test fun `the menu with the shape row is six rows - F1's placement holds in portrait and NOT on the phone's landscape window, which is slice Q2's to settle`() {
-        val dp = 2.0
-        // the menu as SpCtxMenu draws it (DeleteGuardTest): 4 of padding, a 24 dp head, its rows of 40, 16 dp of dead menu
-        // before the delete row, 4 under it -- 248 dp with five rows, 288 with the shape row
-        fun menuDp(rows: Int) = DeleteGuard.MENU_FOOT_DP + 24 + (rows - 1) * DeleteGuard.MENU_ROW_DP + DeleteGuard.CLEAR_DP + DeleteGuard.MENU_ROW_DP + DeleteGuard.MENU_FOOT_DP
-        assertEquals(248, menuDp(5)); assertEquals(288, menuDp(6))
-        fun worst(screen: Int, rows: Int): Double = (0..screen).minOf { y ->
-            val top = DeleteGuard.menuTop(y * dp, menuDp(rows) * dp, screen * dp, dp, true)
-            DeleteGuard.menuClear(y * dp, top, menuDp(rows) * dp, dp) / dp
+    @Test fun `the shape row in the panel - line 2's first, Delete still last and apart, and nothing under Done - what the six-row menu could not do in landscape`() {
+        // UNTIL SLICE I2b this test held a fault for slice Q2 to settle: with the shape row the long-press menu was six
+        // rows (288 dp), and on the Mi A3's landscape window (336 to 360 dp) F1's placement could no longer keep its
+        // delete row 16 dp from the finger that opened it -- 0 dp at 336 and 348, 8 dp at 360. THE MENU IS GONE. The
+        // rows are the panel's acts (MarkSheet.acts), and there the shape row costs nothing: it is line 2's FIRST cell,
+        // in a column that stood empty, and Delete does not move.
+        val p = SurveyPrep.fresh(L, A, B)
+        p.surface("front").marks.add(SurveyPrep.Mark("d1", "D", "FD1", 100.0, 500.0, 0.0, 2100.0))
+        p.surface("front").marks.add(SurveyPrep.Mark("d2", "D", "FD2", 3000.0, 3400.0, 0.0, 2100.0, mapOf(SurveyPrep.LOCKED to true)))
+        p.surface("front").marks.add(window())
+        val plain = MarkSheet.acts(en, p, "d1", 0, null); val shaped = MarkSheet.acts(en, p, "d1", 0, null, shape = true)
+        assertEquals(listOf(SurveyPrepEdit.LOCK, SurveyPrepEdit.DUPLICATE, MarkSheet.FINE), shaped.line1.map { it.id }); assertEquals(plain.line1.map { it.id }, shaped.line1.map { it.id })
+        assertEquals(listOf(SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), plain.line2.map { it.id })
+        assertEquals(listOf(SurveyPrepEdit.SHAPE_FREE, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), shaped.line2.map { it.id })
+        assertEquals(listOf(SurveyPrepEdit.SHAPE_BOX, SurveyPrepEdit.LOCK_ALL, SurveyPrepEdit.DELETE), MarkSheet.acts(en, p, "w1", 0, null, shape = true).line2.map { it.id })
+        assertEquals(2, plain.rows); assertEquals(2, shaped.rows, "the panel is no taller for it")
+        // PORTRAIT: Delete in the last column of line 2, exactly where it stood without the shape row, 24 dp from Lock all
+        val a = MarkSheet.slots(plain, 336.0, false).single { it.cell.delete }; val b = MarkSheet.slots(shaped, 336.0, false).single { it.cell.delete }
+        assertEquals(listOf(a.row, a.l, a.r), listOf(b.row, b.l, b.r)); assertEquals(336.0, b.r, 1e-9)
+        val all = MarkSheet.slots(shaped, 336.0, false).single { it.cell.id == SurveyPrepEdit.LOCK_ALL }
+        assertEquals(MarkSheet.DELETE_GAP_DP, b.l - all.r, 1e-9); assertTrue(MarkSheet.DELETE_GAP_DP > DeleteGuard.CLEAR_DP)
+        // LANDSCAPE, every window of the phone: ONE line of six, Delete last, 24 dp from the act before it, and the line
+        // ends 16 dp short of Done -- nothing stands under Done, and nothing is placed by where the finger was
+        for (wide in listOf(736.0, 756.0, 780.0)) {
+            val doneLeft = wide - 70
+            val line = MarkSheet.slots(shaped, wide, true, doneLeft)
+            assertEquals(6, line.size); assertTrue(line.all { it.row == 0 }); assertTrue(line.last().cell.delete)
+            assertEquals(MarkSheet.DELETE_GAP_DP, line.last().l - line[4].r, 1e-9, "$wide")
+            assertTrue(line.last().r <= doneLeft - MarkSheet.DONE_CLEAR_LAND_DP + 1e-9, "$wide")
+            assertTrue(line.all { it.r - it.l >= 88.0 }, "$wide: every act is a real button: ${line.map { it.r - it.l }}")
         }
-        // F1's own menu: 16 dp from the delete row at every press, on every window of the phone (DeleteGuardTest)
-        for (screen in listOf(336, 348, 360, 780)) assertTrue(worst(screen, 5) >= DeleteGuard.CLEAR_DP, "$screen")
-        // WITH THE SHAPE ROW: in portrait, and on any window 368 dp tall or more (the menu and 80 dp), the same holds
-        for (screen in listOf(368, 400, 780)) assertTrue(worst(screen, 6) >= DeleteGuard.CLEAR_DP, "$screen: ${worst(screen, 6)}")
-        // ... and ON THE Mi A3's LANDSCAPE WINDOW (336 to 360 dp) IT DOES NOT: the six-row menu cannot be put with its
-        // delete row 16 dp from a press near its foot -- F1 said the same of five rows under 328 dp. Low on the photo the
-        // delete row is UNDER THE FINGER again at 336 and 348 dp, and 8 dp from it at 360. Nothing draws six rows today
-        // (`shape` is off; the screen's call passes none), so the phone is as F1 left it. SLICE Q2 MUST SETTLE THIS IN
-        // THE COMMIT THAT TURNS `shape` ON -- a shorter menu in landscape, or the row elsewhere -- and move this pin with
-        // its reason; it is held here so that commit cannot miss it
-        assertEquals(listOf(0.0, 0.0, 8.0), listOf(336, 348, 360).map { worst(it, 6) }, "the six-row menu on the landscape window")
-        assertTrue(worst(367, 6) < DeleteGuard.CLEAR_DP)
+        // the row is OFF until slice Q2 turns the switch (the screen passes none: the last test of this file)
+        assertFalse(plain.has(SurveyPrepEdit.SHAPE_FREE)); assertFalse(MarkSheet.acts(en, p, "w1", 0, null).has(SurveyPrepEdit.SHAPE_BOX))
+        // and its act: Done followed by the act; on a LOCKED mark it is drawn and refused in the lock's own words, in the panel
+        val pn = MarkSheet.openPanel(p, "d1", -1000L)!!
+        assertIs<MarkSheet.ActStep.Run>(MarkSheet.actStep(en, p, pn, SurveyPrepEdit.SHAPE_FREE, 0, null, shape = true))
+        assertIs<MarkSheet.ActStep.Refused>(MarkSheet.actStep(en, p, pn, SurveyPrepEdit.SHAPE_FREE, 0, null), "not drawn: nothing happens")
+        val lk = MarkSheet.actStep(en, p, MarkSheet.openPanel(p, "d2", -1000L)!!, SurveyPrepEdit.SHAPE_FREE, 0, null, shape = true)
+        assertIs<MarkSheet.ActStep.Refused>(lk); assertEquals(SurveyPrepEdit.refusal(en, "FD2"), lk.panel.said)
     }
 
     // ---------------------------------------------------------------- 2. the press on 2 · Mark
@@ -186,66 +206,63 @@ class QuadMeetsF1Test {
         val inBox = SurveyPrepTouch.hit(listOf(boxed), "t1", emptyList(), empty[0], empty[1], tol, DP, body = false); assertIs<SurveyPrepTouch.Hit.Mark>(inBox); assertEquals("w1", inBox.id)
     }
 
-    // ---------------------------------------------------------------- 3. the floating trash
+    // ---------------------------------------------------------------- 3. the code chip (the floating trash, until slice I2b)
 
-    private val dia = SurveyPrepTouch.TRASH_DP * DP
-    private fun far(sp: SurveyPrepTouch.Spot, pts: List<DoubleArray>) = pts.minOf { hypot(sp.left + dia / 2 - it[0], sp.top + dia / 2 - it[1]) } - dia / 2
+    private fun far(tap: Box, pts: List<DoubleArray>) = pts.minOf { SurveyPrepTouch.boxDist(tap, it[0], it[1]) }
 
-    @Test fun `the trash - beside a free mark's bounding box, 16 dp clear of its four corners and not of tabs that are not drawn`() {
+    @Test fun `the chip - beside a free mark's bounding box, 16 dp clear of its four corners and not of tabs that are not drawn`() {
         val w = window(); val d = drawn(w, true); val c = d.corners!!
         val bb = Box(d.x0, d.yT, d.x1, d.yB); val pw = A * K; val ph = B * K
-        // WHAT IT KEEPS: the four corners as they stand; a rectangle (no corners) its eight tabs, a spot its centre -- as F1 has them
-        val keep = SurveyPrepTouch.keepOfMark(bb, false, c)
-        assertEquals(c.map { it.toList() }, keep.points.map { it.toList() }); assertTrue(keep.body.isEmpty()); assertEquals(0.0, keep.bodyHalf)
-        assertEquals(8, SurveyPrepTouch.keepOfMark(bb, false).points.size); assertEquals(8, SurveyPrepTouch.keepOfMark(bb, false, null).points.size)
-        assertEquals(1, SurveyPrepTouch.keepOfMark(bb, true, c).points.size, "a spot has no corners: its centre")
-        // THE DISC: placed off the BOUNDING box (DESIGN-quad 3.4), F1's 16 dp from every corner
-        val sp = assertNotNull(SurveyPrepTouch.trashSpot(bb, emptyList(), pw, ph, DP, keep))
-        assertTrue(far(sp, c) >= DeleteGuard.CLEAR_DP * DP - 1e-9, "the disc is ${far(sp, c) / DP} dp from a corner")
-        assertTrue(sp.left >= bb.r || sp.left + dia <= bb.l || sp.top >= bb.b || sp.top + dia <= bb.t, "outside the bounding box: ${sp.left}, ${sp.top} ${sp.how}")
-        // ... the very place a rectangle of the same box gets: its corner tabs are the box's corners, further out than q0
-        val asBox = assertNotNull(SurveyPrepTouch.trashSpot(bb, emptyList(), pw, ph, DP, SurveyPrepTouch.keepOfMark(bb, false)))
-        assertEquals(listOf(asBox.left, asBox.top, asBox.how), listOf(sp.left, sp.top, sp.how))
-        // every shape of a walk over the photo: a disc, where there is one, is 16 dp from each corner AS IT STANDS
+        val text = 40.0 * DP; val clear = SurveyPrepTouch.CHIP_CLEAR_DP * DP
+        // WHAT IT KEEPS CLEAR OF: the four corners as they stand; a rectangle (no corners) its eight tabs, a spot its centre
+        val four = SurveyPrepTouch.handlesOf(bb, false, c)
+        assertEquals(c.map { it.toList() }, four.map { it.toList() })
+        assertEquals(8, SurveyPrepTouch.handlesOf(bb, false).size); assertEquals(8, SurveyPrepTouch.handlesOf(bb, false, null).size)
+        assertEquals(1, SurveyPrepTouch.handlesOf(bb, true, c).size, "a spot has no corners: its centre")
+        // THE CHIP keeps the BOUNDING box (DESIGN-imagemeter 8.2), F1's 16 dp from every corner. The example window stands
+        // 25 dp under the photo's top -- no room above it -- so its chip is BELOW ITS BOUNDING BOX'S bottom-left corner,
+        // not below q0, the free bottom-left corner, which stands 77 dp up the left side
+        val chip = assertNotNull(SurveyPrepTouch.codeChip(bb, four, text, pw, ph, DP))
+        assertEquals("below", chip.how); assertEquals(bb.l, chip.box.l, 1e-9); assertTrue(chip.tap.t >= bb.b + clear - 1e-9)
+        assertTrue(c[0][1] < bb.b - 70 * DP, "q0 is far up the side: ${(bb.b - c[0][1]) / DP} dp")
+        assertTrue(far(chip.tap, c) >= clear - 1e-9, "the chip is ${far(chip.tap, c) / DP} dp from a corner")
+        // ... and the same window lower on a taller photo has it ABOVE its bounding box's top-left
+        val low = Box(bb.l, bb.t + 200, bb.r, bb.b + 200); val lowC = c.map { doubleArrayOf(it[0], it[1] + 200) }
+        val above = assertNotNull(SurveyPrepTouch.codeChip(low, SurveyPrepTouch.handlesOf(low, false, lowC), text, pw, ph + 200, DP))
+        assertEquals("above", above.how); assertEquals(low.l, above.box.l, 1e-9); assertTrue(above.tap.b <= low.t - clear + 1e-9)
+        // ... the very place a rectangle of the same box gets: outside the box, every handle of either kind is 16 dp off
+        val asBox = assertNotNull(SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, false), text, pw, ph, DP))
+        assertEquals(listOf(asBox.tap.l, asBox.tap.t, asBox.how), listOf(chip.tap.l, chip.tap.t, chip.how))
+        // every shape of a walk over the photo: a chip, where there is one, is 16 dp from each corner AS IT STANDS
         var seen = 0
         for (x0 in listOf(8.0, 120.0, 400.0)) for (y0 in listOf(8.0, 90.0, 260.0)) for (ww in listOf(90.0, 240.0, 560.0)) for (hh in listOf(80.0, 200.0, 500.0))
             for (f in listOf(0.0, 0.35, 0.8)) {
                 val b = Box(x0, y0, x0 + ww, y0 + hh)
                 // q0 bottom-left, q1 bottom-right, q2 top-right pulled in along the top by f, q3 top-left pulled down by f
                 val q = listOf(doubleArrayOf(b.l, b.b), doubleArrayOf(b.r, b.b), doubleArrayOf(b.r - f * ww * 0.6, b.t), doubleArrayOf(b.l, b.t + f * hh * 0.6))
-                val s = SurveyPrepTouch.trashSpot(b, emptyList(), 680.0, 680.0, DP, SurveyPrepTouch.keepOfMark(b, false, q)) ?: continue
+                val k = SurveyPrepTouch.codeChip(b, SurveyPrepTouch.handlesOf(b, false, q), text, 680.0, 680.0, DP) ?: continue
                 seen++
-                assertTrue(far(s, q) >= DeleteGuard.CLEAR_DP * DP - 1e-9, "$x0 $y0 $ww $hh $f: ${far(s, q) / DP} dp from a corner at ${s.left}, ${s.top} ${s.how}")
+                assertTrue(far(k.tap, q) >= clear - 1e-9, "$x0 $y0 $ww $hh $f: ${far(k.tap, q) / DP} dp from a corner, ${k.how}")
+                assertTrue(k.tap.l >= 0 && k.tap.t >= 0 && k.tap.r <= 680.0 && k.tap.b <= 680.0, "$x0 $y0 $ww $hh $f: on the photo")
             }
-        assertTrue(seen > 40, "$seen discs")
-        // WHERE THE TWO KEEPS DIFFER (F1's review, finding 3, noted a wide mark at the top takes the corner place the
-        // fit / zoom rule moves to 236, 4 dp -- on its own top edge). A free mark whose top-right corner stands THERE:
-        // the eight tabs are far from that place and would leave the disc on the corner; the corners refuse it
-        val wide = Box(60.0, 8.0, 640.0, 300.0)
-        val tabs = assertNotNull(SurveyPrepTouch.trashSpot(wide, emptyList(), 680.0, 680.0, DP, SurveyPrepTouch.keepOfMark(wide, false)))
-        assertEquals(listOf(236.0 * DP, 4.0 * DP), listOf(tabs.left, tabs.top), "batch-next's place for this rectangle")
-        val q = listOf(doubleArrayOf(60.0, 300.0), doubleArrayOf(640.0, 300.0), doubleArrayOf(508.0, 40.0), doubleArrayOf(60.0, 8.0))
-        assertTrue(far(tabs, q) < 0, "that place is ON the free mark's top-right corner")
-        val free = SurveyPrepTouch.trashSpot(wide, emptyList(), 680.0, 680.0, DP, SurveyPrepTouch.keepOfMark(wide, false, q))
-        assertTrue(free == null || far(free, q) >= DeleteGuard.CLEAR_DP * DP - 1e-9, "never on a corner: ${free?.left}, ${free?.top}")
-        assertTrue(free == null || listOf(free.left, free.top) != listOf(tabs.left, tabs.top))
-        // ... and the other way: a place eight tabs refuse because the top tab is under it, where a freed rectangle has
-        // no tab -- its four corners are the box's, the place is 16 dp and more from each, and the disc may stand there
-        val narrow = Box(340.0, 8.0, 640.0, 300.0)
-        val four = listOf(doubleArrayOf(340.0, 300.0), doubleArrayOf(640.0, 300.0), doubleArrayOf(640.0, 8.0), doubleArrayOf(340.0, 8.0))
-        val eight = SurveyPrepTouch.trashSpot(narrow, emptyList(), 680.0, 680.0, DP, SurveyPrepTouch.keepOfMark(narrow, false))
-        val freed = assertNotNull(SurveyPrepTouch.trashSpot(narrow, emptyList(), 680.0, 680.0, DP, SurveyPrepTouch.keepOfMark(narrow, false, four)))
-        assertEquals(listOf(236.0 * DP, 4.0 * DP), listOf(freed.left, freed.top)); assertTrue(far(freed, four) >= DeleteGuard.CLEAR_DP * DP)
-        assertTrue(eight == null || listOf(eight.left, eight.top) != listOf(freed.left, freed.top), "the top tab stands under that place")
-        // a figure is kept off as F1 keeps it, whatever the handles are
-        val fig = Box(sp.left - 4, sp.top - 4, sp.left + 30, sp.top + 30)
-        val moved = SurveyPrepTouch.trashSpot(bb, listOf(fig), pw, ph, DP, keep)
-        assertTrue(moved == null || (moved.left + dia <= fig.l || moved.left >= fig.r || moved.top + dia <= fig.t || moved.top >= fig.b))
+        assertTrue(seen > 40, "$seen chips")
+        // WHERE THE TWO KINDS OF HANDLE DIFFER: a mark that fills the photo both ways (zoomed into) has its chip INSIDE its
+        // box, 16 dp in from the photo's top-left. Its eight tabs are all off the photo, so a rectangle gets that place; a
+        // free mark whose top-left corner stands THERE does not -- and gets NO chip rather than one on a corner (a long
+        // press still opens its panel)
+        val big = Box(-200.0, -200.0, 900.0, 900.0)
+        val boxed = assertNotNull(SurveyPrepTouch.codeChip(big, SurveyPrepTouch.handlesOf(big, false), text, 680.0, 680.0, DP))
+        assertEquals("inside", boxed.how)
+        val q = listOf(doubleArrayOf(-200.0, 900.0), doubleArrayOf(900.0, 900.0), doubleArrayOf(900.0, -200.0), doubleArrayOf(boxed.tap.l + 10, boxed.tap.t + 10))
+        assertTrue(far(boxed.tap, q) < clear, "that place is ON the free mark's top-left corner")
+        assertNull(SurveyPrepTouch.codeChip(big, SurveyPrepTouch.handlesOf(big, false, q), text, 680.0, 680.0, DP), "never on a corner")
+        // the floating trash and its rule are gone: there is one thing beside the picked item, and it deletes nothing
+        for (gone in listOf("trashSpot", "keepOfMark", "keepOfLine")) assertTrue(SurveyPrepTouch::class.java.declaredMethods.none { it.name == gone }, gone)
     }
 
     // ---------------------------------------------------------------- 4. the 360
 
-    @Test fun `the 360 - free corners before a chain point before the picked tape's body before the marks, and the trash keeps off the corners`() {
+    @Test fun `the 360 - free corners before a chain point before the picked tape's body before the marks, and nothing there deletes`() {
         val p = SurveyPrep.fresh(L, A, B).also { q -> for (s in SurveyPrep.SURFACES) for (k in SurveyPrep.SLOTS) q.surface(s).set[k] = true }
         val w = window(); p.surface("front").marks.add(w)
         val fr = Pano360.frames(p, L, A, B); val f = fr.getValue("front"); val v = Pano360.faceView("front", 680.0, 840.0)
@@ -274,29 +291,17 @@ class QuadMeetsF1Test {
         val both = Pano360.Scene(null, tabs, emptyList(), listOf(poly), "w1", line)
         assertEquals(Pano360.Pick.Tab("q2"), Pano360.pick(sel, both, tabs[2].second[0], tabs[2].second[1], DP))
         assertEquals(Pano360.Pick.Body, Pano360.pick(sel, both, on[0], on[1], DP))
-        // THE TRASH: its box is the BOUNDING rectangle's, free or not; what the disc keeps clear of are the handles drawn
-        // -- eight tabs by default (what the screen passes until slice Q2), the four corners with `free`
-        val eight = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "w1", DP))
-        val four = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "w1", DP, free = true))
-        assertEquals(8, eight.keep.points.size); assertEquals(4, four.keep.points.size)
-        assertEquals(tabs.map { it.second.toList() }, four.keep.points.map { it.toList() })
-        assertEquals(Pano360.tabsOf(w).map { (_, mm) -> s(mm[0], mm[1]).toList() }, eight.keep.points.map { it.toList() })
-        assertTrue(four.keep.body.isEmpty())
-        val boxC = listOf(s(600.0, 900.0), s(2970.0, 900.0), s(2970.0, 2450.0), s(600.0, 2450.0))
-        for (tr in listOf(eight, four)) {
-            assertEquals(boxC.minOf { it[0] }, tr.box.l, 1e-9); assertEquals(boxC.maxOf { it[0] }, tr.box.r, 1e-9)
-            assertEquals(boxC.minOf { it[1] }, tr.box.t, 1e-9); assertEquals(boxC.maxOf { it[1] }, tr.box.b, 1e-9)
-        }
-        val sp = assertNotNull(SurveyPrepTouch.trashSpot(four.box, emptyList(), 680.0, 840.0, DP, four.keep))
-        assertTrue(far(sp, four.keep.points) >= DeleteGuard.CLEAR_DP * DP - 1e-9)
+        // THE TRASH that stood beside the picked item on the 360 went in slice I2b (Pano360.trashOf): a long press there
+        // opens the panel, whose last act is the one Delete -- for the four-corner window as for any item
+        assertTrue(Pano360::class.java.declaredMethods.none { it.name == "trashOf" })
+        assertTrue(MarkSheet.panelOpens(p, "w1")); assertTrue(MarkSheet.panelOpens(p, "t1"))
+        assertNotNull(MarkSheet.acts(en, p, "w1", 0, null, shape = true).delete)
         // a rectangle whose corners were freed and never dragged: the box's own four, as q0 … q3
         val door = SurveyPrep.Mark("d1", "D", "FD1", 100.0, 500.0, 0.0, 2100.0).also { p.surface("front").marks.add(it) }
-        assertEquals(4, assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, door.id, DP, free = true)).keep.points.size)
-        // a point is its centre whatever is asked, and a Tape's keep is F1's own: `free` is a mark's
-        p.surface("front").marks.add(SurveyPrep.Mark("e1", "E", "FE1", 300.0, 350.0, 2300.0, 2350.0))
-        assertEquals(1, assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "e1", DP, free = true)).keep.points.size)
-        val tt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "t1", DP, free = true))
-        assertEquals(2, tt.keep.points.size); assertEquals(1, tt.keep.body.size); assertTrue(tt.keep.bodyHalf > 0)
+        assertEquals(Quad.PARTS, Pano360.tabsOf(door, true).map { it.first })
+        // a point has no corners to free whatever is asked
+        val e1 = SurveyPrep.Mark("e1", "E", "FE1", 300.0, 350.0, 2300.0, 2350.0).also { p.surface("front").marks.add(it) }
+        assertFalse(Quad.mayHave(e1))
     }
 
     // ---------------------------------------------------------------- 5. gold
@@ -343,14 +348,17 @@ class QuadMeetsF1Test {
         fun code(name: String) = File(dir, name).also { assertTrue(it.isFile, "$name is where this test reads it") }.readText()
         fun count(text: String, what: String) = text.windowed(what.length) { if (it == what) 1 else 0 }.sum()
         val screen = code("SurveyPrepScreen.kt"); val p3 = code("SurveyPrep360.kt"); val draw = code("SurveyPrepDraw.kt")
-        // the menu: the one call, five arguments -- F1's `chains` and Q1's `shape` both at their defaults
-        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)")); assertEquals(1, count(screen, "menuItemsOf("))
+        // the panel's acts (the menu's rows, since port 63 slice I2b): drawn by the one call and asked by the one call, five
+        // and six arguments -- F1's `chains` and Q1's `shape` both at their defaults; the screen names no menu any more
+        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.panel("))
+        assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.actStep("))
+        assertEquals(0, count(screen, "menuItemsOf("))
         // the press: Drawn with no corners; hit with F1's `body`
         assertEquals(1, count(screen, "SurveyPrepTouch.Drawn(")); assertEquals(0, count(screen, "corners ="))
-        assertEquals(1, count(screen, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null)"))
-        // the trash: a mark's keep by its box and whether it is a spot; the 360's by the view's dp
-        assertEquals(1, count(screen, "SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)")); assertEquals(1, count(screen, "keepOfMark("))
-        assertEquals(1, count(p3, "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())"))
+        assertEquals(1, count(screen, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)"))
+        // the code chip (the trash's place, since slice I2b): a mark's handles by its box and whether it is a spot -- no corners
+        assertEquals(1, count(draw, "SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot), pen(chipFs, true).measureText(chipSays).toDouble(),")); assertEquals(1, count(draw, "handlesOf("))
+        assertEquals(0, count(screen, "keepOfMark(")); assertEquals(0, count(p3, "trashOf("))
         // the 360's tabs: the eight
         assertEquals(2, count(p3, "Pano360.tabsOf(e)")); assertEquals(2, count(p3, "tabsOf("))
         // the plates: PhotoFigures.layout with no `free` (port 63 slice I1b: it replaced DimLayout.mark in the painter)
@@ -382,14 +390,13 @@ class QuadMeetsF1Test {
         // every line of :app that section 6 and section 10's notes 1 to 3 have Q2 rewrite, as it stands today
         val lines = mapOf(
             "SurveyPrepScreen.kt" to listOf(
-                "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)",                           // gains `shape = true`
-                "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(",                            // a third: the shape's act
-                "(232 + DeleteGuard.CLEAR_DP).dp.toPx()",                                                     // the menu's height for six rows
-                "SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)"),           // gains the corners
-                // (sayCheck's two lines went in port 63 slice I1b: no photo estimate is said any more)
-            "SurveyPrep360.kt" to listOf(
-                "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())"),   // gains `free`
+                "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)",                                        // gains `shape = true`
+                "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)",                                 // gains `shape = true`
+                "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse("),                           // a third: the shape's act
+                // (the long-press menu's call and height, and both floating discs' keeps, went in port 63 slice I2b;
+                //  sayCheck's two lines in slice I1b: no photo estimate is said any more)
             "SurveyPrepDraw.kt" to listOf(
+                "SurveyPrepTouch.handlesOf(bb, spot)",                                                         // the chip's handles: gains the corners
                 "val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->",                 // the hole is the shape's
                 "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)"))   // gains `free` (I1b)
         val sources = tests.listFiles()!!.filter { it.name.endsWith("Test.kt") }.associate { it.name.removeSuffix(".kt") to it.readText() }
@@ -400,6 +407,6 @@ class QuadMeetsF1Test {
             val pinning = sources.filterValues { it.contains(line) }.keys
             for (t in pinning) { assertTrue(note.contains("`$t`"), "$t pins `$line`, which slice Q2 rewrites, and note 6 does not name it"); named += t }
         }
-        assertEquals(setOf("DeleteGuardTest", "FeaturesTest", "MeasureScreenTest", "NotePinTest", "PhaseToolsTest", "QuadMeetsF1Test"), named)
+        assertEquals(setOf("DeleteGuardTest", "FeaturesTest", "MarkSheetTest", "MeasureScreenTest", "NotePinTest", "PhaseToolsTest", "QuadMeetsF1Test"), named)
     }
 }

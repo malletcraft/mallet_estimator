@@ -124,10 +124,11 @@ internal class P3Actions(
     val endGuide: (SurveyGuide.Guide?) -> Unit,
     val say: (String) -> Unit,
     val refuse: (String) -> Unit,
-    /** The floating trash tapped: the picked item deleted (as 2 · Mark's disc; the reference refuses). */
-    val delete: (String) -> Unit,
-    /** A long press with Select on, on a thing: its id and the press in root px -- the menu opens there. */
-    val longPress: (String, Offset) -> Unit,
+    /** A long press with Select on, on a thing: its id -- it is picked and held at the press (Pick row 3). True: it has
+     *  a panel, which [options] opens when the finger lifts (port 63 slice I2b; the menu and the floating trash are gone). */
+    val longPress: (String) -> Boolean,
+    /** The finger that long-pressed the thing lifted: its panel opens, as on 2 · Mark. */
+    val options: (String) -> Unit,
     /** The view turned or zoomed (or faced again by fit). */
     val look: (Pano360.View) -> Unit,
     /** ✕ on the tool chip: a tool picked (Select). */
@@ -211,7 +212,7 @@ internal fun Sp360(
     grid: Boolean,
     act: P3Actions,
     /** Port 62 slice L4: the project's quote stage, as the dialog was given it -- a mark the phase holds read-only
-     *  (PhaseTools.editable) is picked and does not move, a drag on it says why, and it has no tabs and no trash; the
+     *  (PhaseTools.editable) is picked and does not move, a drag on it says why, and it has no tabs; the
      *  chip's second half says what a tap places a mark as. One rule with 2 · Mark: one model, two views. */
     stage: Int?,
     /** What this capture's chip was last cycled to while the stage is unread, and a tap on that button. */
@@ -235,8 +236,6 @@ internal fun Sp360(
     var boxH by remember { mutableStateOf(1f) }
     var boxAt by remember { mutableStateOf(Offset.Zero) }
     var tick by remember { mutableIntStateOf(0) }
-    // THE FLOATING TRASH as last drawn (centre x, y and radius, box px), or null: written by the draw, read by a press
-    val trashAt = remember { arrayOfNulls<FloatArray>(1) }
     // THE CHIP'S LIST OF KINDS IS OPEN (port 62 slice L6; sp.js st.subpick), as 2 · Mark's: it DIES with the tab and the
     // tool it was opened on -- a NEW state for each (the L6 review; setTool: st.subpick=false), so the same tab and tool
     // come back to it SHUT. Inside the 360's box a press on the 360, on the chip's plain words (the 360's), on fit or on
@@ -330,24 +329,6 @@ internal fun Sp360(
                     return@awaitEachGesture
                 }
                 val d = dpx.toDouble()
-                // THE FLOATING TRASH is on top of everything (sp.js fTrashP3, as 2 · Mark's): a press on it deletes the
-                // picked item when it lifts there. Only with Select on -- with a type on the disc is not drawn -- and
-                // never over the picked Tape's, Line's or area's end handle, which is the end's
-                val tr = if (toolS == SurveyPrepPalette.SEL) trashAt[0] else null
-                if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2] &&
-                    sceneOf(viewNow(), frames()).sc.ends?.let { es ->
-                        SurveyGuide.endAt(es, first.position.x.toDouble(), first.position.y.toDouble(), Pano360.END_DP * d) } == null) {
-                    gc.reset()
-                    var at = first.position
-                    do {
-                        val ev = awaitPointerEvent()
-                        ev.changes.forEach { it.consume() }
-                        ev.changes.firstOrNull { it.id == first.id }?.let { at = it.position }
-                    } while (ev.changes.any { it.pressed })
-                    val picked = selS?.id
-                    if (picked != null && hypot(at.x - tr[0], at.y - tr[1]) <= tr[2]) actS.delete(picked)
-                    return@awaitEachGesture
-                }
                 // the model and the view as the press began
                 val v0 = viewNow()
                 val fr = frames()
@@ -357,6 +338,10 @@ internal fun Sp360(
                 val order = Pano360.order(tool0, drafting)
                 var grab: P3Grab? = null
                 var moved = false; var snapped = false; var refused = false; var spent = false
+                // the thing a long press took, whose panel opens when the finger lifts (port 63 slice I2b); and whether
+                // the gesture ended as a lift at all -- a system cancel opens nothing
+                var longId: String? = null
+                var lifted = false
                 var gated = false; var endGrabbed = false; var secondFinger = false; var gone = false
                 val endGate = SurveyGuide.EndGate(max(SurveyGuide.END_DEAD_DP.dp.toPx().toDouble(), viewConfiguration.touchSlop.toDouble()))
                 // what the press is for, when nothing was grabbed at it
@@ -610,7 +595,8 @@ internal fun Sp360(
                             else if (looking) lookTap(e)
                         }
                         // A LONG PRESS: with Tape, Line or Chain on, a slow tap; with a type on, it places and the slide
-                        // carries; with Select on, held on a thing, the menu (Delete · Duplicate · Lock · Lock all · Cancel)
+                        // carries; with Select on, held on a thing, it is picked and held and ITS PANEL OPENS WHEN THE
+                        // FINGER LIFTS (port 63 slice I2b: Lock · Duplicate · Fine move · Lock all · Delete are its acts)
                         is GestureClassifier.Event.LongPress -> if (measOn) { heldTap = true } else if (chainOn) { if (grab == null) heldTap = true } else {
                             val gid = grab?.id ?: kpick?.second ?: mpick?.second
                             if (grab == null && placing)
@@ -618,7 +604,7 @@ internal fun Sp360(
                             else if (tool0 == SurveyPrepPalette.SEL && gid != null) {
                                 if (moved) { actS.revert(); moved = false; snapped = false }
                                 grab = null; spent = true
-                                actS.longPress(gid, Offset(e.x.toFloat() + boxAt.x, e.y.toFloat() + boxAt.y))
+                                if (actS.longPress(gid)) longId = gid
                             }
                         }
                         is GestureClassifier.Event.DragEnd -> if (measOn) draft?.let { dr -> draft = null; actS.dragEnd(dr) }
@@ -664,9 +650,14 @@ internal fun Sp360(
                             ev.changes.forEach { it.consume() }
                             val ch = ev.changes.firstOrNull { it.id == first.id } ?: ev.changes[0]
                             act(if (cancelled) gc.cancel() else gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
+                            lifted = !cancelled
                             break
                         }
                     }
+                    // the finger that long-pressed a thing has lifted: its panel opens now -- not after a pinch, not
+                    // after a system cancel
+                    val opens = longId
+                    if (opens != null && lifted && !pinch) actS.options(opens)
                     // a slow tap with Tape, Line or Chain on: where the finger went down
                     if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
                     if (chainOn && heldTap && !gone) chainTap(first.position.x.toDouble(), first.position.y.toDouble())
@@ -695,19 +686,6 @@ internal fun Sp360(
                     area?.takeIf { !it.isEmpty() }, areaS, chain, gNow, ga, grid,
                     // no resize tabs on a picked mark the phase holds read-only (port 62 slice L4)
                     tabs = sel?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true), ink, size.width, size.height)
-                // THE FLOATING TRASH (sp.js fTrashP3): beside the picked mark, Tape, Line, area or chain, with Select on,
-                // never for the reference; placed by SurveyPrepTouch.trashSpot as on 2 · Mark -- 16 dp clear of the picked
-                // item's own handles (its tabs, its ends, its line: Pano360.trashOf's `keep`), or not drawn at all (port 63
-                // slice F1; DeleteGuard)
-                trashAt[0] = null
-                // ... nor where the phase hides the picked item's delete (port 62 slice L4; sp.js fTrashP3's `!P54.spDelOk`)
-                Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())?.let { t ->
-                    SurveyPrepTouch.trashSpot(t.box, emptyList(), size.width.toDouble(), size.height.toDouble(), dpx.toDouble(), t.keep)
-                }?.let { ts ->
-                    val rad = 18f * dpx; val tcx = ts.left.toFloat() + rad; val tcy = ts.top.toFloat() + rad
-                    P3Draw.trash(nc, tcx, tcy, rad, ink)
-                    trashAt[0] = floatArrayOf(tcx, tcy, rad)
-                }
             }
         }
         // THE TOOL CHIP, as on 2 · Mark: "Placing Window · tap the 360"; the Tape's and Line's live words and caution;
@@ -773,8 +751,6 @@ private class P3Ink(val dp: Float) {
     val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true }
     val mono = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFakeBoldText = true }
     val path = Path()
-    /** The floating trash's disc, ring and bin. */
-    val trash = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
     val dash75 = DashPathEffect(floatArrayOf(7f * dp, 5f * dp), 0f)
     val dash96 = DashPathEffect(floatArrayOf(SurveyGuide.DASH_DP.toFloat() * dp, SurveyGuide.GAP_DP.toFloat() * dp), 0f)
     val dash85 = DashPathEffect(floatArrayOf(8f * dp, 5f * dp), 0f)
@@ -801,21 +777,6 @@ private object P3Draw {
 
     private const val OUT = SurveyPrepDraw.OUT_COLOUR
 
-    /** THE FLOATING TRASH at ([tx], [ty]), radius [rad]: 2 · Mark's 36 dp red disc with a white ring and a bin. */
-    fun trash(c: android.graphics.Canvas, tx: Float, ty: Float, rad: Float, ink: P3Ink) {
-        val u = ink.dp; val pt = ink.trash
-        pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); c.drawCircle(tx, ty, rad, pt)
-        pt.style = Paint.Style.STROKE; pt.strokeWidth = 2f * u; pt.color = android.graphics.Color.WHITE
-        c.drawCircle(tx, ty, rad - u, pt)
-        // a bin: lid, handle, body with two ribs
-        pt.strokeWidth = 1.8f * u
-        val g = 5.5f * u
-        c.drawLine(tx - 1.3f * g, ty - g, tx + 1.3f * g, ty - g, pt)
-        c.drawLine(tx - .45f * g, ty - 1.4f * g, tx + .45f * g, ty - 1.4f * g, pt)
-        c.drawRect(tx - g, ty - .7f * g, tx + g, ty + 1.5f * g, pt)
-        c.drawLine(tx - .35f * g, ty - .3f * g, tx - .35f * g, ty + 1.1f * g, pt)
-        c.drawLine(tx + .35f * g, ty - .3f * g, tx + .35f * g, ty + 1.1f * g, pt)
-    }
     private val LINE_C = SurveyMeas.LINE_COLOUR
     private val TAPE_C = SurveyMeas.TAPE_COLOUR
 

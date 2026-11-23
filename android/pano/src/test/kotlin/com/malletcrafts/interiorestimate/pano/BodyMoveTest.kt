@@ -298,7 +298,7 @@ class BodyMoveTest {
         // it stands in the hit order where :pano puts it: one hit test, handed whether the finger is on the body
         // (port 63 slice I1b: markHit asks whether the finger is on the body; markGrab makes the grab -- the same rule, twice read)
         assertEquals(2, count(c, "bodyGrab(sx, sy)"))
-        assertEquals(1, count(c, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null)"))
+        assertEquals(1, count(c, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)"))
         assertEquals(1, count(c, "is SurveyPrepTouch.Hit.Body -> bodyGrab(sx, sy)"))
         assertEquals(1, count(c, "SurveyPrepTouch.hit("), "2 - Mark's alone: 3 - Measure is gone (port 63 slice I1b)")
         // the move: every point from where the drag BEGAN, through the one rule, behind the dead zone (gate), with no guide

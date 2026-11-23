@@ -37,12 +37,18 @@ import kotlin.test.assertTrue
  *    `menu3` read `Duplicate|Lock|Lock all Window|Cancel|Delete` where 7c49835 printed `Delete|Duplicate|…|Cancel`.
  *    Checked at the merge: putting the delete row back first in those three lines gives 7c49835's digest again
  *    (1bb9557a6b810aba), so nothing else in the section -- the walk's stops, the check, the copy -- moved.
- *  - THREE SECTIONS ARE NEW AND HELD TO 030a2f7f5, the commit that built what they dump -- the dump taken on 7c49835
+ *  - TWO SECTIONS ARE NEW AND HELD TO 030a2f7f5, the commit that built what they dump -- the dump taken on 7c49835
  *    never looked at them, so H1 and F1 could have been lost in a merge without this test noticing: `gold` (H1: every
- *    plate's style, the `!`'s ink, the frame's and the line's numbers), `trash` (F1: the floating disc beside each mark
- *    of the example wall, bare and among its figures, and on the 360 its box and what it keeps clear of) and `body`
- *    (F1: a picked tape across the window -- where its body answers and what the marks under it still do -- and the
- *    360's order of a press). They too use only what that commit has: no `corners`, no `free`.
+ *    plate's style, the `!`'s ink, the frame's and the line's numbers) and `body` (F1: a picked tape across the window
+ *    -- where its body answers and what the marks under it still do -- and the 360's order of a press). They too use
+ *    only what that commit has: no `corners`, no `free`.
+ *  - `trash` WENT WITH THE FLOATING TRASH, AND `chip` STANDS WHERE IT STOOD (port 63 slice I2b, 23 Nov 2026). F1's third
+ *    section dumped the floating disc beside each mark and on the 360; slice I2b deleted the disc and its rule
+ *    (SurveyPrepTouch.trashSpot, Pano360.trashOf) -- Delete has one place, the panel -- and the thing beside the picked
+ *    mark is now its CODE CHIP. So the section is re-taken as what a RECTANGLE's chip is at the commit that built it:
+ *    where it stands with no handles shown and held, and what it keeps clear of (eight tabs, a point's middle -- no
+ *    `corners`). Slice Q2 hands the chip a free mark's four corners; a rectangle's chip must not move for it. The other
+ *    twenty sections printed the same digest before and after that commit.
  * A section that moves again and is NOT explained by a change meant to alter a rectangle is a bug in the code, not a pin
  * to re-take.
  */
@@ -197,27 +203,29 @@ class RectanglePinTest {
             listOf("check ${hex(MarkDims.checkInk(false))} ${hex(MarkDims.checkInk(true))}",
                 "active ${hex(MarkDims.ACTIVE_COLOUR)} ${hex(MarkDims.ACTIVE_INK)} ${hex(MarkDims.ACTIVE_CASE)} ${hex(MarkDims.ACTIVE_CASE_ALPHA)} ${r(MarkDims.ACTIVE_GAP_DP)} " +
                     "${r(MarkDims.ACTIVE_FRAME_DP)} ${r(MarkDims.ACTIVE_FRAME_CASE_DP)} ${r(MarkDims.ACTIVE_LINE_X)} ${r(MarkDims.ACTIVE_LINE_CASE_X)} ${hex(MarkDims.DIM_ALPHA)}")
-        // 10. F1: the floating trash beside each mark of the example wall -- with no figure drawn, and with its own
-        // figures' plates as the picked mark has them -- and, on the 360, its box and what the disc keeps clear of
-        val trash = ArrayList<String>()
-        fun spot(sp: SurveyPrepTouch.Spot?) = if (sp == null) "none" else "${r(sp.left)} ${r(sp.top)} ${sp.how}"
+        // 10. THE PICKED MARK'S CODE CHIP beside each mark of the example wall (port 63 slice I2b: it took the floating
+        // trash's place beside the picked item, and F1's `trash` section went with the trash) -- as a mark that shows no
+        // handles has it and as a HELD one has it, lifted over its hand-anchored width plate; what it keeps clear of
+        // (a box mark's eight tabs, a point's middle); a mark that fills the photo and one from floor to ceiling
+        val chips = ArrayList<String>()
+        fun chip(k: SurveyPrepTouch.Chip?) = if (k == null) "none" else "${r(k.tap.l)} ${r(k.tap.t)} ${k.how}"
+        val chipFs = DimLayout.textSize(true, DP)
         for ((i, e) in ws.withIndex()) {
-            val d = drawn[i]; val bb = Box(d.x0, d.yT, d.x1, d.yB); val keep = SurveyPrepTouch.keepOfMark(bb, SurveyPrep.isSpot(e.t))
-            val ms = ws.map { m -> DimLayout.mark(read, "front", m, W, H, m.id == e.id, m.id == e.id && !SurveyPrep.isPoint(m.t), null, ::toPx, U, DP, ::textW, null) }
-            val figs = OldPlace.place(ms, OldPlace.Scope.PICKED, SIZE, SIZE, codes(ws), U, DP, textW(" × ", 10.0 * DP, false)).plates.map { it.tap }
-            trash += "disc ${e.code} bare ${spot(SurveyPrepTouch.trashSpot(bb, emptyList(), SIZE, SIZE, DP, keep))} | figures ${figs.size} ${spot(SurveyPrepTouch.trashSpot(bb, figs, SIZE, SIZE, DP, keep))}" +
-                " | keep " + pts(keep.points) + " ${keep.body.size} ${r(keep.bodyHalf)}"
+            val d = drawn[i]; val bb = Box(d.x0, d.yT, d.x1, d.yB); val hs = SurveyPrepTouch.handlesOf(bb, SurveyPrep.isSpot(e.t))
+            val tw = textW(SurveyPrepTouch.chipText(e.code), chipFs, true)
+            val held = !SurveyPrep.isPoint(e.t)
+            chips += "chip ${e.code} plain ${chip(SurveyPrepTouch.codeChip(bb, hs, tw, SIZE, SIZE, DP))} | held ${chip(SurveyPrepTouch.codeChip(bb, hs, tw, SIZE, SIZE, DP, SurveyPrepTouch.chipLift(held, chipFs, U, DP)))}" +
+                " | keep " + pts(hs)
         }
+        val tw4 = textW(SurveyPrepTouch.chipText("FW1"), chipFs, true)
         val wide = Box(8.0, 8.0, SIZE - 8.0, SIZE - 8.0)
-        trash += "disc filling the photo ${spot(SurveyPrepTouch.trashSpot(wide, emptyList(), SIZE, SIZE, DP, SurveyPrepTouch.keepOfMark(wide, false)))}"
+        chips += "chip filling the photo ${chip(SurveyPrepTouch.codeChip(wide, SurveyPrepTouch.handlesOf(wide, false), tw4, SIZE, SIZE, DP))}"
         val tall = Box(300.0, 8.0, 420.0, SIZE - 8.0)
-        trash += "disc floor to ceiling ${spot(SurveyPrepTouch.trashSpot(tall, emptyList(), SIZE, SIZE, DP, SurveyPrepTouch.keepOfMark(tall, false)))}"
+        chips += "chip floor to ceiling ${chip(SurveyPrepTouch.codeChip(tall, SurveyPrepTouch.handlesOf(tall, false), tw4, SIZE, SIZE, DP))}"
+        chips += "lift ${r(SurveyPrepTouch.chipLift(false, chipFs, U, DP))} ${r(SurveyPrepTouch.chipLift(true, chipFs, U, DP))}"
+        out["chip"] = chips
         val frs = Pano360.frames(p360, L, W, H)
         p360.surface("front").marks.addAll(ws)
-        for (e in ws) trash += "p360 ${e.code} " + (Pano360.trashOf(v, frs, p360, SurveyPrepPalette.SEL, e.id, DP)?.let { t ->
-            box(t.box) + " | " + pts(t.keep.points) + " ${t.keep.body.size} ${r(t.keep.bodyHalf)} | " + spot(SurveyPrepTouch.trashSpot(t.box, emptyList(), 680.0, 840.0, DP, t.keep)) } ?: "none")
-        trash += "p360 other tool " + (Pano360.trashOf(v, frs, p360, "W", "id-W1", DP) == null)
-        out["trash"] = trash
         // 11. F1: a picked tape laid across the window -- where its body answers, and what the marks under it still do;
         // and the 360's order of a press for every tool
         val body = ArrayList<String>()
@@ -277,7 +285,7 @@ class RectanglePinTest {
         // ... and the ones a person can read, line for line
         assertEquals(ASK, got.getValue("ask")); assertEquals(DIMS, got.getValue("dims")); assertEquals(P360, got.getValue("p360"))
         assertEquals(MENU, got.getValue("flow").filter { it.startsWith("menu") }); assertEquals(GOLD, got.getValue("gold"))
-        assertEquals(TRASH, got.getValue("trash"))
+        assertEquals(CHIP, got.getValue("chip"))
         // the picked tape's body answers on its band and nowhere else: 47 presses of the grid, every one within the band's reach
         val body = got.getValue("body")
         assertEquals(47, body.count { it.endsWith(" THE-TAPE") }); assertEquals(BODY_TAIL, body.takeLast(BODY_TAIL.size))
@@ -285,7 +293,8 @@ class RectanglePinTest {
 
     private companion object {
         /** Section -> "<lines> <digest>": the first seventeen from the dump taken on commit 7c49835 (and printed the same by
-         *  030a2f7f5); `flow`, `gold`, `trash` and `body` from the dump taken on a plain checkout of 030a2f7f5. */
+         *  030a2f7f5); `flow`, `gold` and `body` from the dump taken on a plain checkout of 030a2f7f5; `chip` from the
+         *  commit that built the chip (port 63 slice I2b). */
         val PINNED: Map<String, String> = linkedMapOf(
             "ask" to "6 098b908ecc4c33ce",
             "dims" to "19 51bf777fdbc63d03",
@@ -306,9 +315,10 @@ class RectanglePinTest {
             "file" to "1 9ad60fbb7c4e0524",
             // 030a2f7f5 (F1: the delete row is the menu's LAST; on 7c49835 this was 20 1bb9557a6b810aba)
             "flow" to "20 76d0cced09e794f0",
-            // 030a2f7f5, new at the merge: H1's gold, F1's floating trash, F1's body press
+            // 030a2f7f5, new at the merge: H1's gold, F1's body press
             "gold" to "8 45ad75e5428e72f6",
-            "trash" to "15 a184b356579cd63d",
+            // port 63 slice I2b: the code chip, where F1's floating trash stood ("trash" to "15 a184b356579cd63d" went with it)
+            "chip" to "9 c6589db62007f68d",
             "body" to "602 85bd7949b5c633e0")
         /** The menu on the fixture room's window, as 030a2f7f5 prints it (port 63 slice F1): cut by the stage at 0, 1, 3, 5
          *  and unread, then the whole menu twice. THE DELETE ROW IS LAST. */
@@ -332,26 +342,20 @@ class RectanglePinTest {
             "check ffc46b 14160f",
             "active e0b040 14160f 000000 0000cc 300 350 650 300 550 000059")
 
-        /** F1 (030a2f7f5): the floating trash on the phone's canvas (hundredths of a px: left, top, which place) beside each
-         *  mark of the example wall, with no figure and among its own figures' plates, and what it keeps clear of -- a box
-         *  mark's eight tabs, a point's centre; a mark that fills the photo and one from floor to ceiling; then on the 360
-         *  the item's box, its handles through the view, and the disc. */
-        val TRASH: List<String> = listOf(
-            "disc FD1 bare 28062 6057 above-right | figures 4 28062 6057 above-right | keep 3809,41328;26662,41328;15235,14657;15235,68000;3809,14657;26662,14657;3809,68000;26662,68000 0 0",
-            "disc FW1 bare 25679 6057 above-left | figures 5 25679 6057 above-left | keep 34279,29898;64750,29898;49515,14657;49515,45139;34279,14657;64750,14657;34279,45139;64750,45139 0 0",
-            "disc FS1 bare 34410 29172 above-right | figures 4 34410 21972 above-right | keep 27931,38915;33010,38915;30471,37772;30471,40058;27931,37772;33010,37772;27931,40058;33010,40058 0 0",
-            "disc FE1 bare 40123 51144 above-right | figures 2 40123 43944 above-right | keep 38088,60380 0 0",
-            "disc FE2 bare 52819 51144 above-right | figures 2 52819 43944 above-right | keep 50784,60380 0 0",
-            "disc FE3 bare 54245 51144 above-left | figures 2 60000 43944 above-right | keep 63480,60380 0 0",
-            "disc filling the photo 47200 800 above-right",
-            "disc floor to ceiling 45200 30400 right",
-            "p360 FD1 9640 25610 28079 68635 | 9640,47122;28079,47122;18859,25610;18859,68635;9640,25610;28079,25610;9640,68635;28079,68635 0 0 | 29479 17010 above-right",
-            "p360 FW1 34225 25610 58811 50195 | 34225,37902;58811,37902;46518,25610;46518,50195;34225,25610;58811,25610;34225,50195;58811,50195 0 0 | 25625 17010 above-left",
-            "p360 FS1 29103 44254 33201 46098 | 29103,45176;33201,45176;31152,44254;31152,46098;29103,44254;33201,44254;29103,46098;33201,46098 0 0 | 34601 35654 above-right",
-            "p360 FE1 36786 61976 37811 63000 | 37299,62488 0 0 | 39211 53376 above-right",
-            "p360 FE2 47030 61976 48055 63000 | 47543,62488 0 0 | 49455 53376 above-right",
-            "p360 FE3 57274 61976 58299 63000 | 57787,62488 0 0 | 59699 53376 above-right",
-            "p360 other tool true")
+        /** Port 63 slice I2b: the picked mark's code chip on the phone's canvas (hundredths of a px: its tap box's left and
+         *  top, which place) beside each mark of the example wall -- as a mark with no handles has it, and as a HELD one
+         *  has it, lifted over its hand-anchored width plate -- and what it keeps clear of: a box mark's eight tabs, a
+         *  point's middle; a mark that fills the photo and one from floor to ceiling; then the two lifts. */
+        val CHIP: List<String> = listOf(
+            "chip FD1 plain 3809 5857 above | held 3809 2995 above | keep 3809,41328;26662,41328;15235,14657;15235,68000;3809,14657;26662,14657;3809,68000;26662,68000",
+            "chip FW1 plain 34279 5857 above | held 34279 2995 above | keep 34279,29898;64750,29898;49515,14657;49515,45139;34279,14657;64750,14657;34279,45139;64750,45139",
+            "chip FS1 plain 27931 28972 above | held 27931 26110 above | keep 27931,38915;33010,38915;30471,37772;30471,40058;27931,37772;33010,37772;27931,40058;33010,40058",
+            "chip FE1 plain 37453 50944 above | held 37453 50944 above | keep 38088,60380",
+            "chip FE2 plain 50149 50944 above | held 50149 50944 above | keep 50784,60380",
+            "chip FE3 plain 56800 50944 above | held 56800 50944 above | keep 63480,60380",
+            "chip filling the photo 4000 4000 inside",
+            "chip floor to ceiling 16400 800 left",
+            "lift 3200 6062")
         /** F1 (030a2f7f5): the 360's order of a press for Select, Tape, Line, Chain and two types, not drafting and
          *  drafting; then seven presses with a tape picked across the window -- its band, the window above it, its end,
          *  the band's reach, the window below it, the door, nothing. */

@@ -64,8 +64,8 @@ object Pick {
     /**
      * WHAT AN EVENT DID. [state]: picked / held / gold after it. [pad]: what the keypad does. [refused]: why a tap on
      * a figure made nothing gold -- the screen says it ([MeasureText.notInRoom], [PhaseTools.readingRefusal]).
-     * [options]: the picked item's options open -- the panel from slice I2; until then a long press opens today's
-     * menu, when the finger lifts. [nudge]: the part of the held item that the fine nudges now move (a tab, a corner,
+     * [options]: the picked item's options open -- the panel that slides up; after a long press, when the finger
+     * lifts. [nudge]: the part of the held item that the fine nudges now move (a tab, a corner,
      * an end). [finished]: nothing is left on the wall -- the note says so. [stay]: NOTHING AT ALL CHANGES -- the
      * screen returns at once, storing nothing, ending no draft (row 26, row 28). [byItself]: the gold moved by itself
      * (a reading, `▸`), so its mark has no handles, and the photo pans if the new gold figure is off screen
@@ -131,7 +131,7 @@ object Pick {
     }
 
     /** ROW 3 -- A LONG PRESS ON [id]: picked and held, the gold as [body] leaves it, and its options open when the
-     *  finger LIFTS (the panel from slice I2; until then today's menu). */
+     *  finger LIFTS: the panel that slides up ([MarkSheet.openPanel]; the long-press menu went in slice I2b). */
     fun longPress(sc: Scene, st: State, id: String): Out {
         val o = body(sc, st, id)
         return if (o.state.picked != id) o else Out(o.state, pad = o.pad, options = true)
@@ -401,45 +401,18 @@ object Pick {
         else -> Out(NONE, pad = Pad.SHUT_STORE)
     }
 
-    // ------------------------------------------------------------------ what a held item shows (slice I1 only)
+    // ------------------------------------------------------------------ what a held item shows
 
     /** The item [id] shows its handles -- eight tabs, four round corners, a Line's two ends: only while it is HELD. */
     fun handles(st: State, id: String): Boolean = st.held && st.picked == id
 
-    /**
-     * THE FLOATING TRASH IS DRAWN AND PRESSED ONLY WHILE THE ITEM IS HELD (DESIGN-imagemeter §14 I1; it goes in slice
-     * I2): in 2 · Mark, with no tool armed, and where the phase lets the held item be deleted ([PhaseTools.delOk]). A
-     * mark the walk reached has no delete control anywhere near the laser's thumb.
+    /*
+     * NOTHING ELSE HANGS ON THE PICK UNDER THE PHOTO (port 63 slice I2b). Slice I1 kept, for its one build, the floating
+     * trash beside the held item (`trash`) and the picked item's row under the photo (`row`: its label, its nudges, its
+     * padlock). Both are gone: the picked item's CODE CHIP ([SurveyPrepTouch.codeChip]) and a long press ([longPress])
+     * open the panel that slides up ([MarkSheet.openPanel]) for ANY picked item, held or not, at every stage -- so a
+     * mark the phase holds read-only, a locked one and a Line the walk reached each still reach their panel, which is
+     * what the review of I1 (findings 1 and 6) asked of the row -- and Delete, the padlock and the nudges (Fine move)
+     * are the panel's acts ([MarkSheet.acts]).
      */
-    fun trash(sc: Scene, st: State, toolArmed: Boolean): Boolean {
-        val id = st.picked ?: return false
-        return st.held && !toolArmed && sc.step == StepRoute.MARK && PhaseTools.delOk(sc.prep, id, sc.stage)
-    }
-
-    /**
-     * THE PICKED ITEM'S ROW, REDUCED TO ITS NAME AND WHAT MOVES IT (slice I1 only; slice I2's chip and panel replace
-     * it): [sheet] its label opens its Mark sheet, [nudges] it has the four nudges, [padlock] it has its padlock. NO
-     * VALUE AND NO DELETE: nothing under the photo shows a measurement, and nothing destructive stands over `▸`.
-     */
-    class Row(val sheet: Boolean, val nudges: Boolean, val padlock: Boolean)
-
-    /**
-     * The row of the PICKED item, held or not, or null -- nothing is picked, so nothing is drawn under the photo but the
-     * tool row. A MARK: its label (which opens its sheet, at every stage: MarkSheet decides what may change in it), its
-     * nudges ONLY WHILE IT IS HELD (only a held item moves) and its padlock. A TAPE, A LINE, AN AREA, A CHAIN: its code
-     * -- the one place it is named, P4 -- (a Line's and an area's opens the sheet: [MarkSheet.opens]) and its padlock.
-     * The padlock is the phase's ([PhaseTools.lockOk]), held or not: a LOCKED item is picked and never held, and its
-     * padlock is how it is unlocked ([locked], row 17).
-     *
-     * PICKED, NOT ONLY HELD (the review of I1, findings 1 and 6): 0.3.345 drew the picked mark's row for ANY picked mark,
-     * and its label was the one way to its Mark sheet on a mark the phase holds read-only -- a surveyed mark at the Wish
-     * list (Existing → Client wish, its acts), any mark at Estimation and Client approved, a locked mark. And a Line, a
-     * Tape or a chain the walk reached is named nowhere else once its figure is the number alone.
-     */
-    fun row(sc: Scene, st: State): Row? {
-        val id = st.picked ?: return null
-        val mark = sc.prep.markById(id) != null
-        if (!mark && sc.prep.itemById(id) == null) return null
-        return Row(mark || MarkSheet.opens(sc.prep, id), mark && st.held && mayHold(sc, id), PhaseTools.lockOk(sc.prep, id, sc.stage))
-    }
 }

@@ -21,8 +21,9 @@ import kotlin.test.assertTrue
  * [DeleteGuard.last]) -- Lock / Unlock · Duplicate · Fine move on line 1; the four-corner shape row (off until slice
  * Q2) · Lock all · a 24 dp gap · Delete LAST on line 2; no delete cell past Existing; what the phase forbids not drawn;
  * a Tape and a chain as sheet items; Done in the head; the fold; an act as Done followed by the act; and the 300 ms in
- * which the panel takes no tap. The synthetic room and wall of PickTest. Nothing here is on screen: :app is compiled
- * only by CI and still draws the sheet whole.
+ * which the panel takes no tap. The synthetic room and wall of PickTest. Since slice I2b this is what :app draws
+ * (app/MarkSheet.kt, read as source by MeasureScreenTest, MarkSheetTest and DeleteGuardTest): :app is compiled only by
+ * CI. And from that slice: the panel stands WHOLE while a box of it has the keyboard.
  *
  * (Test names are plain ASCII: MeasureWalkTest's header says why.)
  */
@@ -475,5 +476,36 @@ class MarkSheetPanelTest {
         assertEquals(listOf("Lock", "Fine move", "Lock all"), w2.map { it.cell.text }); assertEquals(doneLeft - 16, w2.last().r, 1e-9)
         assertTrue(MarkSheet.slots(MarkSheet.Acts.NONE, width, land = true, doneLeftDp = doneLeft).isEmpty())
         assertEquals(16.0, MarkSheet.DONE_CLEAR_LAND_DP)
+    }
+
+    // ------------------------------------------------------------------ while a box has the keyboard (port 63 slice I2b)
+
+    @Test fun `the panel stands whole while a box has the keyboard - it opens whole on a Note just placed and on a Drop's why, half way on anything else`() {
+        // THE HALF REST IS HALF THE WINDOW, and the keyboard takes the window's lower part: of the Mi A3's 756 dp the keys
+        // take about 280, so at the half rest only the 98 dp between the panel's top and the keys would show -- the grip, the
+        // head and part of the acts (144 dp) -- and never the box being typed in
+        val keys = 280.0
+        assertTrue(756.0 - MarkSheet.halfRestDp(756.0) - keys < MarkSheet.foldTopDp(MarkSheet.acts(en, wall(), D1, 0, null)))
+        assertTrue(MarkSheet.standsWhole(false, typing = true)); assertFalse(MarkSheet.standsWhole(false, typing = false))
+        assertTrue(MarkSheet.standsWhole(true, typing = false)); assertTrue(MarkSheet.standsWhole(true, typing = true))
+        val p = wall()
+        fun view(pn: MarkSheet.Panel, stage: Int? = 0) = assertNotNull(MarkSheet.panel(en, p, pn, stage, null))
+        // every item opened by its chip or a long press: no box has the keyboard -- half way in portrait, whole in landscape
+        for (id in ALL) for (long in listOf(false, true)) {
+            val v = view(MarkSheet.openPanel(p, id, 0L, longPress = long)!!)
+            assertFalse(MarkSheet.opensTyping(v), id); assertFalse(MarkSheet.opensWhole(false, v), id); assertTrue(MarkSheet.opensWhole(true, v), id)
+        }
+        // A NOTE JUST PLACED opens on its note field: whole, or its words would be typed behind the keys
+        val note = p.put("front", MarkTypes.NOTE, 2, 700.0, 750.0, 1500.0, 1550.0)
+        val fresh = view(MarkSheet.openPanel(p, note.id, 0L, fresh = true, hist = 1)!!)
+        assertTrue(fresh.body!!.focusNote); assertTrue(MarkSheet.opensTyping(fresh)); assertTrue(MarkSheet.opensWhole(false, fresh))
+        // A DROP opens on Dropped's Why box (a wish at the Wish list): whole
+        val drop = view(MarkSheet.openPanel(p, D2, 0L, focusMove = MarkLife.DROP)!!, PhaseTools.WISH_LIST)
+        assertEquals(MarkLife.DROP, drop.body!!.focusWhy); assertTrue(MarkSheet.opensTyping(drop)); assertTrue(MarkSheet.opensWhole(false, drop))
+        // ... but not where the phase offers no such box (Survey's gate draws no move): nothing takes the keyboard
+        val gate = view(MarkSheet.openPanel(p, D2, 0L, focusMove = MarkLife.DROP)!!, 0)
+        assertNull(gate.body!!.focusWhy); assertFalse(MarkSheet.opensWhole(false, gate))
+        // a Tape and a chain have no box at all
+        for (id in listOf("t1", "k1")) assertFalse(MarkSheet.opensTyping(view(MarkSheet.openPanel(p, id, 0L)!!)), id)
     }
 }

@@ -51,13 +51,16 @@ class CodeChipTest {
         assertEquals(22.0, SurveyPrepTouch.CHIP_H_DP); assertEquals(8.0, SurveyPrepTouch.CHIP_PAD_DP)
         assertEquals(16.0, SurveyPrepTouch.CHIP_CLEAR_DP); assertEquals(DeleteGuard.CLEAR_DP.toDouble(), SurveyPrepTouch.CHIP_CLEAR_DP)
         val bb = box(150.0, 200.0, 240.0, 320.0)
-        // its handles: a box mark's eight tabs, a four-corner mark's four corners, a spot's own middle -- what the trash kept clear of
+        // its handles: a box mark's eight tabs, a four-corner mark's four corners, a spot's own middle -- what the floating
+        // trash, which went in slice I2b, kept clear of
         assertEquals(SurveyPrepTouch.TABS.map { SurveyPrepTouch.tabAt(it, bb.l, bb.r, bb.t, bb.b).toList() }, SurveyPrepTouch.handlesOf(bb, false).map { it.toList() })
         assertEquals(listOf(listOf(195 * dp, 260 * dp)), SurveyPrepTouch.handlesOf(bb, true).map { it.toList() })
         val four = listOf(pt(150.0, 300.0), pt(240.0, 320.0), pt(240.0, 200.0), pt(150.0, 200.0))
         assertEquals(four.map { it.toList() }, SurveyPrepTouch.handlesOf(bb, false, four).map { it.toList() })
-        for (sp in listOf(false, true)) for (c in listOf(null, four))
-            assertEquals(SurveyPrepTouch.keepOfMark(bb, sp, c).points.map { it.toList() }, SurveyPrepTouch.handlesOf(bb, sp, c).map { it.toList() }, "spot $sp, corners ${c != null}")
+        // a spot is its middle whatever corners it is handed: it has none to free
+        assertEquals(SurveyPrepTouch.handlesOf(bb, true).map { it.toList() }, SurveyPrepTouch.handlesOf(bb, true, four).map { it.toList() })
+        // what the chip reads: the code and the glyph that says it opens something
+        assertEquals("FW1 ▾", SurveyPrepTouch.chipText("FW1")); assertEquals("F-T1 ▾", SurveyPrepTouch.chipText("F-T1"))
         // a short code ("FE1 ▾" drawn small): 20 dp of text, a 36 dp chip -- its tap box is still 44 x 28, the chip centred in it
         val small = assertNotNull(chip(bb, 20 * dp))
         assertEquals(listOf(36.0, 22.0), listOf(small.box.w / dp, small.box.h / dp)); assertEquals(listOf(44.0, 28.0), listOf(small.tap.w / dp, small.tap.h / dp))

@@ -499,8 +499,9 @@ object MarkSheet {
      * end, where the fold cannot hide it; the ACTS, two lines ([acts]); then this sheet's own blocks as they are --
      * KIND, TRADE, STATE, NOTE ([view]). A TAPE AND A CHAIN get it too, with the head and the acts and no block.
      *
-     * EVERYTHING BELOW IS PURE AND BESIDE WHAT STANDS: nothing above this line changed, and :app, which still draws
-     * the sheet whole with its ✕ and its foot Done, calls none of it until slice I2b switches the screen over.
+     * EVERYTHING BELOW IS PURE; nothing above this line changed for it. Since slice I2b :app draws the panel from
+     * [panel] -- app/MarkSheet.kt, which draws [view]'s blocks as it always did and neither its ✕ nor a foot Done --
+     * and the long-press menu, the floating trash and the picked item's row under the photo are gone.
      */
 
     /** `Fine move` among the acts: beside [SurveyPrepEdit.LOCK], [SurveyPrepEdit.DUPLICATE], [SurveyPrepEdit.LOCK_ALL],
@@ -745,6 +746,23 @@ object MarkSheet {
     /** Whether the panel opens WHOLE, with no half rest (`skipPartiallyExpanded`): in landscape. In portrait the half
      *  rest is ON -- it was switched off after the K4 review for hiding Done under the fold, and Done is in the head now. */
     fun opensWhole(land: Boolean): Boolean = land
+
+    /**
+     * ... AND WHOLE WHILE A BOX OF IT HAS THE KEYBOARD ([typing]; port 63 slice I2b). The half rest is half the WINDOW,
+     * and the keyboard takes the window's lower part: at the half rest the strip left between the panel's top and the
+     * keyboard is about 100 dp on the Mi A3 -- the grip, the head and part of the acts -- so a Why box or the note being
+     * typed in would be behind the keys. (This is the K4 review's fault from the other side: there the fold hid Done;
+     * here it would hide the words.) So the panel stands whole from the moment a box takes the keyboard, and the blocks
+     * scroll under the head and the acts as they did before the half rest came back.
+     */
+    fun standsWhole(land: Boolean, typing: Boolean): Boolean = opensWhole(land) || typing
+
+    /** Whether the panel OPENS on a box -- the keyboard up from its first frame: a Note just placed opens on its note
+     *  field ([View.focusNote]), a Drop on Dropped's Why box ([View.focusWhy]). A Tape's and a chain's has no box. */
+    fun opensTyping(v: PanelView): Boolean = v.body?.let { it.focusNote || it.focusWhy != null } == true
+
+    /** The panel as it opens: whole in landscape, and whole where it opens on a box ([opensTyping]); else at its half rest. */
+    fun opensWhole(land: Boolean, v: PanelView): Boolean = standsWhole(land, opensTyping(v))
 
     /** The half rest of a window [windowDp] high, dp: half of it (378 of the Mi A3's 756). */
     fun halfRestDp(windowDp: Double): Double = windowDp / 2

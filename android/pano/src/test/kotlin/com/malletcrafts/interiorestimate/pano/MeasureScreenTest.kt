@@ -22,10 +22,14 @@ import kotlin.test.assertTrue
  * :app is compiled only by CI, so what the screen CALLS is read here; the rules themselves are :pano's and are tested
  * where they live (PickTest, LandingTest, LaserChipTest, PhotoFiguresTest, TurnedLabelsTest, OpenStepTest, SaveStayTest,
  * OneStepTest). These pins hold that the screen asks them, in ONE place each, that what the slice deleted is gone, and
- * -- with the pure half beside each -- the nine things the design names: no figure text under the photo in any state,
- * no delete control in a row under the photo, the trash only for a held item, no estimate on the editing photo or the
- * 360, every read figure on an unpicked mark, a Line's label without its code, a turned label on a slanted Line, the
- * face opening on Mark once its lines are set, and Save not closing the screen.
+ * -- with the pure half beside each -- the things the design names: no figure text under the photo in any state, no
+ * estimate on the editing photo or the 360, every read figure on an unpicked mark, a Line's label without its code, a
+ * turned label on a slanted Line, the face opening on Mark once its lines are set, and Save not closing the screen.
+ *
+ * AND, SINCE SLICE I2b (the panel that slides up; DESIGN-imagemeter §6, §14 I2; Amit, 16 Nov 2026: "a slide up screen in
+ * imagemeter give more options", "same for delete button for any item"): NOTHING under the photo but the tool row, NO
+ * delete control anywhere but the panel, DONE in the panel's head, the picked item's code a chip that opens it, the
+ * photo lifted under it, and Fine move's pad in the nudge row's place.
  *
  * Test names are plain ASCII: this container's Kotlin daemon cannot write a class file for a local function or a
  * lambda of a method whose name carries a middle dot or a long dash.
@@ -127,17 +131,17 @@ class MeasureScreenTest {
         for (call in listOf("Pick.tap(scene(), pick, hit, line)", "Pick.handle(pick, pt)", "Pick.longPress(scene(), pick, mid)",
             "Pick.placed(scene(), ", "Pick.duplicated(scene(), c.id)", "Pick.locked(scene(), pick, mid)", "Pick.deleted(pick, mid)",
             "Pick.undone(scene(), pick)", "Pick.tab(pick, tab, t)", "Pick.step(pick, mode, m, tab, ask)", "Pick.next(scene(), pick, tab)",
-            "Pick.settle(scene(), pick)", "Pick.row(scene(), pick)", "Pick.empty(pick)"))
+            "Pick.settle(scene(), pick)", "Pick.shaped(scene(), pick, mid)", "Pick.empty(pick)"))
             assertTrue(count(c, call) >= 1, "the screen asks $call")
         // the keypad is shut or opened as the answer says, AFTER Pick was asked
-        val took = body(c, "fun took(o: Pick.Out, face: String = tab)")
+        val took = body(c, "fun took(o: Pick.Out, face: String = tab, body: Boolean = false)")
         assertTrue(took.indexOf("if (o.stay) return") in 0 until took.indexOf("padDoes(o.pad)"))
         assertTrue(took.indexOf("padDoes(o.pad)") < took.indexOf("pick = o.state"))
         // only the HELD item moves: the gesture asks Pick.drag, and only the held item's handles are handed to the hit test
         assertEquals(1, count(c, "when (Pick.drag(sceneS, pickS, e.id)) {"))
         assertEquals(3, count(c, "Pick.handleId(pickS)"), "the hit test, the body grab and the ends")
         // a press picks nothing until it lifts: the tap is the one place the press acts on 2 - Mark
-        assertEquals(2, count(c, "if (selecting) onTapS(pressHit, pressLine)\n"), "a tap, and a double tap until slice I4")
+        assertEquals(2, count(c, "if (selecting) { if (!endGrabbed) onTapS(pressHit, pressLine) }\n"), "a tap, and a double tap until slice I4 -- and a tap on an END of the held item is that end's, never one on empty photo")
         // the pure half: a mark the walk reached is not held, and a drag on it pans
         val p = wall(); val walked = Pick.next(sc(p), Pick.NONE, "front").state
         assertEquals(State("d1", false, "FD1.w"), walked)
@@ -147,51 +151,149 @@ class MeasureScreenTest {
 
     // ---- nothing under the photo shows a measurement, deletes, or fires the laser -----------------------------
 
-    @Test fun `no figure text under the photo in any state - the held row, the keypad and the tool row print no value`() {
+    @Test fun `nothing stands under the photo but the tool row - no figure text in any state, and the picked item's row is gone`() {
         val c = code(sps)
         val panel = body(c, "val markPanel: @Composable () -> Unit =")
-        // what stands there is StepRoute's answer: the keypad, the held item's row over the tool row, the tool row, or nothing
-        assertEquals(1, count(panel, "val under = StepRoute.underMark(toolRow, row = row != null, keypad = padOpen && pick.gold != null)"))
+        // what stands there is StepRoute's answer, and WHAT IS PICKED OR HELD IS NOT ASKED: the tool row, the keypad in its
+        // place, or nothing (port 63 slice I2b -- for the one build I1 the picked item's row stood over the tool row)
+        assertEquals(1, count(panel, "when (StepRoute.underMark(toolRow, keypad = padOpen && pick.gold != null)) {"))
+        assertEquals(1, count(panel, "StepRoute.Under.TOOLS -> SpPalette(tab, tool, land,")); assertEquals(1, count(panel, "StepRoute.Under.KEYPAD ->"))
+        assertEquals(1, count(panel, "SpMeasurePad(land,")); assertEquals(1, count(panel, "StepRoute.Under.NOTHING -> Unit"))
+        // nothing of the picked item is drawn there: no label, no code, no nudge, no padlock, no way to its sheet
+        for (gone in listOf("Row(", "Text(", "SpButton(", "SpPadlock(", "selNow()", "openPanel(", "toggleLock(", "sm.code", "PhotoFigures.nameOf", "Pick."))
+            assertEquals(0, count(panel, gone), "under the photo: $gone")
         // none of it reads a reading, a figure, an estimate or the keypad's digits
         for (figure in listOf("prep.actual", "rowValue", "MarkDims", "MeasurePad.live", "SurveyChain.vals", "SurveyMeas.plen", "MeasureText",
             "PhotoFigures.ofMark", "padNow()"))
             assertEquals(0, count(panel, figure), "the panel under the photo reads $figure")
-        // the held mark's row: its code over what its nudges move (a word, never a figure), its nudges, its padlock
-        assertEquals(1, count(panel, "if (lk) tx.sp_locked else if (row.nudges) what else"))
+        for (gone in listOf("fun nudgeMark(", "heldRowDp", "Under.HELD", "Under.ROW", "row.nudges", "row.padlock", "row.sheet")) assertEquals(0, count(c, gone), "SurveyPrepScreen.kt still has $gone")
         // the keypad has NO DISPLAY LINE -- its digits are on the gold plate -- and the tool row's `▸` carries no number
         val k = code(pad)
         assertEquals(0, count(k, "Text(live"), "a display line on the keypad"); assertEquals(0, count(k, "MeasurePad.live"))
         val t = code(tools)
         assertEquals(1, count(t, "Text(SurveyPrepPalette.NEXT_GLYPH,"), "`▸` is the glyph alone")
         assertEquals(1, count(t, "contentDescription = next.label ?:"), "its count is in its description only")
-        // the pure half, in every state: nothing the row or the slot is given is a figure
+        // the pure half, in every state: under the photo it is the tool row whatever is picked, held or gold, and the photo
+        // keeps its 514 dp -- "picking a mark changes nothing under the photo" (§14 I2)
         val p = wall(); p.actual["FD1.w"] = 905.0
         for (st in listOf(Pick.NONE, State("d1", true, "FD1.h"), State("d1", false, "FD1.h"), State("m1", true, "F-M1.len"))) {
-            val row = Pick.row(sc(p), st)
-            // the PICKED item has its row, held or not (the review of I1, findings 1 and 6); nothing picked, none
-            if (st.picked != null) assertTrue(row != null, "$st: the picked item has its row") else assertEquals(null, row, "$st: nothing picked, no row")
-            if (row != null && !st.held) assertFalse(row.nudges, "$st: only a held item moves")
+            val under = StepRoute.underMark(toolRow = true, keypad = false)
+            assertEquals(StepRoute.Under.TOOLS, under, "$st"); assertEquals(514, StepRoute.markPhotoDp(under), "$st")
             val next = SurveyPrepPalette.nextSlot(Tx.EN, p, "front", st.gold, 0, StepRoute.MARK, ::ab)
             assertFalse(next.label.orEmpty().isEmpty() && next.shown, "$st")
         }
+        assertEquals(listOf("NOTHING", "TOOLS", "KEYPAD"), StepRoute.Under.values().map { it.name })
         assertEquals(SurveyPrepPalette.NEXT_GLYPH, "▸")
     }
 
-    @Test fun `no delete control in a row under the photo, and the trash drawn and pressed only for a held item`() {
-        val c = code(sps)
+    @Test fun `no delete control anywhere but the panel - no row, no disc on the photo or the 360, no menu - and there it is the last act`() {
+        val c = code(sps); val p3 = code(s360); val sheet = code(app + "MarkSheet.kt")
         val panel = body(c, "val markPanel: @Composable () -> Unit =")
         assertEquals(0, count(panel, "deleteMark("), "a row under the photo deletes"); assertEquals(0, count(panel, "SP_DELETE"))
         assertEquals(0, count(code(pad), "elete")); assertEquals(0, count(body(code(tools), "internal fun SpPalette("), "elete"))
-        // the floating trash: pressed and drawn only where Pick.trash says -- the HELD item, no tool on, in 2 - Mark
-        assertEquals(1, count(c, "val tr = if (mode == StepRoute.MARK && Pick.trash(sceneS, pickS, SurveyPrepPalette.armed(toolS))) trashAt[0] else null"))
-        assertEquals(1, count(c, "val pickedId = if (mode == StepRoute.MARK && Pick.trash(scene, pick, SurveyPrepPalette.armed(tool))) pickedHere else null"))
-        assertEquals(2, count(c, "Pick.trash("))
-        // the pure half: picked by the walk -- no trash; held -- the trash; a tool on -- none
+        // THE FLOATING TRASH AND THE LONG-PRESS MENU ARE GONE from every source of the app (port 63 slice I2b)
+        for (rel in appSources()) for (gone in listOf("trashAt", "trashSpot(", "Pick.trash(", "onDeleteS", "SpCtxMenu", "ctxPick(", "DeleteGuard.menuTop(", "trashOf("))
+            assertEquals(0, count(code(rel), gone), "$rel still has $gone")
+        assertEquals(0, count(p3, "elete("), "the 360 deletes nothing by itself")
+        // ONE WAY IN: the panel's act, where MarkSheet.actStep answers Delete -- and the panel's own file only hands the id back
+        assertEquals(3, count(c, "deleteMark("), "its declaration, the model's own call, and the panel's Delete")
+        assertEquals(1, count(body(c, "fun panelAct(act: String)"), "deleteMark(pn.id)"))
+        assertEquals(1, count(c, "onPanelAct = { act -> panelAct(act) },"))
+        assertEquals(0, count(sheet, "deleteMark")); assertEquals(1, count(sheet, ".clickable(role = Role.Button) { onAct(c.id) }"))
+        // the pure half: for every kind of item the delete cell is the LAST act, on line 2 -- and it is picked by a deliberate
+        // tap on the code chip or a long press, held or not, never by a control that stands beside the laser's thumb
         val p = wall()
-        assertFalse(Pick.trash(sc(p), State("d1", false, "FD1.w"), false), "a mark the walk reached has no delete near the laser's thumb")
-        assertTrue(Pick.trash(sc(p), State("d1", true, "FD1.w"), false))
-        assertFalse(Pick.trash(sc(p), State("d1", true, null), true), "with a tool on the disc is not there")
-        assertFalse(Pick.trash(sc(p, 0, StepRoute.PANO), State("d1", true, null), false), "the 360 keeps its own")
+        for (id in listOf("d1", "m1", "t1")) {
+            val acts = MarkSheet.acts(Tx.EN, p, id, 0, null)
+            assertEquals(SurveyPrepEdit.DELETE, acts.all.last().id, id); assertTrue(acts.line2.last().delete && acts.line1.none { it.delete }, id)
+            assertTrue(MarkSheet.actStep(Tx.EN, p, MarkSheet.openPanel(p, id, -1000L)!!, SurveyPrepEdit.DELETE, 0, null) is MarkSheet.ActStep.Delete, id)
+        }
+        assertFalse(MarkSheet.acts(Tx.EN, p, "d1", 1, null).has(SurveyPrepEdit.DELETE), "a surveyed mark after Survey has no act at all")
+    }
+
+    @Test fun `Done is in the panel's head - no close glyph and no foot Done - and the panel rests half way in portrait, whole in landscape and while typing`() {
+        val sheet = code(app + "MarkSheet.kt"); val st = text(app + "MarkSheet.kt"); val c = code(sps)
+        // DONE AT THE RIGHT END OF THE HEAD, where no fold can hide it; the foot's Done and the ✕ are gone
+        val head = body(sheet, "private fun MsHead(h: MarkSheet.Head, tall: Dp, onWide: (Int) -> Unit, onDoneWide: (Int) -> Unit, onDone: () -> Unit)")
+        assertEquals(1, count(head, "Text(h.done, color = MS_INK,")); assertEquals(1, count(head, ".clickable(enabled = h.doneEnabled, role = Role.Button) { onDone() }"))
+        assertTrue(head.indexOf("Text(buildAnnotatedString {") in 0 until head.indexOf("Text(h.done,"), "the name first, Done last in the row")
+        assertEquals(1, count(sheet, "Text(h.done,"), "ONE Done"); assertEquals(0, count(sheet, "MsDone")); assertEquals(0, count(sheet, "v.close")); assertEquals(0, count(st, "\"✕\""))
+        assertEquals(2, count(sheet, "MsHead(v.head, MarkSheet.HEAD"), "portrait and landscape, each its head")
+        // the head and the acts are OUTSIDE what scrolls: in each layout MsHead and MsActs come before the scrolling column
+        for (layout in listOf("private fun MsPortrait(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit)", "private fun MsLandscape(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit)")) {
+            val b = body(sheet, layout)
+            assertTrue(b.indexOf("MsHead(") in 0 until b.indexOf("MsActs(")); assertTrue(b.indexOf("MsActs(") < b.indexOf("verticalScroll(rememberScrollState())"), layout)
+            assertEquals(1, count(b, "verticalScroll("), layout)
+        }
+        // WHERE IT RESTS is MarkSheet's answer, asked once as it opens; the grip is the sheet's own handle in portrait only
+        val sp = body(sheet, "internal fun SpMarkSheet(v: MarkSheet.PanelView, land: Boolean, a: MarkSheetActions)")
+        assertEquals(1, count(sp, "val whole = remember(land) { MarkSheet.opensWhole(land, v) }"))
+        assertEquals(1, count(sp, "rememberModalBottomSheetState(skipPartiallyExpanded = whole, confirmValueChange = mayHide)"))
+        assertEquals(0, count(sheet, "skipPartiallyExpanded = true"), "the half rest is ON in portrait")
+        assertEquals(1, count(sp, "val grip: (@Composable () -> Unit)? = if (MarkSheet.hasGrip(land)) { { MsGrip { y -> onTopS(y) } } } else null")); assertEquals(1, count(sp, "dragHandle = grip,"))
+        // a box that takes the keyboard pulls it up whole: both boxes say so
+        assertEquals(1, count(sp, "if (MarkSheet.standsWhole(land, true)) { scope.launch { sheet.expand() } }"))
+        assertEquals(2, count(sheet, ".onFocusChanged { f -> if (f.isFocused) typing() }"), "a Why box and the note")
+        // IT TAKES NO TAP FOR ITS FIRST 300 MS: the sheet asks before it lets itself be closed, the screen before everything else
+        assertEquals(1, count(sp, "remember { { to: SheetValue -> to != SheetValue.Hidden || answersS() } }"))
+        assertEquals(1, count(c, "if (MarkSheet.answers(cur, SystemClock.uptimeMillis())) panel = cur.with(f)"))
+        assertEquals(9, count(c, " typed { cur -> MarkSheet."), "every chip, box and keystroke of the blocks goes through the one gate")
+        assertEquals(1, count(c, "if (!MarkSheet.answers(pn, SystemClock.uptimeMillis())) return"), "an act")
+        assertEquals(1, count(c, "onDone = { if (panel?.let { cur -> MarkSheet.answers(cur, SystemClock.uptimeMillis()) } == true) panelDone() },"))
+        assertEquals(1, count(c, "panel = MarkSheet.openPanel(prep, mid, SystemClock.uptimeMillis(), longPress, focusMove, fresh, hist.size)"), "the one place it opens, by the clock it is asked by")
+        // the pure half: where Done is, and where the panel rests
+        val p = wall(); val acts = MarkSheet.acts(Tx.EN, p, "d1", 0, null)
+        assertEquals(56, MarkSheet.doneBottomDp(false)); assertEquals(36, MarkSheet.doneBottomDp(true))
+        assertTrue(MarkSheet.doneBottomDp(false) < MarkSheet.foldTopDp(acts)); assertEquals(144, MarkSheet.foldTopDp(acts))
+        assertTrue(MarkSheet.foldTopDp(acts) < MarkSheet.halfRestDp(756.0), "Done and both lines of acts are above the half rest")
+        val view = MarkSheet.panel(Tx.EN, p, MarkSheet.openPanel(p, "d1", 0L)!!, 0, null)!!
+        assertEquals("Done", view.head.done); assertTrue(view.head.doneEnabled)
+        assertFalse(MarkSheet.opensWhole(false, view), "portrait: half way"); assertTrue(MarkSheet.opensWhole(true, view), "landscape: whole")
+        assertTrue(MarkSheet.standsWhole(false, typing = true)); assertFalse(MarkSheet.standsWhole(false, typing = false))
+    }
+
+    @Test fun `the picked item's code is a chip - a tap on it, and a long press when the finger lifts, open the panel - and the photo lifts under it`() {
+        val c = code(sps); val d = code(spd); val p3 = code(s360)
+        // THE CHIP: placed by SurveyPrepTouch before the figures, its tap box kept clear by their layout, drawn over everything
+        val marks = body(d, "fun drawMarks(c: Canvas, tx: Tx, audience: SheetMarks.Audience, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float)")
+        assertEquals(1, count(marks, "chipOf = SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot), pen(chipFs, true).measureText(chipSays).toDouble(),"))
+        assertEquals(1, count(marks, "cw, ch, dpx, SurveyPrepTouch.chipLift(hand, chipFs, u.toDouble(), dpx), o.keep)"))
+        assertEquals(1, count(marks, "chipOf = SurveyPrepTouch.codeChipOfLine(scr, pen(chipFs, true).measureText(chipSays).toDouble(), cw, ch, dpx, o.keep)"))
+        assertEquals(1, count(marks, "val name = PhotoFigures.nameOf(o.prep, o.pick ?: Pick.State(o.selId, false, o.active))"), "its words are the item's name, P4's one place")
+        assertEquals(2, count(marks, "SurveyPrepTouch.chipText("))
+        assertTrue(marks.indexOf("chipOf?.let { k -> codes.add(k.tap) }") in 0 until marks.indexOf("val laid = if (o.mode =="), "placed before the figures, and handed to their layout")
+        assertTrue(marks.indexOf("drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp)") < marks.indexOf("chipOf?.let { k -> codeChip(c, k, chipSays, chipInk, chipFs, o.dp) }"), "drawn last")
+        assertEquals(2, count(marks, "val chipped = sel && chipOf != null"), "a box mark and a point: its code is not drawn inside as well")
+        // it is drawn for the PICKED item, held or not, on 2 - Mark with no tool on -- and the press finds it after the handles
+        assertEquals(1, count(c, "chip = mode == StepRoute.MARK && !SurveyPrepPalette.armed(tool),"))
+        assertEquals(1, count(text(sps), "shown = if (which == \"main\") shown else null), mm, u)"), "the loupe fills nothing")
+        assertEquals(1, count(c, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)"))
+        assertEquals(1, count(c, "if (o.options) pick.picked?.let { pid -> openPanel(pid) }"), "Pick row 7")
+        // A LONG PRESS takes the item at the press and opens its panel WHEN THE FINGER LIFTS -- not after a pinch or a cancel
+        assertEquals(1, count(c, "if (onLongPressS(gid)) longId = gid")); assertEquals(1, count(c, "if (opens != null && lifted && !pinch) onOptionsS(opens)"))
+        assertTrue(c.indexOf("if (onLongPressS(gid)) longId = gid") < c.indexOf("if (opens != null && lifted && !pinch) onOptionsS(opens)"))
+        assertEquals(1, count(c, "fun longLifted(mid: String) { if (pick.picked == mid) openPanel(mid, longPress = true) }"))
+        assertEquals(1, count(p3, "if (actS.longPress(gid)) longId = gid")); assertEquals(1, count(p3, "if (opens != null && lifted && !pinch) actS.options(opens)"))
+        // THE PHOTO LIFTS UNDER THE PANEL by what PhotoLift answers -- a layout offset of the whole photo, so every touch
+        // maps through it -- from the panel's top edge as the panel's own grip reports it
+        assertEquals(1, count(c, "PhotoLift.lift(y0, y0 + boxH, top.toDouble(), y0 + min(item.t, tap?.t ?: item.t), y0 + max(item.b, tap?.b ?: item.b),"))
+        assertEquals(1, count(c, "PhotoLift.MARGIN_DP * density.density, land).roundToInt()"))
+        assertEquals(1, count(c, "Box(Modifier.fillMaxSize().offset { IntOffset(0, -liftPx()) }.background(Color.Black)"))
+        assertEquals(1, count(c, "onTop = { y -> panelTop = y }))")); assertEquals(1, count(c, "shown = shown, panelTop = { panelTop },"))
+        assertEquals(1, count(code(app + "MarkSheet.kt"), "onTop(at[1] + c.positionInRoot().y)"))
+        // FINE MOVE: the pad is NudgePad's, over the photo, and it follows every Pick event
+        assertEquals(1, count(c, "pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp)"))
+        assertEquals(1, count(c, "val r = NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }"))
+        assertEquals(1, count(c, "pad = NudgePad.afterEvent(prep, pad, pick, quoteStage, o.nudge, body)")); assertEquals(1, count(c, "part = NudgePad.touched(part, before, o, body)"))
+        assertEquals(1, count(c, "val padNow = if (marking) NudgePad.after(prep, pad, pick, quoteStage) else null"))
+        assertEquals(1, count(c, "for (row in NudgePad.GRID) {")); assertEquals(1, count(c, "eh?.i?.let { pi -> onHandleS(NudgePad.pointPart(pi)) }"))
+        assertEquals(1, count(c, "fun sheetOrFinger(): Boolean = photoBusy || panel != null || moreOpen\n"), "the pad holds no reading back: it is no sheet")
+        // the pure half: the wall's window, long-pressed, then lifted over a half-open panel
+        val p = wall(); val o = Pick.longPress(sc(p), Pick.NONE, "d1")
+        assertTrue(o.options && o.state.held); assertTrue(MarkSheet.openPanel(p, "d1", 0L, longPress = true) != null)
+        assertEquals(0.0, PhotoLift.lift(180.0, 694.0, 378.0, 200.0, 330.0, 12.0), "an item high on the wall is left where it is")
+        assertEquals(134.0, PhotoLift.lift(180.0, 694.0, 378.0, 400.0, 500.0, 12.0), "one under the panel comes up 12 dp clear of it")
+        assertEquals(0.0, PhotoLift.lift(180.0, 694.0, 378.0, 400.0, 500.0, 12.0, land = true), "nothing lifts in landscape")
     }
 
     @Test fun `nothing on 2 Mark fires the laser - the meter's own button reads, and the chip in the top bar only connects`() {
@@ -250,15 +352,16 @@ class MeasureScreenTest {
         assertTrue(picked.any { it.look == PhotoFigures.Look.ASK && it.text == MarkDims.ASK_TEXT })
         assertEquals(1, count(code(sps), "live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,"))
         // ... and after Survey it asks nothing: the phase's own rule, never a `?` that cannot be acted on (the review of I1, finding 5)
-        assertEquals(1, count(code(sps), "ask = MeasureFlow.canRead(scene.stage)), mm, u)"))
+        assertEquals(1, count(code(sps), "ask = MeasureFlow.canRead(scene.stage),\n"))
     }
 
-    @Test fun `a Line's label is the number alone - its code only on its row - and runs along a slanted Line`() {
+    @Test fun `a Line's label is the number alone - its code only on its chip - and runs along a slanted Line`() {
         val p = wall(); p.actual["F-M1.len"] = 1240.0
         val m = p.measById("m1")!!.second
         assertEquals("1240", PhotoFigures.line(m, p.actual, Pick.NONE).text, "not F-M1 1240 mm")
-        assertEquals("F-M1", PhotoFigures.nameOf(p, State("m1", true, null)), "its code names it on its row")
-        assertEquals(1, count(code(sps), "val code = PhotoFigures.nameOf(prep, pick) ?: sq?.code ?: sk?.code"))
+        assertEquals("F-M1", PhotoFigures.nameOf(p, State("m1", true, null)), "its code names it on its chip")
+        assertEquals("F-M1 ▾", SurveyPrepTouch.chipText(PhotoFigures.nameOf(p, State("m1", false, null))!!), "picked by the walk too")
+        assertEquals(1, count(code(spd), "val name = PhotoFigures.nameOf(o.prep, o.pick ?: Pick.State(o.selId, false, o.active))")); assertEquals(0, count(code(sps), "PhotoFigures.nameOf("))
         // TURNED TO ITS LINE: the Line runs from (500, 1600) to (1300, 2200) mm on the face -- up and to the right
         val toPx: (Double, Double) -> DoubleArray = { x, y -> doubleArrayOf(x / 10, (H - y) / 10) }
         val items = PhotoFigures.items(p, "front", W, H, Pick.NONE, toPx, 1.0, { s, fs, _ -> s.length * fs * 0.6 })

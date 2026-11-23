@@ -643,37 +643,51 @@ class MarkSheetTest {
 
     @Test fun `the sheet's Done takes its ONE undo step through apply, Drop opens the sheet with none, and no screen writes a mark's life itself`() {
         val prep = code("SurveyPrepScreen.kt")
-        assertEquals(1, Regex("""MarkSheet\.apply\(""").findAll(prep).count())
-        assertTrue(prep.contains("val done = MarkSheet.apply(prep, st, quoteStage, java.time.Instant.now()) { snapshot() }"), "Done: apply, with the screen's snapshot as its one undo step")
-        val body = prep.substringAfter("fun sheetDone() {").substringBefore("fun deleteMark(")
+        // (since port 63 slice I2b the sheet is the panel that slides up: its Done is MarkSheet.panelDone, which is `apply` on
+        // the panel's draft -- MarkSheetPanelTest -- and the screen names neither `apply` nor `open` itself)
+        assertEquals(1, Regex("""MarkSheet\.panelDone\(""").findAll(prep).count()); assertEquals(0, Regex("""MarkSheet\.apply\(""").findAll(prep).count())
+        assertTrue(prep.contains("val done = MarkSheet.panelDone(prep, pn, quoteStage, java.time.Instant.now()) { snapshot() }"), "Done: apply, with the screen's snapshot as its one undo step")
+        val body = prep.substringAfter("fun panelDone(): MarkSheet.Outcome? {").substringBefore("fun deleteMark(")
         assertEquals(1, Regex("""snapshot\(\)""").findAll(body).count(), "no snapshot of the screen's own beside apply's")
         assertTrue(body.contains("MarkSheet.Outcome.DONE -> { changed(); settled(); if (done.amber) say(MarkLife.afterEstimate(tx)) }"), "written: saved, settled (port 63 slice I1b), and the office told of an amber move")
         // Delete on a mark past Existing: the sheet, on Dropped, and nothing else
-        assertTrue(prep.contains("MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }"))
-        assertTrue(prep.contains("fun openSheet(mid: String, focusMove: String? = null, fresh: Boolean = false) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove, fresh, hist.size) }"), "opening takes no undo step")
-        // the sheet is drawn from MarkSheet.view for the stage the dialog was given, and every tap goes to a pure function
-        assertTrue(prep.contains("val drawn = MarkSheet.view(tx, prep, st, quoteStage)"))
-        for (f in listOf("pickSub(prep, cur, sub)", "pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, typed)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, typed)",
+        assertTrue(prep.contains("MarkLife.DeleteAct.DROP_SHEET -> { openPanel(mid, MarkLife.DROP); return }"))
+        assertTrue(prep.contains("fun openPanel(mid: String, focusMove: String? = null, fresh: Boolean = false, longPress: Boolean = false) {\n" +
+            "        panel = MarkSheet.openPanel(prep, mid, SystemClock.uptimeMillis(), longPress, focusMove, fresh, hist.size)\n    }"), "opening takes no undo step")
+        // the panel is drawn from MarkSheet.panel for the stage the dialog was given -- its blocks are MarkSheet.view's -- and
+        // every tap goes to a pure function
+        assertTrue(prep.contains("val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)"))
+        for (f in listOf("pickSub(prep, cur, sub)", "pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, text)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, text)",
             "pickOffice(cur, office)", "togglePicker(prep, cur)", "pickCat(cur, cat)", "closePicker(cur)")) assertTrue(prep.contains("MarkSheet.$f"), f)
-        // a code is a button exactly where a sheet opens for it: the HELD mark's label and a held Line's or area's code (port 63
-        // slice I1b: Pick.row's `sheet`, which asks MarkSheet.opens). The measure bar and its label cell are gone with 3 · Measure
-        assertEquals(2, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(""").findAll(prep).count())
+        // THE CODE IS A BUTTON FOR EVERY ITEM (port 63 slice I2b): the row under the photo whose label opened the sheet is
+        // gone, and the picked item's code is a CHIP on the photo -- a tap on it opens the panel, for a Tape and a chain too
+        // (MarkSheet.panelOpens); nothing under the photo names an item or opens anything
+        assertEquals(0, Regex("""life_aria_open_mark_sheet_x""").findAll(prep).count())
         assertEquals(0, Regex("""life_aria_open_mark_sheet_x""").findAll(code("SurveyMeasure.kt")).count())
-        assertEquals(1, Regex("""if \(!row\.sheet\) Modifier else""").findAll(prep).count(), "a Tape's code is no button")
-        assertEquals(1, Regex("""\.clickable\(enabled = row\.sheet, role = Role\.Button\) \{ openSheet\(sm\.id\) \}""").findAll(prep).count(), "the mark's label")
+        assertEquals(0, Regex("""row\.sheet""").findAll(prep).count())
+        assertTrue(prep.contains("if (o.options) pick.picked?.let { pid -> openPanel(pid) }"), "a tap on the chip (Pick row 7)")
+        assertTrue(code("SurveyPrepDraw.kt").contains("chipOf?.let { k -> codeChip(c, k, chipSays, chipInk, chipFs, o.dp) }"), "the chip, drawn")
         // EVERY WRITE GOES THROUGH MarkSheet: no file of the app moves a mark, sets its act, its note or its trade, or touches `extra`
         val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
         val writers = Regex("""MarkLife\s*\.\s*(move|setAct|setNote|withNote|placeAs)\(|Trades\s*\.\s*(setCat|withCat)\(|\.extra\s*=[^=]""")
         assertEquals(emptyList(), files.filter { writers.containsMatchIn(code(it)) }, "a screen writes a mark's keys itself")
         assertEquals(emptyList(), files.filter { Regex("""MarkTypes\s*\.\s*(setSub|withSub)\(""").containsMatchIn(code(it)) }, "a screen writes a mark's kind itself: it is the sheet's Done")
-        assertEquals(listOf("SurveyPrepScreen.kt"), files.filter { Regex("""MarkSheet\s*\.\s*(apply|open)\(""").containsMatchIn(code(it)) })
+        assertEquals(listOf("SurveyPrepScreen.kt"), files.filter { Regex("""MarkSheet\s*\.\s*(apply|open|panelDone|openPanel)\(""").containsMatchIn(code(it)) })
     }
 
-    @Test fun `the sheet opens whole, with no handle, in survey prep's own colours -- and its file holds no rule`() {
+    @Test fun `the panel rests where MarkSheet says - half way in portrait with a grip, whole in landscape - in survey prep's own colours -- and its file holds no rule`() {
         val sheet = code("MarkSheet.kt")
-        assertTrue(sheet.contains("sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),"), "it opens WHOLE, as the album's sheets do")
+        // PORT 63 SLICE I2b: until then it opened WHOLE in both orientations (`skipPartiallyExpanded = true`, as the album's
+        // sheets do since the K4 review, when the half rest hid the foot's Done). Done is in the head now, and where the
+        // panel rests is MarkSheet.opensWhole's answer, asked once as it opens
+        assertTrue(sheet.contains("val whole = remember(land) { MarkSheet.opensWhole(land, v) }"))
+        assertTrue(sheet.contains("val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = whole, confirmValueChange = mayHide)"), "the half rest is ON where it does not open whole")
+        assertFalse(sheet.contains("skipPartiallyExpanded = true"))
         assertTrue(sheet.contains("onDismissRequest = a.onCancel,"), "the scrim, ◁ and a swipe cancel")
-        assertTrue(sheet.contains("dragHandle = null,") && sheet.contains("containerColor = MS_BG,") && sheet.contains("sheetMaxWidth = Dp.Unspecified,"))
+        assertTrue(sheet.contains("dragHandle = grip,") && sheet.contains("containerColor = MS_BG,") && sheet.contains("sheetMaxWidth = Dp.Unspecified,"))
+        assertTrue(sheet.contains("val grip: (@Composable () -> Unit)? = if (MarkSheet.hasGrip(land)) { { MsGrip { y -> onTopS(y) } } } else null"), "a grip in portrait only")
+        // the pure half: portrait rests half way unless it opens on a box; landscape opens whole and has no grip
+        assertTrue(MarkSheet.hasGrip(false)); assertFalse(MarkSheet.hasGrip(true)); assertFalse(MarkSheet.opensWhole(false)); assertTrue(MarkSheet.opensWhole(true))
         assertTrue(sheet.contains(".imePadding()"), "it rises over the keyboard")
         // every text it draws is handed to it: it names no table and no life-cycle rule
         assertFalse(Regex("""\btx\b|LocalTx|MarkLife|PhaseTools|Trades""").containsMatchIn(sheet), "app/MarkSheet.kt reads a text or a rule itself")
@@ -872,25 +886,27 @@ class MarkSheetTest {
         val prep = code("SurveyPrepScreen.kt")
         // a new Note's sheet opens at once, fresh, from BOTH placements -- and the two functions stand above them (a local
         // function is visible only below its declaration: the app is compiled only by CI)
-        assertTrue(prep.contains("fun notePlaced(e: SurveyPrep.Mark) { if (MarkLife.isNote(e)) openSheet(e.id, fresh = true) }"))
+        assertTrue(prep.contains("fun notePlaced(e: SurveyPrep.Mark) { if (MarkLife.isNote(e)) openPanel(e.id, fresh = true) }"))
         assertEquals(2, Regex("""\n\s+changed\(\)\n\s+notePlaced\(e\)\n\s+return e\n""").findAll(prep).count(), "2 · Mark's placement and the 360's")
-        val order = listOf("var markSheet by remember", "fun openSheet(", "fun notePlaced(", "fun placeMark(", "fun place360(", "fun noteRemoved(", "fun sheetDone(", "fun sheetCancel(", "fun deleteMark(").map { prep.indexOf(it) }
+        val order = listOf("var panel by remember", "fun openPanel(", "fun notePlaced(", "fun placeMark(", "fun place360(", "fun noteRemoved(", "fun panelDone(", "fun panelCancel(", "fun deleteMark(", "fun panelAct(").map { prep.indexOf(it) }
         assertTrue(order.all { it > 0 } && order == order.sorted(), "declared in the order they are used: $order")
         // Done: a kind changed goes to the tool's memory; an empty new Note is removed
-        val body = prep.substringAfter("fun sheetDone() {").substringBefore("fun sheetCancel(")
+        val body = prep.substringAfter("fun panelDone(): MarkSheet.Outcome? {").substringBefore("fun panelCancel(")
         assertTrue(body.contains("done.kind?.let { k -> SurveyPrepPalette.rememberSub(spKinds, k.t, k.s, k.sub) }"))
-        assertTrue(body.contains("MarkSheet.Outcome.REMOVED -> noteRemoved(st)"))
-        // cancel -- ✕, the scrim, ◁, a swipe -- goes through the sheet's own rule
-        assertTrue(prep.contains("fun sheetCancel() {\n        val st = markSheet ?: return\n        markSheet = null\n        if (MarkSheet.cancel(prep, st)) noteRemoved(st)\n    }"))
-        assertTrue(prep.contains("onCancel = { sheetCancel() }))")); assertEquals(0, Regex("""onCancel = \{ markSheet = null \}""").findAll(prep).count())
-        assertTrue(prep.contains("onKind = { sub -> markSheet = markSheet?.let { cur -> MarkSheet.pickSub(prep, cur, sub) } },"))
+        assertTrue(body.contains("MarkSheet.Outcome.REMOVED -> pn.draft?.let { st -> noteRemoved(st) }"))
+        // a Note with no words: the panel stays and says so in its own line -- the photo's snackbar is under it
+        assertTrue(body.contains("else pn.copy(draft = kept, said = if (done.outcome == MarkSheet.Outcome.NEEDS_WORDS) MarkSheet.needsWords(tx) else null)"))
+        // cancel -- the scrim, ◁, a swipe -- goes through the sheet's own rule
+        assertTrue(prep.contains("fun panelCancel() {\n        val pn = panel ?: return\n        panel = null\n        if (MarkSheet.panelCancel(prep, pn)) pn.draft?.let { st -> noteRemoved(st) }\n    }"))
+        assertTrue(prep.contains("onCancel = { panelCancel() },")); assertEquals(0, Regex("""onCancel = \{ panel = null \}""").findAll(prep).count())
+        assertTrue(prep.contains("onKind = { sub -> typed { cur -> MarkSheet.pickSub(prep, cur, sub) } },"))
         // removed: the placement's undo step taken back while it is the last, the pick let go, saved, and said with no UNDO
         assertTrue(prep.contains("fun noteRemoved(st: MarkSheet.State) {\n        if (MarkSheet.takesBackUndo(st, hist.size)) hist.removeAt(hist.size - 1)\n" +
             "        took(Pick.deleted(pick, st.id))\n        changed()\n        snack(MarkSheet.emptyRemoved(tx), undo = false)\n    }"))
         // the sheet draws KIND first, in both orientations, and a new Note's field takes the keyboard
         val sheet = code("MarkSheet.kt")
-        assertEquals(2, Regex("""val kind = v\.kind\n\s+if \(kind != null\) MsKind\(kind, a\.onKind\)""").findAll(sheet).count())
-        assertEquals(2, Regex("""MsNote\(v\.note, v\.focusNote, a\)""").findAll(sheet).count())
+        assertEquals(2, Regex("""val kind = body\.kind\n\s+if \(kind != null\) MsKind\(kind, a\.onKind\)""").findAll(sheet).count())
+        assertEquals(2, Regex("""MsNote\(body\.note, body\.focusNote, a, typing\)""").findAll(sheet).count())
         assertTrue(sheet.contains("LaunchedEffect(Unit) { if (focus) runCatching { noteFocus.requestFocus() } }"))
         assertTrue(sheet.contains("for (c in k.chips) MsChip(c.text, null, c.on, k.enabled, Modifier) { onKind(c.id) }"))
     }

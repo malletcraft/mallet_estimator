@@ -1072,11 +1072,41 @@ readers in slice I2b.
 `i18nRatchet` lowered nothing and entered the two new files at 0; `unkeyed.tsv` stays empty; the accessors nothing calls
 BY NAME are 657 -- each of the five has a reader in `:pano`.
 
+## Port 63 slice I2b (23 Nov 2026): the panel on screen -- 4 keys deleted with their last reader, none added
+
+Slice I2b switches the screen over to the panel slice I2a wrote the rules of (`android/docs/port63/DESIGN-imagemeter.md`
+§23.3 for what was built): the Mark sheet slides up with Done at the right end of its head, the picked item's code is a
+chip that opens it, Fine move is a pad over the photo -- and the held item's row under the photo, the long-press menu and
+the floating trash are deleted. **No key is added**: every word the panel, the chip and the pad show was keyed in slice
+I2a or before it. The chip's `▾` after the code is a glyph, the same in both languages (`SurveyPrepTouch.chipText`, marked
+`// text:value`).
+
+**Four keys deleted**, each with its last reader -- the held item's row in `app/SurveyPrepScreen.kt`, which is gone
+(decision 7's other half: a key whose last reader is deleted goes with it). All four were prototype keys with Marathi; the
+Marathi is deleted with the English, and nothing else in `strings-mr.json` changes.
+
+| Key | English | Was read by |
+|---|---|---|
+| `life.aria.open_mark_sheet_x` | `Open the Mark sheet for {code}` | the row's label, read out -- the chip and the panel say `sp.sheet.aria.open_x` now (`MarkSheet.optionsLabel`) |
+| `sp.corner` | `corner` | the row's second line, the part its nudges moved |
+| `sp.locked` | `locked` | the row's second line on a locked item -- the panel's Lock cell says it now (`common.unlock`) |
+| `sp.move` | `move` | the row's second line while the nudges moved the whole item |
+
+The keys the long-press menu and the floating trash read all keep a reader: the panel's acts are built from the same
+words (`common.lock`, `common.unlock`, `common.duplicate`, `common.lock_all`, `common.delete`, `sp.shape.four_corners`,
+`sp.shape.rectangle`, `sp.lock_all_x`, `sp.unlock_all_x`, `sp.delete_x`, in `pano/MarkSheet.kt` and
+`pano/SurveyPrepEdit.kt`). `mr-pending.tsv` is unchanged at 29 keys: none of the four was pending.
+
+1,932 keys (1,936 - 4); Tx regenerated with `:pano:i18nGen` (1,861 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and no file is gone; `unkeyed.tsv` stays empty. No accessor lost its last caller without
+going: the accessors nothing calls BY NAME stay 657 (`:pano:i18nReport`) -- the four deleted each had the row as a caller
+until now, so none of them was among the 657, and no other accessor's last caller went with this slice.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,936 keys each (counted 23 Nov 2026: the 1,931 of port 63 slice I1b and 5 in its slice I2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,932 keys each (counted 23 Nov 2026: the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

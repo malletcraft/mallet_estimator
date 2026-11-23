@@ -15,11 +15,13 @@ import kotlin.test.assertTrue
  * his phone: "also navigation button and D2 aer very close where d2 get accidentally fired. same for delete button for
  * any item."
  *
- * He asked for distance: no confirm, no second tap. So every one-tap delete of an item of survey prep stands 16 dp
- * clear of the nearest thing that takes a press, last in what it is part of, and drawn apart; and a delete is ONE undo
- * step that says what went. The numbers and the ordering are DeleteGuard's and SurveyPrepEdit's, pure, held here (the
- * floating trash's own rule is TrashSpotTest's); the rows, the menu and the two discs are drawn by :app, which only CI
- * compiles, so that they ask these rules -- and that every delete comes through the one function -- is read from source.
+ * He asked for distance: no confirm, no second tap. So the one-tap delete of an item of survey prep stands clear of
+ * the nearest thing that takes a press, last in what it is part of, and drawn apart; and a delete is ONE undo step that
+ * says what went. SINCE PORT 63 SLICE I2b DELETE HAS ONE PLACE -- the panel that slides up, its last act -- and the
+ * long-press menu, the floating trash (TrashSpotTest went with it) and every row under the photo are gone. The numbers
+ * and the ordering are DeleteGuard's, SurveyPrepEdit's and MarkSheet's, pure, held here; the panel is drawn by :app,
+ * which only CI compiles, so that it asks these rules -- and that every delete comes through the one function -- is
+ * read from source.
  *
  * Test names are plain ASCII (see MeasureScreenTest).
  */
@@ -46,21 +48,25 @@ class DeleteGuardTest {
         for (c in listOf(DeleteGuard.OUTLINE, DeleteGuard.INK)) { val (r, g, b) = rgb(c); assertTrue(r > g + 40 && r > b + 40, "%06X is a red".format(c)) }
         assertNotEquals(DeleteGuard.NEIGHBOUR, DeleteGuard.OUTLINE); assertNotEquals(DeleteGuard.NEIGHBOUR, DeleteGuard.INK)
         assertEquals(0xE0B040, DeleteGuard.NEIGHBOUR)
-        // QUIET: the outline is darker than the floating trash's own red (#E5484D), which is a filled disc
+        // QUIET: the outline is darker than the red the floating trash's filled disc had (#E5484D)
         assertTrue(rgb(DeleteGuard.OUTLINE).first < 0xE5)
-        // the floating trash keeps the same 16 dp by default
-        val bb = SurveyPrepTouch.Box(200.0, 300.0, 280.0, 380.0)
-        val s = SurveyPrepTouch.trashSpot(bb, emptyList(), 680.0, 566.0, 2.0, SurveyPrepTouch.keepOfMark(bb, false))!!
-        assertTrue(SurveyPrepTouch.keepOfMark(bb, false).points.all { q -> kotlin.math.hypot(s.left + 36.0 - q[0], s.top + 36.0 - q[1]) >= (18 + DeleteGuard.CLEAR_DP) * 2.0 })
+        // THE ONE DELETE CONTROL -- the panel's last act -- stands MORE than that 16 dp from the act beside it
+        assertTrue(MarkSheet.DELETE_GAP_DP > DeleteGuard.CLEAR_DP)
+        val acts = MarkSheet.acts(Tx.EN, room(), "d1", 0, null)
+        val slots = MarkSheet.slots(acts, 336.0, false)
+        val del = slots.single { it.cell.delete }
+        val beside = slots.filter { it.row == del.row && !it.cell.delete }.maxOf { it.r }
+        assertTrue(del.l - beside >= MarkSheet.DELETE_GAP_DP - 1e-9, "Delete is ${del.l - beside} dp from the act beside it")
     }
 
-    @Test fun `in every menu the delete row is the last, whatever it reads, and the rest keep their order`() {
+    @Test fun `in every list of acts the delete row is the last, whatever it reads, and the rest keep their order`() {
         // the ordering rule itself
         assertEquals(listOf("b", "c", "d", "a"), DeleteGuard.last(listOf("a", "b", "c", "d")) { it == "a" })
         assertEquals(listOf("a", "b", "d", "c"), DeleteGuard.last(listOf("a", "b", "c", "d")) { it == "c" })
         assertEquals(listOf("a", "b", "c"), DeleteGuard.last(listOf("a", "b", "c")) { false })
         assertEquals(emptyList(), DeleteGuard.last(emptyList<String>()) { true })
-        // every item's own menu: Duplicate first (under the finger: it loses nothing), then the locks, Cancel, and Delete last
+        // every item's own rows, as the long-press menu listed them and the panel's acts are still taken from them
+        // (MarkSheet.acts): Duplicate first, then the locks, Cancel, and Delete last
         val p = room()
         assertEquals("Duplicate|Lock|Lock all Door|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").joinToString("|") { it.second })
         assertEquals("Duplicate|Lock|Lock all tapes|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "t1").joinToString("|") { it.second })
@@ -83,47 +89,57 @@ class DeleteGuardTest {
         // a mark past Existing: its Drop and its Restore are that same last row
         p.markById("d1")!!.second.extra = mapOf(MarkLife.KEY_BORN to MarkLife.WISH, MarkLife.KEY_LIFE to MarkLife.WISH)
         assertEquals("Lock|Lock all Door|Cancel|Drop", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1", 1, null).joinToString("|") { it.second })
-        // the reference rectangle is never deleted: its menu has no such row at all
+        // the reference rectangle is never deleted: its rows have no such row at all -- and it has no panel
         SurveyRef.setMode(p, "front", true, L, W, H)
         assertFalse(SurveyPrepEdit.DELETE in SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front")).map { it.first })
+        assertNull(MarkSheet.openPanel(p, SurveyRef.id("front"), 0L))
+        // THE PANEL'S ACTS carry them through DeleteGuard.last: where there is a delete cell it is the LAST of line 2
+        val q = room()
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) for (picked in listOf(null, "exist", "wish")) for (id in listOf("d1", "t1", "m1", "m2", "k1")) {
+            val a = MarkSheet.acts(Tx.EN, q, id, st, picked)
+            assertEquals(a.all.count { it.delete }, if (a.delete != null) 1 else 0, "$id at $st: one delete cell at most, and it is line 2's last")
+            assertTrue(a.line1.none { it.delete }, "$id at $st: no delete cell on line 1")
+            assertEquals(SurveyPrepEdit.DELETE in SurveyPrepEdit.menuItemsOf(Tx.EN, q, id, st, picked).map { it.first }, a.delete != null, "$id at $st")
+            assertTrue(a.all.none { it.id == SurveyPrepEdit.CANCEL }, "$id at $st: Cancel is no act")
+        }
     }
 
-    @Test fun `the menu never opens with its delete row under the finger - low on the screen it opens above the press`() {
-        val dp = 2.0
-        // the menu as SpCtxMenu draws it: 4 of padding, a 24 dp head, its rows of 40, 16 dp of dead menu before the delete row, 4 under it
-        fun menuDp(rows: Int) = DeleteGuard.MENU_FOOT_DP + 24 + (rows - 1) * DeleteGuard.MENU_ROW_DP + DeleteGuard.CLEAR_DP + DeleteGuard.MENU_ROW_DP + DeleteGuard.MENU_FOOT_DP
-        assertEquals(248, menuDp(5)); assertEquals(128, menuDp(2))
-        fun top(pressDp: Double, screenDp: Int, rows: Int = 5, del: Boolean = true) = DeleteGuard.menuTop(pressDp * dp, menuDp(rows) * dp, screenDp * dp, dp, del) / dp
-        fun clear(pressDp: Double, screenDp: Int, rows: Int = 5) = DeleteGuard.menuClear(pressDp * dp, top(pressDp, screenDp, rows) * dp, menuDp(rows) * dp, dp) / dp
-        // WHERE THERE IS ROOM it is where it always was: 12 dp above the press, the finger on its head, Delete far below
-        assertEquals(288.0, top(300.0, 780)); assertEquals(108.0, top(150.0, 360), "landscape: pushed up from 138 to fit, the finger still nowhere near its foot")
-        assertTrue(clear(300.0, 780) > 180.0)
-        // LANDSCAPE, a mark near the floor line: pushed up to fit, the foot of the menu -- its delete row -- would be under
-        // the finger (the row at 312..352 dp, the press at 320). It opens above the press: the row ends 16 dp over the finger
-        val pushed = minOf(320.0 - 12, 360.0 - 248 - 4)
-        assertEquals(108.0, pushed); assertEquals(0.0, DeleteGuard.menuClear(320.0 * dp, pushed * dp, 248 * dp, dp), "the old placement: the finger ON the delete row")
-        assertEquals(60.0, top(320.0, 360)); assertEquals(16.0, clear(320.0, 360))
-        assertEquals(60.0 + 248 - 4, 320.0 - 16, 1e-9)
-        // just above that band nothing moves: the finger is on Cancel, the dead gap between it and Delete
-        assertEquals(108.0, top(295.0, 360)); assertEquals(17.0, clear(295.0, 360))
-        // AT EVERY PRESS on the phone's two screens (portrait 780 dp, landscape 336 to 360 dp) and for every menu with a
-        // delete row -- five rows on a mark, down to Cancel and Drop alone -- the finger is 16 dp or more from that row,
-        // and the menu is on the screen
-        for (screen in listOf(336, 348, 360, 780)) for (rows in 2..5) {
-            var y = 0.0
-            while (y <= screen) {
-                val t = top(y, screen, rows)
-                assertTrue(clear(y, screen, rows) >= DeleteGuard.CLEAR_DP - 1e-9, "screen $screen, $rows rows, press $y: ${clear(y, screen, rows)} dp from Delete")
-                assertTrue(t >= DeleteGuard.MENU_EDGE_DP - 1e-9 && t + menuDp(rows) <= screen + DeleteGuard.MENU_ABOVE_PRESS_DP, "screen $screen, $rows rows, press $y: top $t")
-                y += 1.0
-            }
+    @Test fun `the panel's Delete is never under the finger that opened it - a whole act row below Done, last, apart, and deaf at first`() {
+        // THE LONG-PRESS MENU IS GONE (port 63 slice I2b), and with it the rule that kept its delete row from opening under
+        // the finger (DeleteGuard.menuTop). The panel opens over the photo's foot, where the long press and the code chip
+        // that open it are pressed -- so the same guard is kept by WHERE Delete stands in it, and by the first 300 ms.
+        val p = room()
+        for (id in listOf("d1", "t1", "m1", "m2", "k1")) {
+            val acts = MarkSheet.acts(Tx.EN, p, id, 0, null)
+            assertTrue(acts.delete != null && acts.rows == 2, "$id: a delete cell, and both act rows")
+            // PORTRAIT, the Mi A3's 336 dp of content: Delete is on the SECOND line, in the LAST column, at the right end
+            val slots = MarkSheet.slots(acts, 336.0, false)
+            val del = slots.single { it.cell.delete }
+            assertEquals(1, del.row, id); assertEquals(336.0, del.r, 1e-9, id)
+            assertTrue(slots.all { it === del || it.row < del.row || it.r <= del.l - MarkSheet.DELETE_GAP_DP + 1e-9 }, "$id: nothing stands beside Delete nearer than 24 dp")
+            // ... a WHOLE ACT ROW below Done: Done ends at the head's foot, Delete's row starts one act row further down
+            val deleteTop = MarkSheet.GRIP_DP + MarkSheet.HEAD_DP + MarkSheet.ACT_ROW_DP
+            assertEquals(MarkSheet.ACT_ROW_DP, deleteTop - MarkSheet.doneBottomDp(false), id)
+            // ... and above the fold of the half rest, with Done: nothing he needs to cancel a slip is hidden
+            assertTrue(MarkSheet.foldTopDp(acts) <= MarkSheet.halfRestDp(756.0), id)
+            // LANDSCAPE: one line, Delete last, 24 dp from the act before it, and the line ends 16 dp short of Done
+            val doneLeft = 756.0 - 70
+            val land = MarkSheet.slots(acts, 756.0, true, doneLeft)
+            assertTrue(land.last().cell.delete && land.all { it.row == 0 }, id)
+            assertTrue(land.last().r <= doneLeft - MarkSheet.DONE_CLEAR_LAND_DP + 1e-9, "$id: nothing stands under Done")
+            assertEquals(MarkSheet.DELETE_GAP_DP, land.last().l - land[land.size - 2].r, 1e-9, id)
         }
-        // A MENU WITH NO DELETE ROW (a read-only mark's, the reference's) is placed exactly as before, wherever the press is
-        for (screen in listOf(360, 780)) for (y in listOf(0.0, 10.0, 150.0, 320.0, 355.0, 700.0).filter { it <= screen }) {
-            val was = minOf(y * dp - 12 * dp, screen * dp - 248 * dp - 4 * dp).coerceAtLeast(4 * dp) / dp
-            assertEquals(was, top(y, screen, del = false), "screen $screen, press $y")
-        }
-        assertEquals(108.0, top(320.0, 360, del = false), "its foot is Cancel: under the finger it is harmless")
+        // IT TAKES NO TAP FOR ITS FIRST 300 MS: a finger that had not quite left the photo deletes nothing
+        val pn = MarkSheet.openPanel(p, "d1", 10_000L, longPress = true)!!
+        for (t in listOf(10_000L, 10_150L, 10_299L)) assertFalse(MarkSheet.answers(pn, t), "$t")
+        assertTrue(MarkSheet.answers(pn, 10_300L))
+        assertTrue(MarkSheet.actStep(Tx.EN, p, pn, SurveyPrepEdit.DELETE, 0, null) is MarkSheet.ActStep.Delete)
+        // A MARK PAST EXISTING HAS NO DELETE CELL AT ALL: Drop and Restore are its STATE moves
+        p.markById("d1")!!.second.extra = mapOf(MarkLife.KEY_BORN to MarkLife.WISH, MarkLife.KEY_LIFE to MarkLife.WISH)
+        assertNull(MarkSheet.acts(Tx.EN, p, "d1", 1, null).delete)
+        // the menu's own placement rule went with the menu
+        val dg = code("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteGuard.kt")
+        for (gone in listOf("fun menuTop(", "fun menuClear(", "MENU_ROW_DP", "MENU_FOOT_DP", "MENU_ABOVE_PRESS_DP", "MENU_EDGE_DP")) assertEquals(0, count(dg, gone), "DeleteGuard still has $gone")
     }
 
     @Test fun `a delete takes the item and its readings, says its code, and one undo brings both back`() {
@@ -169,26 +185,31 @@ class DeleteGuardTest {
 
     // ---- the F1 review ----------------------------------------------------------------------------------------
 
-    @Test fun `no row under the photo deletes - the held item's row has no Delete and no value, and the row's clearances are gone`() {
-        // PORT 63 SLICE I1b (DESIGN-imagemeter §14 I1, the plan critic's C1): the held item's row is reduced to what moves it
-        // -- a mark's label, its nudges and its padlock; a Tape's, Line's, area's or chain's code and padlock -- so it prints
-        // no value and has no Delete, and the measure bar with its D2 is gone. The trash and the long-press menu delete.
+    @Test fun `nothing under the photo deletes - the picked item's row is gone, and the tool row and the keypad delete nothing`() {
+        // PORT 63 SLICE I1b took the Delete and every value out of the held item's row; SLICE I2b TAKES THE ROW ITSELF
+        // (DESIGN-imagemeter §14 I2): what stands under the photo in 2 · Mark is the tool row, or the keypad in its place,
+        // and nothing of the picked item -- its code is a chip on the photo, its padlock, its nudges and its Delete the
+        // acts of the panel that chip opens.
         val c = code(sps)
         val panel = body(c, "val markPanel: @Composable () -> Unit =")
         assertEquals(0, count(panel, "deleteMark("), "a row under the photo deletes")
         assertEquals(0, count(panel, "SP_DELETE"), "a delete control's look under the photo")
         assertEquals(0, count(panel, "rowValue("), "a value printed under the photo")
         assertEquals(0, count(panel, "SpMeasureBar("), "the measure bar")
-        assertEquals(1, count(panel, "if (row.nudges) for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land) { nudgeMark(dx, dy) }"))
-        assertEquals(2, count(panel, "if (row.padlock) SpPadlock("), "a mark's padlock, and a Tape's / Line's / area's / chain's")
-        assertEquals(1, count(panel, "val row = if (sl != null) Pick.row(scene(), pick) else null"), "the row is Pick's: held items only")
-        // no delete control, no dead gap before one and nothing of the measure bar is left on the screen or in the rule
-        for (gone in listOf("SpDeleteGap", "SP_DELETE", "SP_MARK_ROW_DP", "SP_LINE_ROW_DP", "SpMeasureBar", "MeasureBarLayout", "fun fire()"))
+        for (gone in listOf("SpPadlock(", "SpButton(", "nudgeMark(", "openPanel(", "toggleLock(", "Pick.row(", "selNow()", "heldRowDp"))
+            assertEquals(0, count(panel, gone), "under the photo: $gone")
+        assertEquals(1, count(panel, "when (StepRoute.underMark(toolRow, keypad = padOpen && pick.gold != null)) {"))
+        assertEquals(1, count(panel, "StepRoute.Under.TOOLS -> SpPalette(tab, tool, land,")); assertEquals(1, count(panel, "StepRoute.Under.KEYPAD ->"))
+        assertEquals(1, count(panel, "StepRoute.Under.NOTHING -> Unit"))
+        // no delete control, no dead gap before one, no nudge row and nothing of the measure bar is left on the screen or in the rule
+        for (gone in listOf("SpDeleteGap", "SP_DELETE", "SP_MARK_ROW_DP", "SP_LINE_ROW_DP", "SpMeasureBar", "MeasureBarLayout", "fun fire()", "fun nudgeMark(", "Pick.row(", "Pick.trash("))
             assertEquals(0, count(c, gone), "SurveyPrepScreen.kt still has $gone")
         val dg = code("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteGuard.kt")
         for (gone in listOf("rowGapDp", "rowClearDp", "rowPadDp", "rowToBarDp", "clearOfD2Dp", "rowToPaletteDp", "clearOfPaletteDp"))
             assertEquals(0, count(dg, "fun $gone("), "DeleteGuard still has $gone")
         assertFalse(I18n.android.resolve("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureBarLayout.kt").exists(), "the measure bar's layout")
+        val pick = code("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pick.kt")
+        for (gone in listOf("fun row(", "class Row(", "fun trash(")) assertEquals(0, count(pick, gone), "Pick still has $gone")
         // THE TOOL ROW AND THE KEYPAD delete nothing and fire nothing
         val pal = code(app + "SurveyPrepTools.kt")
         assertEquals(1, count(pal, "Row(Modifier.fillMaxWidth().padding(top = SurveyPrepPalette.TOP_DP.dp)) {")); assertEquals(0, count(pal, "padding(top = 6.dp)"))
@@ -219,7 +240,7 @@ class DeleteGuardTest {
             val item = p.itemById(id)!!
             val e = p.markById(id)?.second
             // WHAT THE SCREEN'S deleteMark ANSWERS BEFORE ITS SNAPSHOT: the lock ("FD1 is locked -- unlock first"), and
-            // for a mark whatever is not a plain delete (Restore, or the Mark sheet on Dropped)
+            // for a mark whatever is not a plain delete (Restore, or the panel on Dropped)
             val answered = item.locked || (e != null && MarkLife.deleteAct(e) != MarkLife.DeleteAct.PLAIN)
             // WHAT THE MODEL REFUSES
             val q = p.copy(); val took = q.deleteMark(id)
@@ -237,12 +258,12 @@ class DeleteGuardTest {
         assertTrue(del.indexOf("val it0 = prep.itemById(mid) ?: return") in 0 until del.indexOf("snapshot()"))
     }
 
-    @Test fun `every one-tap delete comes through deleteMark - one undo step, and the snackbar says the code with UNDO`() {
+    @Test fun `the one delete comes through deleteMark - the panel's last act, one undo step, and the snackbar says the code with UNDO`() {
         val c = code(sps); val p3 = code(app + "SurveyPrep360.kt")
         val del = body(c, "fun deleteMark(mid: String)")
         // ONE step on the plain path, taken with the one call that deletes -- and NEVER taken and then taken back (the F1
         // review, finding 4): snapshot() drops the oldest of 40 held steps, so a pop after it loses a step for nothing.
-        // The model's own refusals are answered before the step (the test below holds that those are all it has).
+        // The model's own refusals are answered before the step (the test above holds that those are all it has).
         assertEquals(1, count(del, "\n        snapshot(); prep.deleteMark(mid)\n"))
         assertEquals(1, count(del, "prep.deleteMark(mid)"))
         assertEquals(0, count(del, "if (!prep.deleteMark(mid))"), "no branch for a refusal that cannot happen")
@@ -260,65 +281,54 @@ class DeleteGuardTest {
         // the phase and the lock are asked before the step, as they were
         assertTrue(del.indexOf("if (!PhaseTools.delOk(prep, mid, quoteStage))") in 0 until del.indexOf("if (it0.locked) { refuse(code); return }"))
         assertTrue(del.indexOf("if (it0.locked) { refuse(code); return }") < del.indexOf("snapshot(); prep.deleteMark(mid)"))
-        // ... and so is a mark past Existing: Restore and the Drop sheet both return before the plain path
-        assertTrue(del.indexOf("MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }") in 0 until del.indexOf("snapshot(); prep.deleteMark(mid)"))
+        // ... and so is a mark past Existing: Restore and the Drop panel both return before the plain path
+        assertTrue(del.indexOf("MarkLife.DeleteAct.DROP_SHEET -> { openPanel(mid, MarkLife.DROP); return }") in 0 until del.indexOf("snapshot(); prep.deleteMark(mid)"))
         assertTrue(del.indexOf("MarkLife.DeleteAct.RESTORE -> {") in 0 until del.indexOf("MarkLife.DeleteAct.DROP_SHEET"))
-        // EVERY PATH: the photo's disc (the held item's only, port 63 slice I1b), the 360's disc and the menu's row -- no row
-        for (v in listOf("sm", "sq", "sk")) assertEquals(0, count(c, "{ deleteMark($v.id) }"), v)
-        assertEquals(1, count(c, "onDelete = { deleteMark(it) },")); assertEquals(1, count(c, "delete = { mid -> deleteMark(mid) },"))
-        assertEquals(1, count(c, "SurveyPrepEdit.DELETE -> deleteMark(mid)"))
-        assertEquals(1, count(c, "if (picked != null && hypot(at.x - tr[0], at.y - tr[1]) <= tr[2]) onDeleteS(picked)"))
-        assertEquals(1, count(p3, "if (picked != null && hypot(at.x - tr[0], at.y - tr[1]) <= tr[2]) actS.delete(picked)"))
-        assertEquals(5, count(c, "deleteMark("), "its declaration, the model's own call, and the three ways in")
-        // the photo's disc is pressed only for the HELD item (Pick.trash), and drawn only for it
-        assertEquals(1, count(c, "val tr = if (mode == StepRoute.MARK && Pick.trash(sceneS, pickS, SurveyPrepPalette.armed(toolS))) trashAt[0] else null"))
-        assertEquals(1, count(c, "val pickedId = if (mode == StepRoute.MARK && Pick.trash(scene, pick, SurveyPrepPalette.armed(tool))) pickedHere else null"))
-        assertEquals(1, count(c, "val picked = pickS.picked?.takeIf { pickS.held }"))
-        // THE MARK SHEET deletes nothing by one tap
+        // THE ONE WAY IN (port 63 slice I2b): the panel's Delete, where MarkSheet.actStep answers Delete -- no row, no disc
+        // on the photo or the 360, no menu
+        val act = body(c, "fun panelAct(act: String)")
+        assertEquals(1, count(act, "when (val step = MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)) {"))
+        assertEquals(1, count(act, "if (MarkSheet.panelCancel(prep, pn)) pn.draft?.let { st -> noteRemoved(st) } else deleteMark(pn.id)"))
+        assertTrue(act.indexOf("is MarkSheet.ActStep.Delete -> {") in 0 until act.indexOf("deleteMark(pn.id)"))
+        assertTrue(act.indexOf("if (!MarkSheet.answers(pn, SystemClock.uptimeMillis())) return") in 0 until act.indexOf("MarkSheet.actStep("), "deaf for its first 300 ms")
+        assertEquals(3, count(c, "deleteMark("), "its declaration, the model's own call, and the ONE way in")
+        for (gone in listOf("onDelete", "onDeleteS", "delete = { mid ->", "SurveyPrepEdit.DELETE -> deleteMark(mid)", "trashAt", "Pick.trash(", "ctxPick(", "SpCtx"))
+            assertEquals(0, count(c, gone), "SurveyPrepScreen.kt still has $gone")
+        for (gone in listOf("actS.delete(", "val delete:", "trashAt", "trashOf(", "fun trash(")) assertEquals(0, count(p3, gone), "SurveyPrep360.kt still has $gone")
+        // THE PANEL'S OWN FILE deletes nothing itself: it hands the act's id back
         val sheet = code(app + "MarkSheet.kt")
         for (word in listOf("deleteMark", "onDelete", "common_delete")) assertEquals(0, count(sheet, word), "MarkSheet.kt has $word")
         assertEquals(0, count(code(app + "SurveyMeasure.kt"), "elete"), "the keypad deletes no item")
     }
 
-    @Test fun `the long-press menu draws its delete row last and apart, and both floating discs keep DeleteGuard's 16 dp`() {
-        val locks = code(app + "SurveyPrepLocks.kt"); val c = code(sps); val p3 = code(app + "SurveyPrep360.kt")
-        val menu = body(locks, "internal fun SpCtxMenu(header: String, items: List<Pair<String, String>>, modifier: Modifier, onPick: (String) -> Unit)")
-        // the rows are drawn in the order :pano gives -- Delete last -- and the delete row has 16 dp of dead menu above it
-        assertEquals(1, count(menu, "for ((k, t) in items) {"))
-        assertEquals(1, count(menu, "if (k == SurveyPrepEdit.DELETE) {"))
-        // the menu's own measures are DeleteGuard's -- its rows, and the padding under its last -- so the placement rule
-        // (menuTop) knows where the delete row is
-        assertEquals(2, count(menu, ".height(DeleteGuard.MENU_ROW_DP.dp)")); assertEquals(1, count(menu, ".padding(vertical = DeleteGuard.MENU_FOOT_DP.dp)"))
-        assertEquals(0, count(menu, "height(40.dp)"))
-        val delRow = menu.substring(menu.indexOf("if (k == SurveyPrepEdit.DELETE) {"), menu.indexOf("} else {"))
-        assertEquals(1, count(delRow, "Spacer(Modifier.height(DeleteGuard.CLEAR_DP.dp))"), "a Spacer takes no tap")
-        assertTrue(delRow.indexOf("Spacer(Modifier.height(DeleteGuard.CLEAR_DP.dp))") < delRow.indexOf(".clickable(role = Role.Button) { onPick(k) }"))
-        assertEquals(1, count(delRow, ".border(1.5.dp, CM_DEL_LINE, del)")); assertEquals(1, count(delRow, "Text(t, color = CM_DEL,"))
-        assertEquals(1, count(locks, "private val CM_DEL_LINE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))"))
-        assertEquals(1, count(locks, "private val CM_DEL = Color(SurveyPrepDraw.argb(DeleteGuard.INK))"))
-        assertEquals(2, count(menu, ".clickable(role = Role.Button) { onPick(k) }"), "one tap still picks a row: the delete row and every other")
-        // the screen hands the menu the phase's rows and nothing reorders them on the way; and it places the menu by the
-        // rule that keeps the delete row from under the finger, told whether these rows have one
-        assertEquals(1, count(c, "val rows = SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)"))
-        assertEquals(1, count(c, "SpCtxMenu(head, rows,"))
-        assertEquals(1, count(c, "val top = DeleteGuard.menuTop((c.y - rootTop).toDouble(), mh.toDouble(), rootH.toDouble(), dens.density.toDouble(),\n                    rows.any { it.first == SurveyPrepEdit.DELETE }).toFloat()"))
-        assertEquals(1, count(c, "DeleteGuard.menuTop("))
-        assertEquals(1, count(c, "with(dens) { (232 + DeleteGuard.CLEAR_DP).dp.toPx() }"), "the menu's height before it is first measured: one dead gap taller")
-        // BOTH DISCS are placed by the one rule, handed the picked item's own handles, and neither passes a clearance of its own
-        assertEquals(1, count(c, "SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(), keep)?.let { ts ->"))
-        assertEquals(1, count(c, "else SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)"))
-        assertEquals(1, count(c, "val keep = if (scrPts != null) SurveyPrepTouch.keepOfLine(scrPts, pickedM?.kind == SurveyMeas.AREA,"))
-        assertEquals(1, count(c, "if (pickedM?.kind == SurveyMeas.TAPE) SurveyMeas.bandHalfPx(kk / rr.sq.mpp, dpx.toDouble()) else 0.0)"))
-        assertEquals(1, count(p3, "SurveyPrepTouch.trashSpot(t.box, emptyList(), size.width.toDouble(), size.height.toDouble(), dpx.toDouble(), t.keep)"))
-        assertEquals(1, count(p3, "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())?.let { t ->"))
+    @Test fun `the long-press menu and both floating discs are gone, and the panel draws its Delete last and apart in DeleteGuard's look`() {
+        val locks = code(app + "SurveyPrepLocks.kt"); val c = code(sps); val p3 = code(app + "SurveyPrep360.kt"); val sheet = code(app + "MarkSheet.kt")
+        // GONE, from every source of the app: the menu, its placement, both discs and what placed them
         for (rel in appSources()) {
             val src = code(rel)
-            assertEquals(if (rel == sps || rel == app + "SurveyPrep360.kt") 1 else 0, count(src, "SurveyPrepTouch.trashSpot("), rel)
-            assertEquals(0, count(src, "clear ="), "$rel hands the trash a clearance of its own")
+            for (gone in listOf("SpCtxMenu", "SpCtx(", "DeleteGuard.menuTop(", "DeleteGuard.MENU_", "SurveyPrepTouch.trashSpot(", "keepOfMark(", "keepOfLine(", "Pano360.trashOf(", "trashAt", "P3Draw.trash("))
+                assertEquals(0, count(src, gone), "$rel still has $gone")
             assertEquals(0, count(src, "HANDLE_CLEAR_DP"), "$rel still names the 7.5 dp the disc used to keep off an end")
         }
         assertEquals(0, count(code("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt"), "HANDLE_CLEAR_DP"))
-        // a disc that is not drawn takes no press: both gestures read the place the draw last wrote
-        assertEquals(1, count(c, "trashAt[0] = null")); assertEquals(1, count(p3, "trashAt[0] = null"))
+        val touch = code("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepTouch.kt")
+        for (gone in listOf("fun trashSpot(", "fun keepOfMark(", "fun keepOfLine(", "class TrashKeep(", "TRASH_DP")) assertEquals(0, count(touch, gone), "SurveyPrepTouch still has $gone")
+        assertEquals(0, count(code("pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt"), "fun trashOf("))
+        assertEquals(0, count(locks, "DeleteGuard"), "the locks' file draws no delete control any more")
+        // THE PANEL draws the acts where :pano puts them -- Delete last and apart (MarkSheet.slots) -- and the delete cell in
+        // the delete control's own look, which is DeleteGuard's
+        val acts = body(sheet, "private fun MsActs(v: MarkSheet.PanelView, land: Boolean, wide: Int, doneWide: Int, onAct: (String) -> Unit)")
+        assertEquals(1, count(acts, "val slots = MarkSheet.slots(v.acts, w, land, w - doneWide / dens)"))
+        assertEquals(1, count(acts, "for (s in slots) {")); assertEquals(1, count(sheet, "MarkSheet.slots("))
+        assertEquals(1, count(acts, ".border(if (c.delete) 1.5.dp else 1.dp, if (c.delete) MS_DEL_LINE else MS_LINE, shape)"))
+        assertEquals(1, count(acts, "Text(c.text, color = if (c.delete) MS_DEL else MS_FG,"))
+        assertEquals(1, count(acts, ".clickable(role = Role.Button) { onAct(c.id) }"), "one tap still picks an act: Delete and every other")
+        assertEquals(1, count(sheet, "private val MS_DEL_LINE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))"))
+        assertEquals(1, count(sheet, "private val MS_DEL = Color(SurveyPrepDraw.argb(DeleteGuard.INK))"))
+        // the screen hands the panel the phase's acts and nothing reorders them on the way
+        assertEquals(1, count(c, "val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)"))
+        assertEquals(1, count(c, "onPanelAct = { act -> panelAct(act) },"))
+        // and nothing in the 360 deletes or draws a delete control
+        assertEquals(0, count(p3, "elete("), "the 360 deletes nothing by itself")
     }
 }

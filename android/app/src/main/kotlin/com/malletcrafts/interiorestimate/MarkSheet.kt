@@ -28,22 +28,34 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
@@ -63,34 +75,47 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.malletcrafts.interiorestimate.pano.DeleteGuard
 import com.malletcrafts.interiorestimate.pano.MarkSheet
+import kotlinx.coroutines.launch
 
 /**
- * THE MARK SHEET, DRAWN (port 62 slice L3, 11 Nov 2026; the approved prototype v61c.2, index61c2.html: the sheet's
- * CSS 1004-1068, its HTML in L53's paint, 3023-3060). Every text and every rule is [MarkSheet] in :pano, where
- * MarkSheetTest pins them against the prototype's own painted sheet; this file draws a [MarkSheet.View] and hands each
- * tap and keystroke back ([MarkSheetActions]).
+ * THE PANEL THAT SLIDES UP (port 63 slice I2b, 23 Nov 2026; DESIGN-imagemeter §6; imagemeter-pictures/mcft-new-5-panel.png,
+ * the picture Amit said "Yes" to). Amit, 16 Nov 2026: "a slide up screen in imagemeter give more options. imagemeter is
+ * gold standard when it comes to image annotation." It is THE MARK SHEET (port 62 slice L3; the approved prototype v61c.2,
+ * index61c2.html: the sheet's CSS 1004-1068, its HTML in L53's paint, 3023-3060) with the acts that stood in rows under
+ * the photo. Every text and every rule is [MarkSheet] in :pano -- MarkSheetTest pins the blocks against the prototype's
+ * own painted sheet, MarkSheetPanelTest the head, the acts and where the panel rests; this file draws a
+ * [MarkSheet.PanelView] and hands each tap and keystroke back ([MarkSheetActions]).
  *
- * A bottom sheet in survey prep's own dark kit, every size the prototype's dp: 16 dp top corners on #1E211B, 12 dp at
- * the sides and 8 under; the head 40 dp (the code in gold mono, · the name, the trade's dot and short name, ✕); each
- * block a 16 dp label over its controls, 4 dp apart, the blocks 6 dp apart; chips 32 dp, a move 40 dp with its Why
- * box 18 dp in under it, the note two lines in 48 dp, the audience 32 dp, ONE Done of 48 dp. Portrait is one column:
- * KIND, TRADE, STATE, NOTE. Landscape is two: KIND and TRADE, and at the foot NOTE and Done, on the left; STATE on the
- * right, its label beside the now-line (the sheet's `.land` grid, 1048-1062).
+ * TOP TO BOTTOM, portrait: a GRIP, 16 dp; the HEAD, 40 dp -- the code in gold mono, · the name, the trade's dot and
+ * short name, and DONE AT ITS RIGHT END, where no fold can hide it (there is no ✕: Back, a swipe down and a tap on the
+ * dimmed photo cancel, losing what was typed, as before); THE ACTS, two lines of 44 dp, each where [MarkSheet.slots]
+ * puts it -- Lock · Duplicate · Fine move, then Lock all and DELETE, last, apart, in the delete control's own red
+ * outline (DeleteGuard.OUTLINE / INK): the one place anything is deleted; a refused act's line; then the sheet's own
+ * blocks as they always were -- KIND, TRADE, STATE, NOTE, each a 16 dp label over its controls, 4 dp apart, the blocks
+ * 6 dp apart; chips 32 dp, a move 40 dp with its Why box 18 dp in under it, the note two lines in 48 dp, the audience
+ * 32 dp. A Tape and a chain have the head and the acts and no block. Landscape: the head across (36 dp, no grip), the
+ * acts on ONE line of 40 dp that ends 16 dp short of Done, then two columns -- KIND, TRADE and, at the foot, NOTE on the
+ * left; STATE on the right, its label beside the now-line (the sheet's `.land` grid, 1048-1062).
  *
  * KIND (port 62 slice L6; `.l53kind`, 3030 and CSS 1019): the type's sub-kinds as 32 dp chips that wrap, the one the
  * mark is ringed gold; drawn off on a locked mark. The prototype cuts the chips at two rows (`max-height:68px;
  * overflow:hidden`); here the block grows with them, so a kind is never out of reach under मराठी's longer names.
- * A NOTE JUST PLACED opens with the keyboard on its note field (`View.focusNote`).
  *
- * IT OPENS WHOLE (`skipPartiallyExpanded = true`), as the album's sheets do since the K4 review: the prototype draws it
- * at its content's height, never half-open, and material3's default would open a sheet taller than half the window at
- * half height, with Done under the fold. No drag handle (the prototype draws none). ✕, the scrim and ◁ cancel, losing
- * what was typed; so does a swipe down, which the prototype has not and material3 gives every sheet.
+ * WHERE IT RESTS ([MarkSheet.opensWhole]). In PORTRAIT its half rest is ON: it opens at half the window when its rows
+ * need more than that, else at its own height, and pulls up whole -- so the item stays in view above it (the photo is
+ * lifted under it: SpPhoto, PhotoLift). That rest was switched off after the K4 review, for hiding the foot's Done;
+ * Done is in the head now. In LANDSCAPE it opens whole. AND IT STANDS WHOLE WHILE A BOX HAS THE KEYBOARD
+ * ([MarkSheet.standsWhole]): it opens whole where it opens on a box (a Note just placed, a Drop's why), and a box that
+ * takes the keyboard later pulls it up -- at the half rest the keyboard would cover the box being typed in.
  *
- * WITH THE KEYBOARD UP the sheet rises over it (`imePadding`, as the album's sheets) and, only when the blocks then
- * need more height than is left, they scroll between the head and Done, which stay put -- a state the prototype, a
- * page, never has. With the keyboard down nothing scrolls in either orientation at 360 x 780.
+ * IT TAKES NO TAP FOR ITS FIRST 300 MS ([MarkSheet.answers], asked by the caller before every act, chip and keystroke,
+ * and here before the sheet lets itself be closed): the long press and the code chip that open it are both pressed over
+ * the photo, where the half-open panel then stands.
+ *
+ * WITH THE KEYBOARD UP the panel rises over it (`imePadding`, as the album's sheets) and, only when the blocks then
+ * need more height than is left, they scroll under the head and the acts, which stay put.
  *
  * THE TRADE PICKER is drawn OVER the sheet, 8 dp in from its sides and its foot (`.l53pop`, 1064-1068): a Popup, since
  * on a Line's or an area's short sheet it stands taller than the sheet itself. It takes no focus and no tap outside
@@ -113,18 +138,27 @@ private val MS_AMBER = Color(0xFFFFC46B)
 private val MS_INK = Color(0xFF1A1A12)
 private val MS_VPLUS = Color(0xFF6741D9)
 private val MS_POP = Color(0xFF262923)
+/** DELETE's word and its outline (DeleteGuard.INK / OUTLINE): the one look the one delete control has. */
+private val MS_DEL = Color(SurveyPrepDraw.argb(DeleteGuard.INK))
+private val MS_DEL_LINE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))
 
 /** A control the sheet draws but does not offer (`:disabled`): 45 %. */
 private const val MS_OFF = 0.45f
 
 /**
- * What the sheet's controls do. Each is a tap or a keystroke for the caller to hand to [MarkSheet]'s pure functions:
+ * What the panel's controls do. Each is a tap or a keystroke for the caller to hand to [MarkSheet]'s pure functions:
+ * one of the ACTS tapped (its id: SurveyPrepEdit.LOCK / DUPLICATE / LOCK_ALL / DELETE, MarkSheet.FINE),
  * a KIND chip tapped (the sub-kind's id; slice L6),
  * a move tapped (its target), a why typed (the move's target, the text), an act chip, the note typed, the audience
  * picked (true: Office only), the TRADE button, a trade picked in the picker, a bare part of the sheet tapped (the
- * picker shuts), Done, and cancel -- ✕, the scrim, ◁ and a swipe down.
+ * picker shuts), Done, and cancel -- the dimmed photo, ◁ and a swipe down.
+ * [answers]: whether the panel takes a tap yet (MarkSheet.answers) -- asked HERE before the sheet lets a swipe down or a
+ * tap on the dimmed photo close it; ◁ always answers (DESIGN-imagemeter §23.2, decision 4), so [onCancel] is never
+ * guarded; the caller asks it itself before every other callback. [onTop]: where the panel's top
+ * edge is on the SCREEN, px, each time it moves, and null when the panel is gone -- the photo is lifted from it.
  */
 internal class MarkSheetActions(
+    val onPanelAct: (String) -> Unit,
     val onKind: (String) -> Unit,
     val onMove: (String) -> Unit,
     val onWhy: (String, String) -> Unit,
@@ -136,100 +170,200 @@ internal class MarkSheetActions(
     val onBare: () -> Unit,
     val onDone: () -> Unit,
     val onCancel: () -> Unit,
+    val answers: () -> Boolean,
+    val onTop: (Float?) -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun SpMarkSheet(v: MarkSheet.View, land: Boolean, a: MarkSheetActions) {
+internal fun SpMarkSheet(v: MarkSheet.PanelView, land: Boolean, a: MarkSheetActions) {
+    // read through States: the sheet's own state below is made once and outlives the lambdas it was made with
+    val answersS by rememberUpdatedState(a.answers)
+    val onTopS by rememberUpdatedState(a.onTop)
+    // HOW IT OPENS IS DECIDED ONCE, AS IT OPENS (MarkSheet.opensWhole): whole in landscape and where it opens on a box;
+    // else at its half rest
+    val whole = remember(land) { MarkSheet.opensWhole(land, v) }
+    // THE FIRST 300 MS (MarkSheet.answers): a hurried second tap on the dimmed photo, or a finger that had not quite
+    // left, must not close the panel it has just opened -- the sheet asks this before a swipe down or a tap on the
+    // dimmed photo hides it. ◁ is the sheet's own back and does not ask: Back always answers (as ScopeSheet's note on the
+    // same library says, a back press is not stopped here), and onCancel is not guarded -- a sheet hidden and then
+    // refused its dismiss would sit off screen with its window up.
+    // ONE lambda for the sheet's life: the sheet's state is keyed on it, and a new one would be a new sheet.
+    val mayHide: (SheetValue) -> Boolean = remember { { to: SheetValue -> to != SheetValue.Hidden || answersS() } }
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = whole, confirmValueChange = mayHide)
+    val scope = rememberCoroutineScope()
+    // A BOX TOOK THE KEYBOARD: the panel stands whole (MarkSheet.standsWhole), or the keys would cover the box
+    val boxFocused: () -> Unit = { if (MarkSheet.standsWhole(land, true)) { scope.launch { sheet.expand() } } }
+    // a grip to pull by, in portrait only: in landscape the panel opens whole and there is nothing to pull
+    val grip: (@Composable () -> Unit)? = if (MarkSheet.hasGrip(land)) { { MsGrip { y -> onTopS(y) } } } else null
+    DisposableEffect(Unit) { onDispose { onTopS(null) } }
     ModalBottomSheet(
         onDismissRequest = a.onCancel,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheet,
         sheetMaxWidth = Dp.Unspecified,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         containerColor = MS_BG,
         contentColor = MS_FG,
         scrimColor = Color(0x88000000),
-        dragHandle = null,
+        dragHandle = grip,
     ) {
         Box(Modifier.fillMaxWidth().semantics { paneTitle = v.pane }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { a.onBare() }
             .imePadding()) {
-            if (land) MsLandscape(v, a) else MsPortrait(v, a)
-            val trade = v.tradeBlock
+            if (land) MsLandscape(v, a, boxFocused) else MsPortrait(v, a, boxFocused)
+            val trade = v.body?.tradeBlock
             val chips = trade?.chips
             if (trade != null && chips != null) MsPicker(trade.title, chips, land, a.onCat)
         }
     }
 }
 
-/** Portrait: the head, then KIND, TRADE, STATE and NOTE in one column, then Done. */
+/**
+ * THE GRIP, 16 dp (MarkSheet.GRIP_DP): a small bar to pull the panel by. It is the panel's TOP EDGE, so it also says
+ * where that edge is on the SCREEN each time it moves ([onTop], px) -- the panel is its own window, and the photo under
+ * it is lifted by what PhotoLift makes of this.
+ */
 @Composable
-private fun MsPortrait(v: MarkSheet.View, a: MarkSheetActions) {
-    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
-        MsHead(v, 40.dp, a.onCancel)
-        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val kind = v.kind
-            if (kind != null) MsKind(kind, a.onKind)
-            val trade = v.tradeBlock
-            if (trade != null) MsTrade(trade, a.onTrade)
-            val state = v.state
-            if (state != null) MsState(state, v, false, a)
-            MsNote(v.note, v.focusNote, a)
-        }
-        MsDone(v, 8.dp, a.onDone)
+private fun MsGrip(onTop: (Float) -> Unit) {
+    val window = LocalView.current
+    Box(Modifier.fillMaxWidth().height(MarkSheet.GRIP_DP.dp)
+        .onGloballyPositioned { c ->
+            val at = IntArray(2)
+            window.getLocationOnScreen(at)
+            onTop(at[1] + c.positionInRoot().y)
+        }, contentAlignment = Alignment.Center) {
+        Box(Modifier.width(32.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MS_FIELD_LINE))
     }
 }
 
-/** Landscape: the head across; KIND and TRADE at the top of the left column, NOTE and Done at its foot; STATE on the right. */
+/** Portrait: the head with Done, the two lines of acts, then KIND, TRADE, STATE and NOTE in one column. */
 @Composable
-private fun MsLandscape(v: MarkSheet.View, a: MarkSheetActions) {
+private fun MsPortrait(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit) {
+    // the content's width and Done's, px: where each act stands is MarkSheet.slots' answer for them
+    var wide by remember { mutableIntStateOf(0) }
+    var doneWide by remember { mutableIntStateOf(0) }
+    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
+        MsHead(v.head, MarkSheet.HEAD_DP.dp, { wide = it }, { doneWide = it }, a.onDone)
+        MsActs(v, false, wide, doneWide, a.onPanelAct)
+        val body = v.body
+        if (body != null) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val kind = body.kind
+                if (kind != null) MsKind(kind, a.onKind)
+                val trade = body.tradeBlock
+                if (trade != null) MsTrade(trade, a.onTrade)
+                val state = body.state
+                if (state != null) MsState(state, body, false, a, typing)
+                MsNote(body.note, body.focusNote, a, typing)
+            }
+        }
+    }
+}
+
+/** Landscape: the head with Done across; the acts on ONE line, short of Done; KIND and TRADE at the top of the left
+ *  column, NOTE at its foot; STATE on the right. */
+@Composable
+private fun MsLandscape(v: MarkSheet.PanelView, a: MarkSheetActions, typing: () -> Unit) {
+    var wide by remember { mutableIntStateOf(0) }
+    var doneWide by remember { mutableIntStateOf(0) }
     Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 6.dp)) {
-        MsHead(v, 36.dp, a.onCancel)
-        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
-                    // the grid's KIND and TRADE rows, each with its 4 dp gap: KIND sits 4 dp under the head and TRADE 4 dp
-                    // under it -- 8 dp under the head where the type has no kinds -- and with neither the note starts
-                    // 12 dp under the head
-                    Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-                        val kind = v.kind
-                        if (kind != null) MsKind(kind, a.onKind)
-                        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                            val trade = v.tradeBlock
-                            if (trade != null) MsTrade(trade, a.onTrade)
+        MsHead(v.head, MarkSheet.HEAD_LAND_DP.dp, { wide = it }, { doneWide = it }, a.onDone)
+        MsActs(v, true, wide, doneWide, a.onPanelAct)
+        val body = v.body
+        if (body != null) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                        // the grid's KIND and TRADE rows, each with its 4 dp gap: KIND sits 4 dp under the acts and TRADE 4 dp
+                        // under it -- 8 dp under the acts where the type has no kinds -- and with neither the note starts
+                        // 12 dp under them
+                        Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                            val kind = body.kind
+                            if (kind != null) MsKind(kind, a.onKind)
+                            Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                                val trade = body.tradeBlock
+                                if (trade != null) MsTrade(trade, a.onTrade)
+                            }
                         }
+                        MsNote(body.note, body.focusNote, a, typing)
                     }
-                    Column(Modifier.fillMaxWidth()) {
-                        MsNote(v.note, v.focusNote, a)
-                        MsDone(v, 6.dp, a.onDone)
+                    Column(Modifier.weight(1f)) {
+                        val state = body.state
+                        if (state != null) MsState(state, body, true, a, typing)
                     }
-                }
-                Column(Modifier.weight(1f)) {
-                    val state = v.state
-                    if (state != null) MsState(state, v, true, a)
                 }
             }
         }
     }
 }
 
-/** The head: "FW1 · Window", the trade's dot and short name, ✕. */
+/**
+ * The head: "FW1 · Window", the trade's dot and short name (a Tape and a chain take none), and DONE AT ITS RIGHT END --
+ * gold; dim and deaf while the move picked still needs its why. Its row is the content's whole width, which it reports
+ * ([onWide], px) with Done's own ([onDoneWide]): MarkSheet.slots places the acts from the two.
+ */
 @Composable
-private fun MsHead(v: MarkSheet.View, tall: Dp, onClose: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(tall), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun MsHead(h: MarkSheet.Head, tall: Dp, onWide: (Int) -> Unit, onDoneWide: (Int) -> Unit, onDone: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(tall).onSizeChanged { onWide(it.width) },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(buildAnnotatedString {
-                withStyle(SpanStyle(color = MS_GOLD, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)) { append(v.code) }
-                append(MarkSheet.SEP); append(v.name)
+                withStyle(SpanStyle(color = MS_GOLD, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)) { append(h.code) }
+                append(MarkSheet.SEP); append(h.name)
             },
             color = MS_FG, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MsDot(v.trade.colour)
-            Text(v.trade.text, color = MS_SOFT, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, softWrap = false)
+        val trade = h.trade
+        if (trade != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MsDot(trade.colour)
+                Text(trade.text, color = MS_SOFT, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, softWrap = false)
+            }
         }
-        Box(Modifier.size(tall).clip(CircleShape).clickable(role = Role.Button) { onClose() }
-            .semantics { contentDescription = v.close }, contentAlignment = Alignment.Center) {
-            Text("✕", color = MS_FG, fontSize = 16.sp, lineHeight = 20.sp) // text:value glyph
+        Box(Modifier.onSizeChanged { onDoneWide(it.width) }.height(32.dp).alpha(if (h.doneEnabled) 1f else MS_OFF).clip(RoundedCornerShape(16.dp))
+            .background(MS_GOLD).clickable(enabled = h.doneEnabled, role = Role.Button) { onDone() }.padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center) {
+            Text(h.done, color = MS_INK, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
         }
+    }
+}
+
+/**
+ * THE ACTS, each where MarkSheet.slots puts it across a content [wide] px wide whose Done is [doneWide] px ([land]: one
+ * line that ends short of Done; else two, Delete in the last column of the second, apart): 36 dp cells in 44 dp rows
+ * (32 in 40 in landscape). DELETE is drawn in the delete control's own red outline and word; every other act as a quiet
+ * chip. Under them, a refused act's words (MarkSheet.PanelView.said) on one line. Nothing is drawn where there is no
+ * act -- and nothing until the head has been measured, in the height the acts will take, so nothing jumps.
+ */
+@Composable
+private fun MsActs(v: MarkSheet.PanelView, land: Boolean, wide: Int, doneWide: Int, onAct: (String) -> Unit) {
+    val rows = if (land) (if (v.acts.rows > 0) 1 else 0) else v.acts.rows
+    val rowDp = if (land) MarkSheet.ACT_ROW_LAND_DP else MarkSheet.ACT_ROW_DP
+    val dens = LocalDensity.current.density
+    if (rows > 0) {
+        Box(Modifier.fillMaxWidth().height((rows * rowDp).dp)) {
+            if (wide > 0 && (!land || doneWide > 0)) {
+                val w = (wide / dens).toDouble()
+                val slots = MarkSheet.slots(v.acts, w, land, w - doneWide / dens)
+                val shape = RoundedCornerShape(8.dp)
+                for (s in slots) {
+                    val c = s.cell
+                    Box(Modifier.padding(start = s.l.toFloat().dp, top = (s.row * rowDp + 4).dp).width((s.r - s.l).toFloat().dp).height((rowDp - 8).dp)
+                        .clip(shape).background(if (c.delete) Color.Black else MS_CHIP)
+                        .border(if (c.delete) 1.5.dp else 1.dp, if (c.delete) MS_DEL_LINE else MS_LINE, shape)
+                        .clickable(role = Role.Button) { onAct(c.id) }
+                        .semantics { contentDescription = c.aria }
+                        .padding(horizontal = 6.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(c.text, color = if (c.delete) MS_DEL else MS_FG, fontSize = 13.sp, lineHeight = 16.sp,
+                            fontWeight = if (c.delete) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+    val said = v.said
+    if (said != null) {
+        Text(said, color = MS_AMBER, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().height(MarkSheet.SAID_DP.dp))
     }
 }
 
@@ -317,9 +451,10 @@ private fun MsNow(n: MarkSheet.Now, oneLine: Boolean, modifier: Modifier) {
 /**
  * STATE: the label and the now-line (on one row in landscape), then what the phase offers the mark -- the act chips,
  * each move with its Why box under it -- or the line that says why it offers none; the amber line; the grey lines.
+ * [typing]: a Why box took the keyboard -- the panel stands whole.
  */
 @Composable
-private fun MsState(s: MarkSheet.StateBlock, v: MarkSheet.View, land: Boolean, a: MarkSheetActions) {
+private fun MsState(s: MarkSheet.StateBlock, v: MarkSheet.View, land: Boolean, a: MarkSheetActions, typing: () -> Unit) {
     val focus = LocalFocusManager.current
     // Delete on a wish opened the sheet on Dropped: its Why box takes the keyboard, once, as the sheet opens
     val whyFocus = remember { FocusRequester() }
@@ -356,6 +491,7 @@ private fun MsState(s: MarkSheet.StateBlock, v: MarkSheet.View, land: Boolean, a
                         keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
                         modifier = Modifier.padding(start = 18.dp).fillMaxWidth().height(40.dp)
                             .let { if (m.to == focusWhy) it.focusRequester(whyFocus) else it }
+                            .onFocusChanged { f -> if (f.isFocused) typing() }
                             .alpha(if (why.enabled) 1f else MS_OFF)
                             .clip(RoundedCornerShape(8.dp)).background(MS_FIELD).border(1.dp, MS_FIELD_LINE, RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp),
@@ -400,9 +536,10 @@ private fun MsMove(m: MarkSheet.MoveRow, onClick: () -> Unit) {
 /**
  * NOTE: the label and "20/280", the two-line box, and who it is for: Client & vendors | Office only. [focus]: the box
  * takes the keyboard, once, as the sheet opens -- a Note just placed is only its words (slice L6; openSheet's `fresh`).
+ * [typing]: the box took the keyboard -- the panel stands whole.
  */
 @Composable
-private fun MsNote(n: MarkSheet.NoteBlock, focus: Boolean, a: MarkSheetActions) {
+private fun MsNote(n: MarkSheet.NoteBlock, focus: Boolean, a: MarkSheetActions, typing: () -> Unit) {
     val noteFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (focus) runCatching { noteFocus.requestFocus() } }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -416,6 +553,7 @@ private fun MsNote(n: MarkSheet.NoteBlock, focus: Boolean, a: MarkSheetActions) 
             cursorBrush = SolidColor(MS_GOLD),
             modifier = Modifier.fillMaxWidth().height(48.dp)
                 .let { if (focus) it.focusRequester(noteFocus) else it }
+                .onFocusChanged { f -> if (f.isFocused) typing() }
                 .clip(RoundedCornerShape(8.dp)).background(MS_FIELD)
                 .border(1.dp, MS_FIELD_LINE, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
             decorationBox = { inner ->
@@ -438,15 +576,6 @@ private fun MsNote(n: MarkSheet.NoteBlock, focus: Boolean, a: MarkSheetActions) 
                 }
             }
         }
-    }
-}
-
-/** The ONE Done, 48 dp, gold; dim and deaf while the move picked still needs its why. */
-@Composable
-private fun MsDone(v: MarkSheet.View, gap: Dp, onDone: () -> Unit) {
-    Box(Modifier.fillMaxWidth().padding(top = gap).height(48.dp).alpha(if (v.doneEnabled) 1f else MS_OFF).clip(RoundedCornerShape(24.dp))
-        .background(MS_GOLD).clickable(enabled = v.doneEnabled, role = Role.Button) { onDone() }, contentAlignment = Alignment.Center) {
-        Text(v.done, color = MS_INK, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 

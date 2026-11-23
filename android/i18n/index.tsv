@@ -880,7 +880,6 @@ life.all_x_vendor_side_2	life_all_x_vendor_side_2	template	vside: Int
 life.area	life_area	static	-
 life.aria.mark_sheet	life_aria_mark_sheet	static	-
 life.aria.marks_are_placed_x	life_aria_marks_are_placed_x	template	v: String
-life.aria.open_mark_sheet_x	life_aria_open_mark_sheet_x	template	code: String
 life.aria.place_marks_x_tap	life_aria_place_marks_x_tap	template	v: String
 life.back_existing	life_back_existing	static	-
 life.cleared_x_item_x	life_cleared_x_item_x	template	n: Int · v: String
@@ -1282,7 +1281,6 @@ sp.clear_whole_room_x	sp_clear_whole_room_x	template	nR: String
 sp.cleared_x_item_x	sp_cleared_x_item_x	template	n: Int · kept: String
 sp.client_vendor_sees	sp_client_vendor_sees	static	-
 sp.colour_x	sp_colour_x	template	v: String?
-sp.corner	sp_corner	static	-
 sp.delete_x	sp_delete_x	template	label: String
 sp.deleted_web_too	sp_deleted_web_too	static	-
 sp.derived	sp_derived	static	-
@@ -1356,7 +1354,6 @@ sp.line_drag_marked_length	sp_line_drag_marked_length	static	-
 sp.line_marks	sp_line_marks	static	-
 sp.loading	sp_loading	static	-
 sp.lock_all_x	sp_lock_all_x	template	name: String
-sp.locked	sp_locked	static	-
 sp.locked_tap_unlock	sp_locked_tap_unlock	static	-
 sp.loft_over	sp_loft_over	static	-
 sp.lwh.axes	sp_lwh_axes	static	-
@@ -1375,7 +1372,6 @@ sp.measure.x_to_measure	sp_measure_x_to_measure	template	n: String
 sp.measured_x_x_x	sp_measured_x_x_x	template	ta: String · A: String · tb: String · B: String · LS0: String · LS1: String
 sp.mi_a3_360_780	-	skipped	prototype-only
 sp.mi_a3_x_dp	-	skipped	prototype-only
-sp.move	sp_move	static	-
 sp.msg.bluetooth_refused	sp_msg_bluetooth_refused	static	-
 sp.msg.could_not_share_x_x	sp_msg_could_not_share_x_x	template	file: String · why: String
 sp.msg.d2_x_ref_left	sp_msg_d2_x_ref_left	template	mm: String

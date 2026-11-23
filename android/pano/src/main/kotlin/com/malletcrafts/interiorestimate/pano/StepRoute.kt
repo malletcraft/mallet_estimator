@@ -122,7 +122,7 @@ object StepRoute {
     const val LAND_TOPBAR_DP = 32
 
     /** ... and the column's whole height, dp. The bar, the tabs, the strip and whatever 2 · Mark stands under them --
-     *  the tool row, the held item's row over it, or the keypad -- must fit in it ([landFits]). */
+     *  the tool row, or the keypad in its place -- must fit in it ([landFits]). */
     const val LAND_COLUMN_DP = 324
 
     // ------------------------------------------------------------------ ONE STEP TO MARK AND MEASURE (port 63 slice I1a)
@@ -168,28 +168,20 @@ object StepRoute {
      *  IN THE COLUMN in place of the tool row (DESIGN-imagemeter §2.3 E, §5), with no display line. */
     fun keypadDp(land: Boolean): Int = SurveyPrepPalette.TOP_DP + PAD_ROWS * padRowDp(land)
 
-    /** The held item's row, for the one build I1 (DESIGN-imagemeter §14 I1): what moves the item and nothing else,
-     *  about 48 dp in portrait and 34 in landscape. Slice I2 deletes it. */
-    fun heldRowDp(land: Boolean): Int = if (land) 34 else 48
-
     /** Portrait's window under the status bar on the Mi A3 (360 x 780 dp), and what stands above the photo in it --
      *  the column's padding 12, the phase band 20, the top bar 40, the tabs and the strip 92, the caption 22 -- so
      *  the photo and whatever is under it share 570 dp (DESIGN-imagemeter §2.1, §2.4). */
     const val PORTRAIT_WINDOW_DP = 756
     const val PORTRAIT_CHROME_DP = 186
 
-    /** What stands under the photo in 2 · Mark. */
+    /** What stands under the photo in 2 · Mark: the tool row, the keypad in its place, or nothing. NEVER ANYTHING OF
+     *  THE PICKED ITEM (port 63 slice I2b): its row went, so picking a mark changes nothing under the photo. */
     enum class Under {
         /** No tool row at all: Estimation and Client approved, where nothing is placed. */
         NOTHING,
-        /** The tool row alone: nothing picked. */
+        /** The tool row: the ONE row under the photo, whatever is picked or held. */
         TOOLS,
-        /** The picked item's row over the tool row (slice I1 only) -- held or not (the review of I1, findings 1 and 6). */
-        HELD,
-        /** The picked item's row ALONE, where the phase has no tool row (Estimation, Client approved): its label is the
-         *  way to its Mark sheet there (the review of I1, finding 1). */
-        ROW,
-        /** The keypad, in the tool row's place -- and in the held item's row's place too. */
+        /** The keypad, in the tool row's place. */
         KEYPAD,
     }
 
@@ -197,28 +189,25 @@ object StepRoute {
     fun underDp(under: Under, land: Boolean): Int = when (under) {
         Under.NOTHING -> 0
         Under.TOOLS -> toolRowDp(land)
-        Under.HELD -> heldRowDp(land) + toolRowDp(land)
-        Under.ROW -> heldRowDp(land)
         Under.KEYPAD -> keypadDp(land)
     }
 
     /**
-     * WHAT 2 · MARK STANDS UNDER THE PHOTO (DESIGN-imagemeter §2.3): the keypad while it is open -- it takes the tool
-     * row's place AND the picked item's row's, so the photo never loses both; else the picked item's row ([row]:
-     * [Pick.row] answered one -- held or not) over the tool row; else the tool row; and where the phase has no tool row
-     * ([toolRow] false: Estimation and Client approved, [PhaseTools.can] of the palette) the picked item's row alone
-     * ([Under.ROW] -- its label opens its Mark sheet, the review of I1, finding 1), else nothing at all -- but for a
-     * keypad, which is never open there. NOTHING HERE SHOWS A MEASUREMENT: no bar, no figure box, no number.
+     * WHAT 2 · MARK STANDS UNDER THE PHOTO (DESIGN-imagemeter §2.3, §14 I2): the keypad while it is open, in the tool
+     * row's place; else the tool row; and where the phase has no tool row ([toolRow] false: Estimation and Client
+     * approved, [PhaseTools.can] of the palette) nothing at all -- but for a keypad, which is never open there. WHAT IS
+     * PICKED OR HELD DOES NOT ENTER IT: the picked item's row stood here for the one build I1 and is gone (slice I2b) --
+     * its code is a chip on the photo, and its padlock, its nudges and its Delete are the panel's acts. NOTHING HERE
+     * SHOWS A MEASUREMENT: no bar, no figure box, no number.
      */
-    fun underMark(toolRow: Boolean, row: Boolean, keypad: Boolean): Under = when {
+    fun underMark(toolRow: Boolean, keypad: Boolean): Under = when {
         keypad -> Under.KEYPAD
-        !toolRow -> if (row) Under.ROW else Under.NOTHING
-        row -> Under.HELD
-        else -> Under.TOOLS
+        toolRow -> Under.TOOLS
+        else -> Under.NOTHING
     }
 
-    /** The photo's height in 2 · Mark in PORTRAIT on the Mi A3, dp, with [under] under it: 514 with the tool row,
-     *  466 while an item is held, 388 with the keypad up, 570 with no row (DESIGN-imagemeter §2.4, "After I1"). In
+    /** The photo's height in 2 · Mark in PORTRAIT on the Mi A3, dp, with [under] under it: 514 with the tool row --
+     *  picked, held or not -- 388 with the keypad up, 570 with no row (DESIGN-imagemeter §2.4, "After I2"). In
      *  landscape every row lives in the right column and the photo keeps its height: [landFits] is the question there. */
     fun markPhotoDp(under: Under): Int = PORTRAIT_WINDOW_DP - PORTRAIT_CHROME_DP - underDp(under, false)
 
