@@ -2798,6 +2798,8 @@ private fun SpPhoto(
         is SurveyPrepTouch.Hit.Mark -> h.id
         is SurveyPrepTouch.Hit.Node -> h.id
         is SurveyPrepTouch.Hit.Body -> pickS.picked
+        // the picked item's code chip (slice I2a): never found until slice I2b hands SurveyPrepTouch.hit a chip
+        is SurveyPrepTouch.Hit.Code -> pickS.picked
         is SurveyPrepTouch.Hit.Tag -> prepS.ownerOf(h.code)?.id
         null -> line
     }
@@ -2812,7 +2814,8 @@ private fun SpPhoto(
     fun markGrab(h: SurveyPrepTouch.Hit?, sx: Float, sy: Float): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         return when (h) {
-            null, is SurveyPrepTouch.Hit.Tag -> null
+            // a press on the code chip grabs nothing, as one on a figure (slice I2a: never found until I2b hands hit a chip)
+            null, is SurveyPrepTouch.Hit.Tag, is SurveyPrepTouch.Hit.Code -> null
             is SurveyPrepTouch.Hit.Body -> bodyGrab(sx, sy)
             is SurveyPrepTouch.Hit.Node -> if (Pick.handles(pickS, h.id)) nodeGrab(h.id, h.i) else null
             is SurveyPrepTouch.Hit.Mark -> {

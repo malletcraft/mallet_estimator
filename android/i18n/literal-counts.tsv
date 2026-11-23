@@ -101,11 +101,13 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureText.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureWalk.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MmBox.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/NotePin.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/NudgePad.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Panorama.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhaseTools.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhotoFigures.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhotoLift.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pick.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PlanSave.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Quad.kt	0

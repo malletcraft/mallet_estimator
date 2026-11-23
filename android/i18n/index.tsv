@@ -1314,6 +1314,8 @@ sp.file.x_measurements_unreadable	sp_file_x_measurements_unreadable	template	sur
 sp.file.x_missing_started	sp_file_x_missing_started	template	surface: String
 sp.file.x_points_recentred	sp_file_x_points_recentred	template	n: Int
 sp.file.x_unreadable_started	sp_file_x_unreadable_started	template	surface: String
+sp.fine.aria.done	sp_fine_aria_done	static	-
+sp.fine.aria.step_x	sp_fine_aria_step_x	template	mm: String
 sp.fit	sp_fit	static	-
 sp.fit_x	sp_fit_x	template	v: String
 sp.floor_ceiling	sp_floor_ceiling	static	-
@@ -1438,6 +1440,9 @@ sp.segment	sp_segment	static	-
 sp.shape.drag_corners	sp_shape_drag_corners	static	-
 sp.shape.four_corners	sp_shape_four_corners	static	-
 sp.shape.rectangle	sp_shape_rectangle	static	-
+sp.sheet.aria.open_x	sp_sheet_aria_open_x	template	code: String
+sp.sheet.fine_move	sp_sheet_fine_move	static	-
+sp.sheet.unlock_all	sp_sheet_unlock_all	static	-
 sp.show_faces_reference_2	sp_show_faces_reference_2	static	-
 sp.showing	sp_showing	static	-
 sp.shown_x_fit_window	-	skipped	prototype-only

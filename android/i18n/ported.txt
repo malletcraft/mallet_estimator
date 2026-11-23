@@ -197,3 +197,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pick.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Landing.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserChip.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhotoFigures.kt
+# Port 63 slice I2a (23 Nov 2026) adds two new :pano files, pure rules of the panel that slides up, ADDED BESIDE what the screen calls today -- nothing on screen yet (android/docs/port63/DESIGN-imagemeter.md §23.2): NudgePad.kt (Fine move's pad: its two screen-reader lines are tx accessors; its glyphs, the unit mm and its part keys are marked `// text:value`) and PhotoLift.kt (how far the photo lifts under the panel: no shown text).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/NudgePad.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhotoLift.kt

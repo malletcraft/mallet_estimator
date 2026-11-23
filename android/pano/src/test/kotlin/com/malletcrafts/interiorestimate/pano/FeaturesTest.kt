@@ -580,6 +580,9 @@ class FeaturesTest {
             pano + "SurveyPrepPalette.kt" to 1,   // offered: what the palette draws
             pano + "PhaseTools.kt" to 2,          // toolFor: the tool that is on; copyOk: Duplicate on a chain
             pano + "SurveyPrepEdit.kt" to 1,      // menuItemsOf: the menu's Duplicate row, through copyOk
+            // port 63 slice I2a: the panel that slides up carries the menu's rows -- acts, panel and actStep hand the
+            // switch on to menuItemsOf, each as the default of its last parameter but one (shape is the last, as there)
+            pano + "MarkSheet.kt" to 3,
         ).toSortedMap(), found.toSortedMap(), "the sources that read Features.CHAINS, and how often")
         val declared = all.filter { Regex("""\bCHAINS\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
         assertEquals(listOf(pano + "Features.kt"), declared, "CHAINS is given a value in one place")
@@ -588,6 +591,9 @@ class FeaturesTest {
         assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS): String ="))
         assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS): Boolean ="))
         assertEquals(1, count(code(pano + "SurveyPrepEdit.kt"), "DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains)"))
+        assertEquals(1, count(code(pano + "MarkSheet.kt"), "fun acts(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false): Acts {"))
+        assertEquals(1, count(code(pano + "MarkSheet.kt"), "val rows = SurveyPrepEdit.menuItemsOf(tx, p, id, stage, picked, chains, shape)"))
+        assertEquals(3, count(code(pano + "MarkSheet.kt"), "chains: Boolean = Features.CHAINS, shape: Boolean = false)"))
         // :app NEVER OVERRIDES IT: no app source names the switch or hands a rule its own answer
         val apps = all.filter { it.startsWith("app/") || it.startsWith("camera/") }
         assertTrue(apps.size > 40, "the app's sources were walked (${apps.size})")

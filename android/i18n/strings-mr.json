@@ -4311,6 +4311,14 @@
  "sp.file.x_unreadable_started": {
   "mr": "{surface}: वाचता आले नाही, पुन्हा सुरू केले"
  },
+ "sp.fine.aria.done": {
+  "mr": "Finish fine move",
+  "note": "port 63 I2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.fine.aria.step_x": {
+  "mr": "Step {mm} mm · tap to change",
+  "note": "port 63 I2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "sp.fit": {
   "mr": "बसवा"
  },
@@ -4720,6 +4728,18 @@
  "sp.shape.rectangle": {
   "mr": "Rectangle",
   "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.sheet.aria.open_x": {
+  "mr": "Options for {code}",
+  "note": "port 63 I2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.sheet.fine_move": {
+  "mr": "Fine move",
+  "note": "port 63 I2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.sheet.unlock_all": {
+  "mr": "Unlock all",
+  "note": "port 63 I2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.show_faces_reference_2": {
   "mr": "बाजूंवर दाखवा: संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर"

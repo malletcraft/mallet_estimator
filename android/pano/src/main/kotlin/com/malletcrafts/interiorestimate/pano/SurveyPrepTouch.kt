@@ -125,6 +125,10 @@ object SurveyPrepTouch {
         class Node(val id: String, val i: Int) : Hit()
         /** The PICKED Tape's, Line's or area's body (port 63 slice F1): it moves whole ([SurveyGuide.bodyMove]). */
         object Body : Hit()
+        /** THE PICKED ITEM'S CODE CHIP (port 63 slice I2a; DESIGN-imagemeter §2.2, §3): a tap on it opens the panel that
+         *  slides up ([Pick.options], row 7). Where it stands is [codeChip]; it is the picked item's, whichever that
+         *  is ([Pick.State.picked]), so it carries no id -- as [Body] carries none. */
+        object Code : Hit()
     }
 
     /** A chain's points as drawn: its id and each point on the canvas, px (v52 slice 11). */
@@ -161,14 +165,24 @@ object SurveyPrepTouch {
      * mark as before any mark -- a tape laid across a sloping window is moved by its band, and the window by the rest
      * of its SHAPE; the empty corner of its bounding box is neither. One thing is picked at a time, so [body] is never
      * handed with a picked mark; were it, that mark's own handles would still come first (step 1), as an end does.
+     *
+     * THE PICKED ITEM'S CODE CHIP ([chip]: its tap box as [codeChip] placed it, or null -- none is drawn; port 63 slice
+     * I2a, DESIGN-imagemeter §3 "The hit order"): AFTER THE HANDLES AND BEFORE EVERYTHING ELSE. A HANDLE BEATS IT --
+     * the held mark's tabs or corners (step 1) and a held chain's points (step 2) keep a press that is theirs, though
+     * [codeChip] never puts the chip within their reach -- and IT BEATS A FIGURE AND A BODY: a tag under the same finger
+     * (step 3), the picked Tape's band (step 4) and every mark (step 5), the picked SPOT's own middle included, which is
+     * its body and no handle. Null, which is what every caller before slice I2 hands, changes nothing in this order.
      */
     fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16,
-            nodes: List<Nodes> = emptyList(), nodeR: Double = tol, body: Boolean = false): Hit? {
+            nodes: List<Nodes> = emptyList(), nodeR: Double = tol, body: Boolean = false, chip: Box? = null): Hit? {
         val under = tags.filter { it.box.contains(x, y) }.minByOrNull { it.box.centreDist(x, y) }
+        val onChip = chip != null && chip.contains(x, y)
         val sel = selId?.let { id -> marks.lastOrNull { it.id == id } }
         if (sel != null) {
             val sp = sel.spot
             if (sp != null) {
+                // a spot has no handle: a press round its middle is its BODY, and the chip beats a body
+                if (onChip) return Hit.Code
                 val d = hypot(x - sel.cx, y - sel.cy)
                 if (d <= spotReachPicked(sp, dp) && tabOrTag(d, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, "body")
             } else {
@@ -177,6 +191,7 @@ object SurveyPrepTouch {
             }
         }
         SurveyChain.nodeAt(nodes.map { it.id to it.pts }, x, y, nodeR)?.let { (id, i) -> return Hit.Node(id, i) }
+        if (onChip) return Hit.Code
         if (under != null) return Hit.Tag(under.code)
         if (body) return Hit.Body
         for (m in marks.asReversed()) {
@@ -198,6 +213,136 @@ object SurveyPrepTouch {
             return Hit.Mark(m.id, "body")
         }
         return null
+    }
+
+    // ------------------------------------------------------------ the picked item's code chip (port 63 slice I2a)
+
+    /*
+     * THE PICKED ITEM'S CODE IS A CHIP (DESIGN-imagemeter §2.2; the plan critic's finding C8): the code and `▾`, drawn
+     * OUTSIDE the item, and a tap on it opens the panel that slides up. Until slice I2 the code is drawn INSIDE the box
+     * at its top-left, within the `lt` tab's 16 dp reach, and on a switch plate (about 25 x 11 dp) it is larger than the
+     * mark -- its left half a handle, its right half the body, and nothing "the code". So the chip stands where
+     * NOTHING ELSE TAKES A PRESS FIRST: its tap box at least [CHIP_TAP_W_DP] x [CHIP_TAP_H_DP] (44 x 28 dp) and
+     * [CHIP_CLEAR_DP] (16 dp: a tab's own reach) clear of every tab, corner handle and end of the item it names.
+     * Pure geometry in canvas px, as everything here; :app measures the code's width and draws.
+     */
+
+    /** The chip's tap box is never smaller than this, dp. */
+    const val CHIP_TAP_W_DP = 44.0
+    const val CHIP_TAP_H_DP = 28.0
+    /** The chip as drawn: this high, its text and this much either side of it, dp. */
+    const val CHIP_H_DP = 22.0
+    const val CHIP_PAD_DP = 8.0
+    /** Its tap box stands this far from every handle of its item, dp: the reach a tab is pressed within ([hit]'s `tol`). */
+    const val CHIP_CLEAR_DP = 16.0
+    /** ... and this far inside the photo, dp. */
+    const val CHIP_EDGE_DP = 4.0
+
+    /** Where the chip stands: [box] as drawn, [tap] its tap box (what [hit] is handed, and what the figures' layout is
+     *  told to keep clear, as it is told a tab -- [DimLayout.placeShown]'s `keep`), and [how] which rule placed it. */
+    class Chip(val box: Box, val tap: Box, val how: String)
+
+    /**
+     * WHAT A PRESS MAY GRAB A PICKED MARK BY, canvas px, [bb] the mark as drawn: its eight tabs; its four free
+     * [corners] where it shows those instead ([Quad.free]; [Drawn.corners]); a [spot]'s own middle (a point, a Note's
+     * pin: no tabs, grabbed round its middle). What [codeChip] keeps the chip clear of. (The floating trash asked the
+     * same of [keepOfMark], which goes with it in slice I2b.)
+     */
+    fun handlesOf(bb: Box, spot: Boolean, corners: List<DoubleArray>? = null): List<DoubleArray> =
+        if (spot) listOf(doubleArrayOf((bb.l + bb.r) / 2, (bb.t + bb.b) / 2))
+        else corners?.take(Quad.PARTS.size) ?: TABS.map { tabAt(it, bb.l, bb.r, bb.t, bb.b) }
+
+    /** How far ([x], [y]) is from the rectangle [b]: 0 inside it. */
+    fun boxDist(b: Box, x: Double, y: Double): Double = hypot(max(0.0, max(b.l - x, x - b.r)), max(0.0, max(b.t - y, y - b.b)))
+
+    private fun overlap(a: Box, b: Box): Boolean = a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t
+
+    /** The chip for a tap box whose top-left is ([l], [t]): [tw] x [th] the tap box, [dw] x [dh] the chip drawn, centred in it. */
+    private fun chipAt(l: Double, t: Double, tw: Double, th: Double, dw: Double, dh: Double, how: String): Chip {
+        val bl = l + (tw - dw) / 2; val bt = t + (th - dh) / 2
+        return Chip(Box(bl, bt, bl + dw, bt + dh), Box(l, t, l + tw, t + th), how)
+    }
+
+    /**
+     * HOW FAR ABOVE A MARK'S TOP EDGE ITS CHIP'S TAP BOX ENDS, px: [CHIP_CLEAR_DP], the top tabs' own reach -- and, for
+     * a mark that shows its handles ([hand]: it is HELD, [Pick]; eight tabs, or four free corners), above the
+     * hand-anchored WIDTH plate as well, which stands over the top edge clear of the tabs ([widthTag] with `hand`; the
+     * plate's top is its baseline, its text size [fs] and [DimLayout.OVER_DP] up) and is placed AFTER the chip: the
+     * chip is in the layout's `keep`, so a chip in that plate's row would push the gold width plate of a mark just
+     * placed off its anchor. [u] the drawing's unit, [dp] px a dp.
+     */
+    fun chipLift(hand: Boolean, fs: Double, u: Double, dp: Double): Double =
+        if (!hand) CHIP_CLEAR_DP * dp
+        else max(CHIP_CLEAR_DP * dp, fs * 0.8 + clearance(u, dp) + fs + DimLayout.OVER_DP * dp + DimLayout.APART_U * u)
+
+    /**
+     * WHERE THE PICKED MARK'S CODE CHIP STANDS (DESIGN-imagemeter §2.2). [bb] the mark as drawn -- a four-corner mark's
+     * BOUNDING box (DESIGN-imagemeter §8.2: "the code chip keeps the bounding box's top-left"), a spot's own square;
+     * [handles] what a press may grab it by, canvas px -- its eight tabs, its four free corners, a spot's middle
+     * ([handlesOf]); [textW] its text (the code and `▾`) as measured; a [w] x [h] photo; [dp] px a dp;
+     * [lift] how far over the top edge it stands ([chipLift]); [avoid] what is drawn over the photo and takes a press
+     * of its own (fit · grid, the tool chip). The first of these whose tap box is inside the photo, [CHIP_CLEAR_DP]
+     * from every handle and off every [avoid]:
+     *  1. ABOVE THE TOP-LEFT CORNER, outside the box: its left edge the box's, [lift] over the top edge;
+     *  2. BELOW THE BOTTOM-LEFT CORNER -- the mark touches the photo's top, or is too near it;
+     *  3. left of the box, at its top; 4. right of it, at its top -- a mark as tall as the photo (a floor-to-ceiling
+     *     wardrobe; in landscape every such mark at fit);
+     *  5. INSIDE the box, [CHIP_CLEAR_DP] in from its top-left corner -- a mark that fills the photo both ways, or one
+     *     zoomed into. It then lies on the mark's body, and beats it ([hit]).
+     * Sideways it is slid back inside the photo; it is never slid towards a handle. NULL -- NO CHIP -- when the mark
+     * is off the photo, or no place is that clear (a photo narrower than the chip): a long press on the item still
+     * opens the panel, and a chip within a tab's reach would be the fault this rule exists to end.
+     */
+    fun codeChip(bb: Box, handles: List<DoubleArray>, textW: Double, w: Double, h: Double, dp: Double,
+                 lift: Double = CHIP_CLEAR_DP * dp, avoid: List<Box> = emptyList()): Chip? {
+        if (bb.r < 0 || bb.l > w || bb.b < 0 || bb.t > h) return null
+        val dw = textW + 2 * CHIP_PAD_DP * dp; val dh = CHIP_H_DP * dp
+        val tw = max(dw, CHIP_TAP_W_DP * dp); val th = max(dh, CHIP_TAP_H_DP * dp)
+        val edge = CHIP_EDGE_DP * dp; val clear = CHIP_CLEAR_DP * dp
+        if (w < tw + 2 * edge || h < th + 2 * edge) return null
+        fun cx(l: Double) = max(edge, min(w - tw - edge, l))
+        fun cy(t: Double) = max(edge, min(h - th - edge, t))
+        // the DRAWN chip's left edge is the box's: the tap box, where it is wider, reaches the same either side of it
+        val l0 = bb.l - (tw - dw) / 2
+        val c = ArrayList<Chip>()
+        (bb.t - max(lift, clear) - th).let { t -> if (t >= edge) c += chipAt(cx(l0), t, tw, th, dw, dh, "above") }
+        (bb.b + clear).let { t -> if (t + th <= h - edge) c += chipAt(cx(l0), t, tw, th, dw, dh, "below") }
+        (bb.l - clear - tw).let { l -> if (l >= edge) c += chipAt(l, cy(bb.t), tw, th, dw, dh, "left") }
+        (bb.r + clear).let { l -> if (l + tw <= w - edge) c += chipAt(l, cy(bb.t), tw, th, dw, dh, "right") }
+        c += chipAt(cx(max(bb.l, 0.0) + clear), cy(max(bb.t, 0.0) + clear), tw, th, dw, dh, "inside")
+        return c.firstOrNull { k -> handles.all { p -> boxDist(k.tap, p[0], p[1]) >= clear - 1e-9 } && avoid.none { overlap(k.tap, it) } }
+    }
+
+    /**
+     * ... AND A PICKED TAPE'S, LINE'S, AREA'S OR CHAIN'S: "the same chip off its first point" (DESIGN-imagemeter §2.2).
+     * [scr] its points on screen, in its order. It stands [CHIP_CLEAR_DP] off the FIRST of its points that is on the
+     * photo -- above it, below it, left or right of it, centred on it -- its tap box [CHIP_CLEAR_DP] clear of EVERY
+     * point of the item (each is an end a press drags), inside the photo and off every [avoid]. Of the places that are
+     * clear, the one that points MOST AWAY FROM THE REST OF THE ITEM -- off the end of a level tape pulled to the
+     * right, to its left; under a Line drawn up from the floor (ties: above, below, left, right): the chip beats a
+     * body ([hit]), so on the line it would take the press that moves the tape. Null when no point is on the photo or
+     * no place is clear.
+     */
+    fun codeChipOfLine(scr: List<DoubleArray>, textW: Double, w: Double, h: Double, dp: Double, avoid: List<Box> = emptyList()): Chip? {
+        val p = scr.firstOrNull { it[0] >= 0 && it[0] <= w && it[1] >= 0 && it[1] <= h } ?: return null
+        val dw = textW + 2 * CHIP_PAD_DP * dp; val dh = CHIP_H_DP * dp
+        val tw = max(dw, CHIP_TAP_W_DP * dp); val th = max(dh, CHIP_TAP_H_DP * dp)
+        val edge = CHIP_EDGE_DP * dp; val clear = CHIP_CLEAR_DP * dp
+        if (w < tw + 2 * edge || h < th + 2 * edge) return null
+        fun cx(l: Double) = max(edge, min(w - tw - edge, l))
+        fun cy(t: Double) = max(edge, min(h - th - edge, t))
+        // away from the rest of the item: from the middle of its other points to this one (canvas px, y down)
+        val rest = scr.filter { it !== p }
+        val ox = if (rest.isEmpty()) 0.0 else p[0] - rest.sumOf { it[0] } / rest.size
+        val oy = if (rest.isEmpty()) 0.0 else p[1] - rest.sumOf { it[1] } / rest.size
+        // (0.0 - x, never -x: a tie must be a tie, and -0.0 sorts under 0.0)
+        val c = ArrayList<Pair<Chip, Double>>()
+        (p[1] - clear - th).let { t -> if (t >= edge) c += chipAt(cx(p[0] - tw / 2), t, tw, th, dw, dh, "above") to 0.0 - oy }
+        (p[1] + clear).let { t -> if (t + th <= h - edge) c += chipAt(cx(p[0] - tw / 2), t, tw, th, dw, dh, "below") to oy }
+        (p[0] - clear - tw).let { l -> if (l >= edge) c += chipAt(l, cy(p[1] - th / 2), tw, th, dw, dh, "left") to 0.0 - ox }
+        (p[0] + clear).let { l -> if (l + tw <= w - edge) c += chipAt(l, cy(p[1] - th / 2), tw, th, dw, dh, "right") to ox }
+        return c.filter { (k, _) -> scr.all { q -> boxDist(k.tap, q[0], q[1]) >= clear - 1e-9 } && avoid.none { overlap(k.tap, it) } }
+            .maxByOrNull { it.second }?.first
     }
 
     // ------------------------------------------------------------ the floating trash

@@ -15,6 +15,9 @@
 # the bar's line after ✓ Save on a NEW capture (sp.msg.saved_filed_on_back, §22): 25 in all.
 # Port 63 P2N (23 Nov 2026) deleted that one again: ✓ Save on a new capture FILES it on the press, so nothing says
 # "filed when you go back" any more (DESIGN-imagemeter §23.1). 24 in all.
+# Port 63 slice I2a (23 Nov 2026) added five: the panel that slides up (DESIGN-imagemeter §12, §23.2) -- its Fine move act and its
+# Unlock all (sp.sheet.fine_move / unlock_all), the code chip's and the panel's name for a screen reader (sp.sheet.aria.open_x), and the
+# two cells of Fine move's pad read out (sp.fine.aria.step_x / done). 29 in all.
 key	English
 measure.diagonal	diagonal, bottom-left to top-right
 measure.diagonal_plan	diagonal, back-left to front-right
@@ -26,6 +29,8 @@ measure.side_right	right side
 measure.side_top	top side
 measure.to_nearest_corner	, to its nearest corner
 sp.file.x_mark_x_shape_unreadable	{surface}: mark {code}'s four corners were unreadable, kept as its box
+sp.fine.aria.done	Finish fine move
+sp.fine.aria.step_x	Step {mm} mm · tap to change
 sp.laser.off	Laser not connected · tap to connect
 sp.laser.on_360_x	D2 {mm} mm — not used: readings are taken on the wall's own tab
 sp.laser.ready	D2 connected · press the meter's own button to read
@@ -40,3 +45,6 @@ sp.reference_shown_mark	Reference shown on 2 · Mark and 3 · 360
 sp.shape.drag_corners	Drag a corner. A side near upright or level snaps straight.
 sp.shape.four_corners	Four corners
 sp.shape.rectangle	Rectangle
+sp.sheet.aria.open_x	Options for {code}
+sp.sheet.fine_move	Fine move
+sp.sheet.unlock_all	Unlock all

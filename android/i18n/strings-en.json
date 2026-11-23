@@ -11142,6 +11142,31 @@
    "phone-text"
   ]
  },
+ "sp.fine.aria.done": {
+  "en": "Finish fine move",
+  "where": [
+   "S2 APK phone text · NudgePad.kt doneLabel at 7dacbbc+I2a · Survey prep · the panel that slides up (port 63 slice I2a, 23 Nov 2026; DESIGN-imagemeter §6, §12, §23.2): the ✓ cell of Fine move's pad, read out; no screen reader until slice I2b draws the pad · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
+ "sp.fine.aria.step_x": {
+  "en": "Step {mm} mm · tap to change",
+  "where": [
+   "S2 APK phone text · NudgePad.kt stepLabel at 7dacbbc+I2a · Survey prep · the panel that slides up (port 63 slice I2a, 23 Nov 2026; DESIGN-imagemeter §6, §12, §23.2): the centre cell of Fine move's pad, read out: the step its arrows move by, 1 or 5 mm; no screen reader until slice I2b draws the pad · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "mm": "the step, 1 or 5"
+  },
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "sp.fit": {
   "en": "fit",
   "where": "v53build/plan.js:474 · r",
@@ -12261,6 +12286,40 @@
   "en": "Rectangle",
   "where": [
    "S2 APK phone text · SurveyPrepEdit.kt shapeRow at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the long-press menu's row on a four-corner mark: back to its bounding rectangle; no reader on screen until slice Q2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.sheet.aria.open_x": {
+  "en": "Options for {code}",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt optionsLabel at 7dacbbc+I2a · Survey prep · the panel that slides up (port 63 slice I2a, 23 Nov 2026; DESIGN-imagemeter §6, §12, §23.2): what a screen reader calls the picked item's code chip on the photo and the panel it opens; no screen reader until slice I2b draws the chip · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "the picked item's code (data)"
+  },
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
+ "sp.sheet.fine_move": {
+  "en": "Fine move",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt acts at 7dacbbc+I2a · Survey prep · the panel that slides up (port 63 slice I2a, 23 Nov 2026; DESIGN-imagemeter §6, §12, §23.2): the panel's act that puts the small nudge pad over the photo, on its first line after Duplicate; no reader on screen until slice I2b draws the panel · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.sheet.unlock_all": {
+  "en": "Unlock all",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt acts at 7dacbbc+I2a · Survey prep · the panel that slides up (port 63 slice I2a, 23 Nov 2026; DESIGN-imagemeter §6, §12, §23.2): the panel's Lock all act when every item of the group is already locked (the cell reads Lock all through common.lock_all otherwise; a screen reader is told the group through sp.unlock_all_x); no reader on screen until slice I2b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [

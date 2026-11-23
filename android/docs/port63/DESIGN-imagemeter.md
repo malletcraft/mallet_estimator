@@ -1745,3 +1745,106 @@ on the main thread in order is read from Compose's contract, not run.
 
 **Not built.** Saving a room from one surface (✓ Save still needs all six; port 63 J1); the saved pictures' "measured
 figures only" (M3); a rewrite of the pictures on ← when something changed since the last Save (decision 5).
+
+### 23.2 I2a — the panel's pure rules, beside what stands
+
+Slice I2 ("the panel slides up; the standing rows go", §14) is built in two commits, as I1 was. **I2a (this one) adds
+every pure rule I2 needs to `:pano`, with its tests, and changes NOTHING the screen does:** no function `:app` calls
+today answers differently, and `:app` still draws the Mark sheet whole, the long-press menu, the floating trash and the
+picked item's row. **I2b switches the screen over by calling what is listed here and deleting the old** (§13's "Deleted"
+rows for I2). Branch `port63-i2`, over P2N (`7dacbbc`). `:app` is compiled only by CI; nothing has been seen on a phone.
+
+**One thing had to touch `:app`, and it is two branches that cannot be reached yet.** `SurveyPrepTouch.Hit` is a sealed
+class and `SurveyPrepScreen.kt` matches over it exhaustively in two places (`pressId`, `markGrab`), so the new
+`Hit.Code` would not compile there without a branch each: `is SurveyPrepTouch.Hit.Code -> pickS.picked` and
+`null, is SurveyPrepTouch.Hit.Tag, is SurveyPrepTouch.Hit.Code -> null`. `SurveyPrepTouch.hit` answers `Hit.Code` only
+when it is handed a chip, and nothing hands it one until I2b.
+
+Line numbers below are this commit's. `SPS` = `SurveyPrepScreen.kt`, `MS` = `MarkSheet.kt` (the composable),
+`SPL` = `SurveyPrepLocks.kt`, `SPD` = `SurveyPrepDraw.kt`, `SP360` = `SurveyPrep360.kt`, all under `APP/`.
+
+**The acts (`MarkSheet` in `:pano`; `MarkSheetPanelTest`, 16 tests)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `MarkSheet.acts`, `Acts`, `Cell`, `FINE` | `acts(tx, p, id, stage, picked, chains = Features.CHAINS, shape = false): Acts`; `Acts(line1, line2)` with `all`, `delete`, `rows`, `has(id)`; `Cell(id, text, aria, delete)` | the long-press menu's rows, `SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)` at `SPS:2253`, drawn by `SpCtxMenu` (`SPL:123`, `SPS:2259`); the picked item's nudges and padlock in `markPanel` (`SPS:1929-2007`); the floating trash (`SPS:3364-3408`, `SP360:699-705`) |
+| `MarkSheet.fineOk` | `(p, id, stage): Boolean` | `Pick.row(…).nudges` at `SPS:1933`, `1976`: where the nudges are offered |
+| `MarkSheet.actStep`, `ActStep` | `actStep(tx, p, pn, act, stage, picked, chains, shape): ActStep` — `Refused(panel)` / `Delete` / `Run(act)` | `ctxPick`, `SPS:1212-1223` |
+| `MarkSheet.actRuns`, `stepsToDrop` | `(o: Outcome): Boolean`; `(before, afterDone, afterAct): Int` | new: after `panelDone`, before and after `toggleLock` (`SPS:1108`), `duplicateMark` (`SPS:1180`), `lockAllOf` (`SPS:1163`) — the caller drops that many entries from the top of `hist` |
+
+**The panel as a value**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `MarkSheet.panelOpens` | `(p, id): Boolean` | `Pick.row(…).sheet` / `MarkSheet.opens` as "the code is a button", `SPS:1933`, `1967` |
+| `MarkSheet.Panel`, `openPanel` | `Panel(id, draft: State?, openedAt, stateFirst, said)` with `with { … }`; `openPanel(p, id, now, longPress = false, focusMove = null, fresh = false, hist = 0): Panel?` | `var markSheet` (`SPS:351`) and `openSheet` (`SPS:889`); `longPressed`'s `ctx = SpCtx(…)` (`SPS:878`) becomes `openPanel(…, longPress = true)` when the finger lifts |
+| `MarkSheet.answers`, `DEAF_MS` | `(pn, now): Boolean`; `300L` | new: every `MarkSheetActions` callback (`SPS:2287-2298`) and the sheet state's `confirmValueChange` (`MS:146`) ask it first |
+| `MarkSheet.panel`, `PanelView`, `Head`, `optionsLabel` | `panel(tx, p, pn, stage, picked, chains, shape): PanelView?` — `pane, head, acts, said, body: View?, stateFirst` | `MarkSheet.view(tx, prep, st, quoteStage)` at `SPS:2285`; `MsHead` (`MS:218`: its ✕ goes, Done comes) and `MsDone` (`MS:446`, called at `MS:179` and `204`: deleted) |
+| `MarkSheet.panelDone`, `panelCancel` | `(p, pn, stage, at, snapshot): Applied`; `(p, pn): Boolean` | `MarkSheet.apply` in `sheetDone` (`SPS:1029`); `MarkSheet.cancel` in `sheetCancel` (`SPS:1044`) |
+| `MarkSheet.hasGrip`, `opensWhole`, `halfRestDp`, `opensAtDp`, `foldTopDp`, `doneBottomDp` and the sizes `GRIP_DP`, `HEAD_DP`, `HEAD_LAND_DP`, `ACT_ROW_DP`, `ACT_ROW_LAND_DP`, `SAID_DP` | see the source | `rememberModalBottomSheetState(skipPartiallyExpanded = true)` (`MS:146`) becomes `opensWhole(land)`; `dragHandle = null` (`MS:152`) a grip where `hasGrip(land)` |
+| `MarkSheet.slots`, `Slot`, `ACT_COLUMNS`, `ACT_GAP_DP`, `DELETE_GAP_DP`, `DONE_CLEAR_LAND_DP` | `slots(acts, widthDp, land, doneLeftDp = widthDp): List<Slot>` | new: the two act rows between `MsHead` and the blocks in `MsPortrait` (`MS:169`), the one row in `MsLandscape` (`MS:187`) |
+
+**The code chip (`SurveyPrepTouch`; `CodeChipTest`, 14 tests)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `SurveyPrepTouch.codeChip`, `Chip`, `chipLift`, `handlesOf`, `boxDist` and `CHIP_*` | `codeChip(bb, handles, textW, w, h, dp, lift = 16 dp, avoid = []): Chip?`; `Chip(box, tap, how)`; `chipLift(hand, fs, u, dp)`; `handlesOf(bb, spot, corners = null)` | the picked mark's code drawn inside its box (`SPD:530`, its box noted by `codeAt`, `SPD:502-505`); `Chip.tap` joins the layout's `keep` (`SPD:238`, handed to `DimLayout.placeShown` at `SPD:935`) |
+| `SurveyPrepTouch.codeChipOfLine` | `(scr, textW, w, h, dp, avoid = []): Chip?` | the code in the picked Tape's / Line's / chain's row (`PhotoFigures.nameOf`, `SPS:1984`) |
+| `SurveyPrepTouch.Hit.Code`; `hit(…, chip: Box? = null)` | the last parameter of `hit` | `markHit`, `SPS:2784-2794`, hands the chip's tap box; `pressId` (`SPS:2797`) and `markGrab` (`SPS:2816`) already have their branch |
+| `Pick.tap` on `Hit.Code` | answers `Pick.options(st)` (row 7) | `onTap` at `SPS:1709` needs nothing new: `took` opens the panel when `o.options` (as `longPressed` reads it, `SPS:878`) |
+
+**The lift and the pad (`PhotoLift`, `NudgePad`, new files; `PhotoLiftTest` 6, `NudgePadTest` 11)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `PhotoLift.lift`, `lifts`, `inView`, `onScreen`, `onPhoto`, `MARGIN_DP` | `lift(photoTop, photoBottom, panelTop, itemTop, itemBottom, margin, land = false): Double` | new: a translation of the photo's box where `SpPhoto` is placed, `SPS:1700`, while the panel is open |
+| `NudgePad.start`, `State`, `Corner`, `corner`, `box`, `cell`, `keyAt`, `GRID`, `Key`, `glyph` | `start(p, id, stage, part, bb, w, h, dp): State?`; `State(id, part, stepMm, corner, stepTaken)` | the nudge buttons of `markPanel`, `SPS:1970-1977`; `var part` (`SPS:330`) is its `part` as Fine move starts |
+| `NudgePad.press`, `Pressed`, `delta`, `live`, `toggle`, `FINE_MM`, `COARSE_MM` | `press(p, st, key, a, b, snapshot): Pressed(state?, moved)` | `nudgeMark`, `SPS:1097-1106` (deleted) |
+| `NudgePad.aim`, `parts`, `pointPart`, `pointOf`, `BODY` | `aim(p, st, part): State` | `onHandle` at `SPS:1711` (`Pick.handle(pick, pt).nudge`) hands the part while the pad is up; an end pressed (`SurveyGuide.EndPress.Grab`, `SPS:2900`) hands `pointPart(i)` |
+| `NudgePad.after` | `(p, st, pick, stage): State?` | new: asked in `took` (`SPS:646`) after every event, so the pad goes whenever its item is no longer held |
+| `NudgePad.stepText`, `stepLabel`, `doneLabel` | texts of the centre cell and ✓ | new |
+
+**The order the screen calls them in (I2b).**
+
+- **A long press** (`longPressed`): `Pick.longPress` as today; when the finger lifts and `o.options`, `panel = MarkSheet.openPanel(prep, id, now, longPress = true, hist = hist.size)`. **A tap on the chip:** `Pick.tap` answers `options`; `openPanel(…)` the same with `longPress = false`. The reference rectangle is no item: `openPanel` answers null for it.
+- **Drawing:** `MarkSheet.panel(tx, prep, panel, quoteStage, asPicked)` (null: close). The head from `head`; the acts from `MarkSheet.slots(view.acts, width, land, doneLeft)`; `said` under them; the blocks from `body` with the existing `MsKind`, `MsTrade`, `MsState`, `MsNote`; `stateFirst` scrolls STATE into view once.
+- **Every tap and keystroke in the panel:** `if (!MarkSheet.answers(panel, now)) return`, then `panel = panel.with { MarkSheet.pickSub(prep, it, sub) }` and so on for each existing callback.
+- **An act:** `when (val s = MarkSheet.actStep(tx, prep, panel, act, quoteStage, asPicked))` — `Refused`: `panel = s.panel`. `Delete`: `panelCancel`, close, `deleteMark(id)`. `Run`: `val before = hist.size; val done = MarkSheet.panelDone(…) { snapshot() }; val mid = hist.size`; the sheet stays or closes as `sheetDone` decides today; `if (MarkSheet.actRuns(done.outcome))` run the act (`toggleLock`, `duplicateMark`, `lockAllOf`, or Fine move below), then drop `MarkSheet.stepsToDrop(before, mid, hist.size)` entries from the top of `hist`.
+- **Fine move:** `took(Pick.shaped(scene(), pick, id))`, then `pad = NudgePad.start(prep, id, quoteStage, part, itemBox, w, h, dp)`. The pad's cells are pressed BEFORE anything on the photo (`NudgePad.keyAt`); `val r = NudgePad.press(prep, pad, key, a, b) { snapshot() }; pad = r.state; if (r.moved) changed()`. `Pick.handle`'s `nudge` goes to `NudgePad.aim`. After every `took`, `pad = NudgePad.after(prep, pad, pick, quoteStage)`. The pad is not "busy" for `Landing` (`sheetOrFinger`, `SPS:682`): a reading lands, the hold goes, the pad with it.
+- **The chip:** for a picked mark `SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot, corners), textW, w, h, dp, SurveyPrepTouch.chipLift(held, fs, u, dp), avoid = the fit · grid column)`; for a picked Tape, Line, area or chain `codeChipOfLine(scr, …)`. Its `tap` goes into the layout's `keep` and to `SurveyPrepTouch.hit(…, chip = tap)`; its `box` is drawn; its label is `MarkSheet.optionsLabel(tx, code)`.
+- **The lift:** while the panel is open, `PhotoLift.lift(photoTop, photoBottom, panelTop, chipTop, itemBottom, 12 dp, land)` each frame the panel's top moves.
+
+**Decided here, where the design was silent.**
+
+1. **`Lock all` reads "Lock all" or "Unlock all" on the cell** (the picture shows "Lock all"; the menu's "Lock all Switch plate" does not fit a third of 336 dp) **and names its group to a screen reader in the menu's own words** ("Lock all Door"). "Unlock all" had no bare key: `sp.sheet.unlock_all` is new. §12's `sp.sheet.unlock` is NOT added — `common.unlock` already says it.
+2. **No `Fine move` on a chain.** Nothing moves a chain whole, the chain tool is off, and its points still drag along its axis as built. So a chain's panel is `Lock` / `Lock all · Delete`.
+3. **A refused act says why IN THE PANEL and leaves it open with what was typed** (`Panel.said`, one line under the acts, gone at the next tap or keystroke): Delete and the shape row on a locked item (the lock's words), Unlock on a mark in Scope, Lock all outside Survey. The photo's note line is under the panel, and closing the panel on a refusal would throw a typed note away for nothing. §6's "on a locked mark Delete is drawn and answers the lock's words" is this.
+4. **The first 300 ms cover every way the panel opens** (the chip as well as the long press — §6 says so; the brief named the long press) **and the dimmed photo as well as the panel**: a hurried second tap on the photo above would otherwise cancel the panel he had just opened. Back always answers.
+5. **"With STATE in view"** is one flag, `stateFirst`: a long press on a mark past Existing, and any opening on a move's Why box. With two rows of acts STATE already starts about 200 dp down, above the half rest; the flag is for the short window and the keyboard.
+6. **Line 1's row is kept whenever there is a delete cell** (`Acts.rows`), so Delete can never move up under Done. It cannot be empty there by today's rules (a delete cell implies a padlock); the rule does not depend on that.
+7. **Delete is always in the LAST column of line 2**, the middle column left empty where there is no shape row — it does not move as Q2's switch turns on, and it is 24 dp from whatever stands beside it.
+8. **The chip stands above the held mark's hand-anchored width plate** (`chipLift`): the chip is placed first and handed to the layout as a box to keep clear, so a chip in that plate's row would push the gold width plate of a mark just placed off its anchor. A mark with no handles has it 16 dp over its top edge.
+9. **Where a mark's chip goes when neither above nor below has room** (a mark as tall as the photo, or one that fills it): left of its top, right of its top, then INSIDE the box 16 dp in from its top-left corner, where it beats the body it lies on. **No chip at all** where no place is 16 dp clear of the handles — a long press still opens the panel.
+10. **A Tape's, Line's, area's or chain's chip stands on the side of its first point that points away from the rest of the item** (left of a level tape pulled to the right; under a Line drawn up from the floor), 16 dp clear of every one of its points.
+11. **A tap on the body of the item being fine-moved aims the pad at the whole item again**; a tap on one of its figures turns it gold and leaves the pad up (Pick row 4 keeps the hold).
+12. **One ↶ step for a whole Fine move**, taken just before its first nudge that moves anything; a press that moves nothing (an arrow an edge does not answer to, an item hard against the face's edge) takes none.
+13. **An edge answers two arrows only** (a top or bottom edge ▲ ▼, a left or right edge ◀ ▶), the other two drawn dim, as the row drew two pairs.
+14. **A Tape or a Line is never nudged shorter than `SurveyMeas.MIN_LEN`** (20 mm, the length one may be plotted at). A drag of an end has no such floor; the pad's has, because a 1 mm step makes a zero-length line easy.
+15. **The pad's corner is chosen once, as Fine move starts**, and kept: a pad that changed sides as the item crossed the middle would leave the thumb pressing it. Where the item lies under both bottom corners (a unit along the whole foot of the wall), the corner whose pad covers less of it; a tie goes right.
+16. **The lift keeps the item's TOP in view when both ends cannot be** (its code chip and top edge), and is never more than the panel covers, so no empty band opens under the photo.
+17. **`MarkSheet.acts`, `panel` and `actStep` take the chain switch** as `menuItemsOf` does, so `FeaturesTest`'s inventory of who reads `Features.CHAINS` gains `MarkSheet.kt` (3).
+
+**Found while building, for I2b to settle.**
+
+- **The reference rectangle's long press** opens today's menu with its own Lock · Cancel (`SPS:875`). It is no item and has no panel; with `SpCtxMenu` deleted it needs another home (its padlock already stands in 1 · Lines' panel) or the menu survives for it alone.
+- **On the 360** the panel opens by a long press only (§11): no chip is drawn there, and the 360's own floating trash (`SP360:699-705`) goes with the photo's.
+- **`DimLayout`'s hand-anchored height plate** stands right of the mark; a chip that falls to "right of its top" (a tall mark against the left edge) shares that side, and the layout then moves the plate off its anchor. Rare; to be looked at on the phone.
+- **The four-corner closing check's sentence** is still unwritten (§20.3, 2). Q2's.
+
+**Texts.** Five keys, English first, each listed in `mr-pending.tsv` (29 keys): `sp.sheet.fine_move` "Fine move", `sp.sheet.unlock_all` "Unlock all", `sp.sheet.aria.open_x` "Options for {code}", `sp.fine.aria.step_x` "Step {mm} mm · tap to change", `sp.fine.aria.done` "Finish fine move". Each has its reader in `:pano`. 1,936 keys; `Tx` regenerated; `unkeyed.tsv` stays empty; the ratchet lowered nothing and entered `NudgePad.kt` and `PhotoLift.kt` at 0. No key was deleted: every key the menu, the trash and the row read still has its reader on screen until I2b.
+
+**Tests.** `:pano`: 112 test classes, 1,578 tests, 0 failures, 0 errors (P2N: 108 and 1,531). New: `MarkSheetPanelTest` 16, `CodeChipTest` 14, `NudgePadTest` 11, `PhotoLiftTest` 6. Changed: `FeaturesTest`'s inventory (decision 17). No earlier test was loosened or deleted.
+
+**Type-checked here, and what that cannot prove.** kotlinc 2.0.21 from the Gradle cache, the real `:pano` classes and the stand-ins of §20: `SurveyPrepScreen.kt` whole, with its seven companions, has NO error (the 235 left are the same stub gaps in the five files this commit did not touch, count for count). With the two new branches taken out the compiler reports exactly the two `when`s as not exhaustive, so the check sees what it is there for. Both added lines use only `pickS` (declared in `SpPhoto` above them, and used by the branch beside it) and the type `SurveyPrepTouch.Hit.Code`. Not proven: anything the Compose compiler plugin or lint adds, and everything about a phone.
+
+**Where to look first if CI's `:app` compile is red.** `SurveyPrepScreen.kt`, `pressId` (`SPS:2797-2804`) and `markGrab` (`SPS:2816-2820`): the two `Hit.Code` branches. Nothing else in `:app` changed.

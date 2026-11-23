@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.time.Instant
+import kotlin.math.min
 
 /**
  * THE MARK SHEET (port 62 slice L3, 11 Nov 2026; the approved prototype v61c.2, index61c2.html, module L53: openSheet
@@ -484,4 +485,319 @@ object MarkSheet {
 
     /** "A Note needs its words — type them, or delete the Note": said when Done finds a Note with none ([Outcome.NEEDS_WORDS]). */
     fun needsWords(tx: Tx): String = tx.refuse_life_note_needs_words_type
+
+    // ================================================================== THE PANEL THAT SLIDES UP (port 63 slice I2a)
+
+    /*
+     * Amit, 16 Nov 2026, on build 0.3.337: "a slide up screen in imagemeter give more options. imagemeter is gold
+     * standard when it comes to image annotation." and "navigation button and D2 aer very close where d2 get
+     * accidentally fired. same for delete button for any item." He was shown the panel (DESIGN-imagemeter §6;
+     * imagemeter-pictures/mcft-new-5-panel.png) and said "Yes".
+     *
+     * THE PANEL IS THIS SHEET WITH THE ACTS THAT STOOD IN ROWS UNDER THE PHOTO, opened half way in portrait so the
+     * item stays in view above it. Top to bottom: a grip; the HEAD -- "FW1 · Window", the trade, and DONE at its right
+     * end, where the fold cannot hide it; the ACTS, two lines ([acts]); then this sheet's own blocks as they are --
+     * KIND, TRADE, STATE, NOTE ([view]). A TAPE AND A CHAIN get it too, with the head and the acts and no block.
+     *
+     * EVERYTHING BELOW IS PURE AND BESIDE WHAT STANDS: nothing above this line changed, and :app, which still draws
+     * the sheet whole with its ✕ and its foot Done, calls none of it until slice I2b switches the screen over.
+     */
+
+    /** `Fine move` among the acts: beside [SurveyPrepEdit.LOCK], [SurveyPrepEdit.DUPLICATE], [SurveyPrepEdit.LOCK_ALL],
+     *  [SurveyPrepEdit.SHAPE_FREE] / [SurveyPrepEdit.SHAPE_BOX] and [SurveyPrepEdit.DELETE], which keep the menu's ids. */
+    const val FINE = "fine" // text:value an act's id, never shown
+
+    /** One act of the panel: its [id]; the [text] on it; what a screen reader calls it ([aria] -- "Lock all Door"
+     *  where the cell reads "Lock all"); [delete]: the delete control, drawn apart and in [DeleteGuard]'s own look. */
+    class Cell(val id: String, val text: String, val aria: String, val delete: Boolean = false)
+
+    /**
+     * THE PANEL'S ACTS, IN TWO LINES (DESIGN-imagemeter §6): [line1] `Lock` / `Unlock` · `Duplicate` · `Fine move`;
+     * [line2] `Four corners` / `Rectangle` · `Lock all` · a gap · `Delete`, LAST. Either may be short, or empty.
+     */
+    class Acts(val line1: List<Cell>, val line2: List<Cell>) {
+        /** Every act, in reading order. */
+        val all: List<Cell> get() = line1 + line2
+        /** The delete cell, or null: there is none. It is line 2's last ([DeleteGuard.last]). */
+        val delete: Cell? get() = line2.lastOrNull()?.takeIf { it.delete }
+        /**
+         * How many act rows the panel draws: the lines that hold a cell -- and BOTH whenever there is a delete cell,
+         * line 1's row kept even if it were empty, so that Delete never moves up under Done ("Delete is a whole act
+         * row below Done", §6).
+         */
+        val rows: Int get() = if (delete != null) 2 else (if (line1.isEmpty()) 0 else 1) + (if (line2.isEmpty()) 0 else 1)
+        fun has(id: String): Boolean = all.any { it.id == id }
+        companion object { val NONE = Acts(emptyList(), emptyList()) }
+    }
+
+    /**
+     * WHETHER `Fine move` IS OFFERED ON [id] at [stage]: "only for an item the phase and the lock let move" -- exactly
+     * what may be HELD ([Pick.mayHold]: the phase holds anything at all, it lets this item be edited, and the item is
+     * not locked). A mark, a Note, a Tape, a Line and an area. NOT A CHAIN: nothing moves a chain whole (its points
+     * drag along its own axis, as built), the chain tool is off ([Features.CHAINS]) and no new way to edit one is
+     * added. False for an id that is no item.
+     */
+    fun fineOk(p: SurveyPrep.Prep, id: String, stage: Int?): Boolean {
+        val o = p.itemById(id) ?: return false
+        return o.kind != SurveyChain.KIND && PhaseTools.holds(stage) && !o.locked && PhaseTools.editable(p, id, stage)
+    }
+
+    /**
+     * THE ACTS OF THE PANEL OPEN ON [id], at quote stage [stage] ([picked]: what this capture's "as …" chip was cycled
+     * to, as the menu is handed it). CARRIED FROM THE LONG-PRESS MENU, WHICH THE PANEL REPLACES
+     * ([SurveyPrepEdit.menuItemsOf] -- so the phase's cuts are the menu's own, kept in one place), THROUGH
+     * [DeleteGuard.last]:
+     *  - WHAT THE PHASE FORBIDS IS NOT DRAWN: Lock / Unlock only where the padlock shows ([PhaseTools.lockOk]),
+     *    Duplicate only where the copy may be made ([PhaseTools.copyOk] -- never a chain while the chain tool is off,
+     *    [chains]), Lock all only where the item may be edited, Delete only where its delete control shows
+     *    ([PhaseTools.delOk]). A surveyed mark after Survey has no act at all, as its menu was its head and Cancel;
+     *  - the menu's Cancel is no act: Back, the dimmed photo and a swipe down cancel the panel;
+     *  - A MARK PAST EXISTING HAS NO DELETE CELL. Its menu row read Drop, or Restore -- STATE's moves, which the sheet
+     *    already draws in the one place a Drop's why is typed ([MarkLife.deleteWord]); a Note and an Existing mark
+     *    keep Delete. On a LOCKED item Delete is drawn, and answers the lock's words ([actStep]);
+     *  - `Fine move` where the item may be held ([fineOk]);
+     *  - THE SHAPE ROW, `Four corners` / `Rectangle`, only where the caller asks for it ([shape], OFF by default: the
+     *    merged four-corner model keeps it off until slice Q2 turns the switch on, and then it is line 2's first);
+     *  - `Lock all` reads "Lock all" / "Unlock all" on the cell, and names its group to a screen reader, in the menu's
+     *    own words ("Lock all Door", "Unlock all tapes").
+     * No act for an id that is no item: the reference rectangle has no panel.
+     */
+    fun acts(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false): Acts {
+        val o = p.itemById(id) ?: return Acts.NONE
+        val rows = SurveyPrepEdit.menuItemsOf(tx, p, id, stage, picked, chains, shape)
+        fun said(k: String): String? = rows.firstOrNull { it.first == k }?.second
+        val mark = p.markById(id)?.second
+        val past = mark != null && MarkLife.deleteWord(mark) != MarkLife.DeleteWord.DELETE
+        val lock = said(SurveyPrepEdit.LOCK)?.let { Cell(SurveyPrepEdit.LOCK, it, if (o.locked) tx.sp_aria_unlock_x(o.code) else tx.sp_aria_lock_x(o.code)) }
+        val dup = said(SurveyPrepEdit.DUPLICATE)?.let { Cell(SurveyPrepEdit.DUPLICATE, it, it) }
+        val fine = if (fineOk(p, id, stage)) Cell(FINE, tx.sp_sheet_fine_move, tx.sp_sheet_fine_move) else null
+        val shaped = rows.firstOrNull { it.first == SurveyPrepEdit.SHAPE_FREE || it.first == SurveyPrepEdit.SHAPE_BOX }?.let { (k, t) -> Cell(k, t, t) }
+        val all = said(SurveyPrepEdit.LOCK_ALL)?.let { whole ->
+            val unlock = SurveyPrepEdit.lockGroupOf(p, id)?.second?.all == true
+            Cell(SurveyPrepEdit.LOCK_ALL, if (unlock) tx.sp_sheet_unlock_all else tx.common_lock_all, whole)
+        }
+        val del = if (past) null else said(SurveyPrepEdit.DELETE)?.let { Cell(SurveyPrepEdit.DELETE, it, SurveyPrepEdit.deleteLabel(tx, p, id) ?: it, delete = true) }
+        return Acts(listOfNotNull(lock, dup, fine), DeleteGuard.last(listOfNotNull(shaped, all, del)) { it.delete })
+    }
+
+    // ------------------------------------------------------------------ what the panel is open on, and its draft
+
+    /** Whether the panel opens for [id] at all: EVERY item -- a mark, a Note, a Line, an area, and now a Tape and a
+     *  chain, which have no sheet ([opens]) and get the head and the acts. Never the reference rectangle. */
+    fun panelOpens(p: SurveyPrep.Prep, id: String): Boolean = p.itemById(id) != null
+
+    /**
+     * AN OPEN PANEL: the item's [id]; [draft], this sheet's own state for its blocks -- null for a Tape and a chain,
+     * which have none; [openedAt], ms, for the first 300 ms ([answers]); [stateFirst]: it opens with STATE in view;
+     * [said]: a refused act's words, drawn in the panel under the acts until the next tap or keystroke.
+     */
+    data class Panel(val id: String, val draft: State?, val openedAt: Long, val stateFirst: Boolean = false, val said: String? = null) {
+        /** The panel after a tap or a keystroke in its blocks: the draft as [f] leaves it, and nothing said any more. */
+        fun with(f: (State) -> State): Panel = copy(draft = draft?.let(f), said = null)
+    }
+
+    /**
+     * THE PANEL FOR [id] AS IT OPENS at [now] ms, or null when [id] is no item. [longPress]: a long press opened it
+     * (when the finger lifted) -- and then, ON A MARK PAST EXISTING, IT OPENS WITH STATE IN VIEW: that mark has no
+     * delete cell, and Drop and Restore are STATE's moves (§6). [focusMove], [fresh] and [hist] are [open]'s own -- a
+     * Drop's sheet opens on Dropped's Why box, a Note just placed on its note field.
+     */
+    fun openPanel(p: SurveyPrep.Prep, id: String, now: Long, longPress: Boolean = false, focusMove: String? = null,
+                  fresh: Boolean = false, hist: Int = 0): Panel? {
+        if (p.itemById(id) == null) return null
+        val past = p.markById(id)?.second?.let { !MarkLife.isNote(it) && MarkLife.pastExisting(it) } == true
+        return Panel(id, open(p, id, focusMove, fresh, hist), now, stateFirst = focusMove != null || (longPress && past))
+    }
+
+    /** The panel takes no tap for this long after it opens, ms. */
+    const val DEAF_MS = 300L
+
+    /**
+     * THE PANEL TAKES NO TAP FOR ITS FIRST 300 MS (§6). A long press opens it when the finger LIFTS, and a tap on the
+     * code chip opens it too: both are pressed OVER THE PHOTO, where the half-open panel then stands -- so a hurried
+     * second tap, or a finger that had not quite left, would land on whatever act rose under it. For [DEAF_MS] after
+     * [Panel.openedAt] no cell, chip or box of the panel answers, and neither does the dimmed photo above it (a tap
+     * there would cancel the panel he has just opened). Back always answers. A clock that ran backwards never leaves
+     * the panel deaf.
+     */
+    fun answers(pn: Panel, now: Long): Boolean = now - pn.openedAt !in 0 until DEAF_MS
+
+    /** The head: "FW1 · Window" ([code], [name]), the [trade]'s dot and short name -- null for a Tape and a chain,
+     *  which take none -- and DONE at its right end ([done]; [doneEnabled] false while the move picked needs its why). */
+    class Head(val code: String, val name: String, val trade: Dot?, val done: String, val doneEnabled: Boolean)
+
+    /**
+     * EVERYTHING THE PANEL DRAWS: [pane] what a screen reader calls it; the [head]; the [acts]; [said], a refused act's
+     * words, under them; [body], this sheet's own blocks -- its KIND, TRADE, STATE and NOTE are drawn from it and its
+     * head, its ✕ and its Done are NOT (the panel's head has them) -- null for a Tape and a chain; [stateFirst]: STATE
+     * is scrolled into view as it opens.
+     */
+    class PanelView(val pane: String, val head: Head, val acts: Acts, val said: String?, val body: View?, val stateFirst: Boolean)
+
+    /** What a screen reader calls the picked item's code chip, `⋯`, and the panel they open: "Options for FW1". */
+    fun optionsLabel(tx: Tx, code: String): String = tx.sp_sheet_aria_open_x(code)
+
+    /**
+     * What the panel [pn] draws at [stage], in the language; null when its item is gone -- the panel closes. A mark's,
+     * a Line's and an area's head is this sheet's own ([view]); a Tape's is "F-T1 · Tape" and a chain's "FK1 · Chain",
+     * with no trade and a Done that only closes.
+     */
+    fun panel(tx: Tx, p: SurveyPrep.Prep, pn: Panel, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS, shape: Boolean = false): PanelView? {
+        val o = p.itemById(pn.id) ?: return null
+        val a = acts(tx, p, pn.id, stage, picked, chains, shape)
+        val d = pn.draft
+        if (d != null) {
+            val v = view(tx, p, d, stage) ?: return null
+            return PanelView(optionsLabel(tx, v.code), Head(v.code, v.name, v.trade, v.done, v.doneEnabled), a, pn.said, v, pn.stateFirst && v.state != null)
+        }
+        val name = p.measById(pn.id)?.let { (_, m) -> SurveyMeas.typeName(tx, m) } ?: tx.common_chain
+        return PanelView(optionsLabel(tx, o.code), Head(o.code, name, null, tx.common_done, true), a, pn.said, null, false)
+    }
+
+    /** DONE in the panel's head: this sheet's own Done ([apply]) on its draft; a Tape's and a chain's has nothing to
+     *  write and closes ([Outcome.UNCHANGED]; [Outcome.GONE] when the item is gone). */
+    fun panelDone(p: SurveyPrep.Prep, pn: Panel, stage: Int?, at: Instant, snapshot: () -> Unit): Applied =
+        pn.draft?.let { apply(p, it, stage, at, snapshot) }
+            ?: Applied(if (p.itemById(pn.id) == null) Outcome.GONE else Outcome.UNCHANGED, null)
+
+    /** Back, the dimmed photo and a swipe down: this sheet's own [cancel] -- true when a Note just placed, still
+     *  with no words, was removed. A Tape's and a chain's panel has nothing to lose. */
+    fun panelCancel(p: SurveyPrep.Prep, pn: Panel): Boolean = pn.draft?.let { cancel(p, it) } ?: false
+
+    // ------------------------------------------------------------------ an act picked
+
+    /** What a tap on an act does first. */
+    sealed class ActStep {
+        /** NOTHING HAPPENS and the panel stays open, its draft as typed: the act is not one the panel draws any more,
+         *  or it is refused -- then [panel] carries the refusal's words ([Panel.said]). */
+        class Refused(val panel: Panel) : ActStep()
+        /** DELETE: the panel closes, what was typed is dropped ([panelCancel]), and the caller deletes -- "FW1 deleted ·
+         *  UNDO" for 5 s, and ↶ restores it too. */
+        object Delete : ActStep()
+        /** EVERY OTHER ACT IS DONE FOLLOWED BY THE ACT: the caller runs [panelDone]; where the sheet then stays open
+         *  (a move still needs its why, a Note its words) the act is not run; where it closes and the item is still
+         *  there ([actRuns]) the act [act] runs, and Done's undo step and the act's are made ONE ([stepsToDrop]). */
+        class Run(val act: String) : ActStep()
+    }
+
+    /**
+     * A TAP ON THE ACT [act] OF THE PANEL [pn] (§6: "An act is Done followed by the act ... except Delete, which drops
+     * the draft and deletes. Each act closes the panel."). Asked BEFORE anything is written:
+     *  - an act the panel does not draw now ([acts]: the stage moved under it, the item went) changes nothing;
+     *  - A REFUSED ACT CHANGES NOTHING, and says why IN THE PANEL -- the photo's note line is under it: Delete, and
+     *    Four corners / Rectangle, on a LOCKED item, in the lock's own words ("FD1 is locked — unlock first"); Unlock
+     *    on a mark in Scope ([SurveyPrepEdit.unlockRefusal]); Lock all outside Survey ([PhaseTools.refuseBulk]). The
+     *    panel stays, with what was typed: a refusal that closed it would throw a note away for nothing;
+     *  - Delete: [ActStep.Delete]; every other act: [ActStep.Run].
+     */
+    fun actStep(tx: Tx, p: SurveyPrep.Prep, pn: Panel, act: String, stage: Int?, picked: String?,
+                chains: Boolean = Features.CHAINS, shape: Boolean = false): ActStep {
+        val o = p.itemById(pn.id) ?: return ActStep.Refused(pn)
+        if (!acts(tx, p, pn.id, stage, picked, chains, shape).has(act)) return ActStep.Refused(pn)
+        val no = when (act) {
+            // Delete, and the shape row: drawn on a LOCKED mark, and answered with the lock's own words (menuItemsOf)
+            SurveyPrepEdit.DELETE, SurveyPrepEdit.SHAPE_FREE, SurveyPrepEdit.SHAPE_BOX -> if (o.locked) SurveyPrepEdit.refusal(tx, o.code) else null
+            SurveyPrepEdit.LOCK -> SurveyPrepEdit.unlockRefusal(tx, p, pn.id)
+            SurveyPrepEdit.LOCK_ALL -> if (PhaseTools.bulk(stage)) null else PhaseTools.refuseBulk(tx, stage)
+            else -> null
+        }
+        return when {
+            no != null -> ActStep.Refused(pn.copy(said = no))
+            act == SurveyPrepEdit.DELETE -> ActStep.Delete
+            else -> ActStep.Run(act)
+        }
+    }
+
+    /** Whether the act still runs after [panelDone] answered [o]: the sheet closed and the item is there -- Done wrote
+     *  ([Outcome.DONE]) or had nothing to write ([Outcome.UNCHANGED]). Not when the sheet stays open, nor when the
+     *  item went with it (a new Note with no words; an item gone meanwhile). */
+    fun actRuns(o: Outcome): Boolean = o == Outcome.DONE || o == Outcome.UNCHANGED
+
+    /**
+     * DONE'S UNDO STEP AND THE ACT'S ARE ONE ↶ STEP: how many entries the caller takes off the TOP of its undo
+     * history after the act, given how many it held [before] Done, [afterDone] and [afterAct]. When both took a step,
+     * the act's own go -- the entry Done took is the room before either, and one ↶ returns there. When only one of
+     * them took a step, or neither, nothing is dropped.
+     */
+    fun stepsToDrop(before: Int, afterDone: Int, afterAct: Int): Int = if (afterDone > before && afterAct > afterDone) afterAct - afterDone else 0
+
+    // ------------------------------------------------------------------ where the panel rests, and what is above the fold
+
+    /** The panel's rows, dp (§6): the grip to pull by (portrait only); the head; one line of acts -- 44 in portrait,
+     *  ONE line of 40 across the sheet in landscape; a refused act's line. */
+    const val GRIP_DP = 16
+    const val HEAD_DP = 40
+    const val HEAD_LAND_DP = 36
+    const val ACT_ROW_DP = 44
+    const val ACT_ROW_LAND_DP = 40
+    const val SAID_DP = 20
+    /** The acts stand in three columns, this far apart, dp ... */
+    const val ACT_COLUMNS = 3
+    const val ACT_GAP_DP = 8.0
+    /** ... and DELETE stands this far from the act before it, dp: more than [DeleteGuard.CLEAR_DP]. */
+    const val DELETE_GAP_DP = 24.0
+    /** In landscape the one line of acts ends this far short of Done's left edge, dp: nothing stands under Done. */
+    const val DONE_CLEAR_LAND_DP = 16.0
+
+    /** The grip is drawn in portrait only: in landscape the panel opens whole, and there is nothing to pull. */
+    fun hasGrip(land: Boolean): Boolean = !land
+
+    /** Whether the panel opens WHOLE, with no half rest (`skipPartiallyExpanded`): in landscape. In portrait the half
+     *  rest is ON -- it was switched off after the K4 review for hiding Done under the fold, and Done is in the head now. */
+    fun opensWhole(land: Boolean): Boolean = land
+
+    /** The half rest of a window [windowDp] high, dp: half of it (378 of the Mi A3's 756). */
+    fun halfRestDp(windowDp: Double): Double = windowDp / 2
+
+    /** How high the panel stands as it opens, dp, its content [contentDp] high: in portrait at the half rest when its
+     *  rows need more than that, else at its own height; in landscape whole, never over the window. */
+    fun opensAtDp(windowDp: Double, contentDp: Double, land: Boolean): Double =
+        min(contentDp, if (land) windowDp else halfRestDp(windowDp))
+
+    /**
+     * WHAT MUST BE ABOVE THE FOLD, dp from the panel's top: the grip, the head WITH DONE, both lines of acts and a
+     * refused act's line -- 16 + 40 + 88 = 144 dp in portrait with both lines (§6), against a half rest of 378. In
+     * landscape there is no fold; this is then how far down the acts end.
+     */
+    fun foldTopDp(acts: Acts, land: Boolean = false, said: Boolean = false): Int =
+        if (land) HEAD_LAND_DP + (if (acts.rows > 0) ACT_ROW_LAND_DP else 0) + (if (said) SAID_DP else 0)
+        else GRIP_DP + HEAD_DP + acts.rows * ACT_ROW_DP + (if (said) SAID_DP else 0)
+
+    /** Where Done's lower edge is, dp from the panel's top: in the head, so above every rest the panel has. */
+    fun doneBottomDp(land: Boolean): Int = if (land) HEAD_LAND_DP else GRIP_DP + HEAD_DP
+
+    /** One act as placed: its [cell], the row it is on (0 or 1; 0 in landscape) and its left and right edge, dp from
+     *  the left edge of the panel's content. */
+    class Slot(val cell: Cell, val row: Int, val l: Double, val r: Double)
+
+    /**
+     * WHERE EACH ACT STANDS across a panel whose content is [widthDp] wide (§6).
+     *
+     * PORTRAIT: [ACT_COLUMNS] equal columns, [ACT_GAP_DP] apart. Line 1's cells fill them from the left; so do line
+     * 2's -- but DELETE IS ALWAYS IN THE LAST COLUMN, AT THE RIGHT END, whatever stands before it, its left edge moved
+     * in so that it is [DELETE_GAP_DP] from the column beside it: last, apart, never the cell a hurried second tap
+     * lands on. It is then under Done's column, a whole act row below Done ([Acts.rows]).
+     *
+     * LANDSCAPE: ONE line -- line 1's cells, then line 2's, Delete last with [DELETE_GAP_DP] before it -- that ends
+     * [DONE_CLEAR_LAND_DP] short of Done's left edge ([doneLeftDp], dp from the content's left edge), so nothing,
+     * Delete least of all, stands under Done.
+     */
+    fun slots(acts: Acts, widthDp: Double, land: Boolean, doneLeftDp: Double = widthDp): List<Slot> {
+        if (land) {
+            val cells = acts.all; if (cells.isEmpty()) return emptyList()
+            val end = min(widthDp, doneLeftDp - DONE_CLEAR_LAND_DP)
+            val gaps = cells.indices.drop(1).sumOf { i -> if (cells[i].delete) DELETE_GAP_DP else ACT_GAP_DP }
+            val cw = (end - gaps) / cells.size
+            var x = 0.0
+            return cells.mapIndexed { i, c -> if (i > 0) x += if (c.delete) DELETE_GAP_DP else ACT_GAP_DP; Slot(c, 0, x, x + cw).also { x += cw } }
+        }
+        val cw = (widthDp - (ACT_COLUMNS - 1) * ACT_GAP_DP) / ACT_COLUMNS
+        fun col(i: Int) = i * (cw + ACT_GAP_DP)
+        val out = ArrayList<Slot>()
+        acts.line1.forEachIndexed { i, c -> out += Slot(c, 0, col(i), col(i) + cw) }
+        val row2 = if (acts.rows == 2) 1 else 0
+        acts.line2.filterNot { it.delete }.forEachIndexed { i, c -> out += Slot(c, row2, col(i), col(i) + cw) }
+        acts.delete?.let { c -> val last = col(ACT_COLUMNS - 1); out += Slot(c, row2, last + (DELETE_GAP_DP - ACT_GAP_DP), last + cw) }
+        return out
+    }
 }

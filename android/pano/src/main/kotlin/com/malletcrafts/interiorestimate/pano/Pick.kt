@@ -177,11 +177,13 @@ object Pick {
      * [line] the Tape, Line, area or chain whose line the finger is on when nothing else is hit (the screen's 12 dp
      * pick) -- the hit order's answer turned into the event it is:
      *  - a figure: [figure]; a handle of the held item -- a tab, a corner, a chain's point: [handle];
+     *  - THE PICKED ITEM'S CODE CHIP ([SurveyPrepTouch.Hit.Code], slice I2a): [options] -- row 7, the panel opens;
      *  - an item's body -- a mark, the picked Tape's band, a chain's point of a chain that is not held, [line]: [body];
      *  - nothing: [empty].
      * With a tool armed the screen places instead and asks [placed].
      */
     fun tap(sc: Scene, st: State, hit: SurveyPrepTouch.Hit?, line: String? = null): Out = when (hit) {
+        is SurveyPrepTouch.Hit.Code -> options(st)
         is SurveyPrepTouch.Hit.Tag -> figure(sc, st, hit.code)
         is SurveyPrepTouch.Hit.Mark -> if (hit.part != BODY && handles(st, hit.id)) handle(st, hit.part) else body(sc, st, hit.id)
         is SurveyPrepTouch.Hit.Node -> if (handles(st, hit.id)) handle(st, nodePart(hit.i)) else body(sc, st, hit.id)

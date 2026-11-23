@@ -20,7 +20,9 @@ package com.malletcrafts.interiorestimate.pano
  *    off every figure ([SurveyPrepTouch.trashSpot]); where no place is that clear there is NO disc, never one on a
  *    handle.
  * The Mark sheet deletes nothing by one tap (a Drop is its why and Done), and ⋮'s clears and Start over take two taps:
- * none of them changed. The panel that slides up (slice I2) will hold the one Delete, last, through [last].
+ * none of them changed. THE PANEL THAT SLIDES UP holds the one Delete, last, through [last] ([MarkSheet.acts], port 63
+ * slice I2a: line 2's last cell, [MarkSheet.DELETE_GAP_DP] from the act beside it and a whole act row below Done); slice
+ * I2b draws it and takes the menu's and the trash's away.
  *
  * Pure numbers and one ordering rule, so they are tested here; :app only draws from them.
  */
