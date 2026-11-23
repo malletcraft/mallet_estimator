@@ -100,6 +100,8 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
@@ -529,6 +531,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
         if (size == null) surveyAskDims = row else loadSurvey(row, size)
     }
     surveyKept?.let { k ->
+        // ONE PICTURE REWRITE AT A TIME (port 63 slice I1b, P2): ✓ Save no longer closes survey prep, so two presses can
+        // overlap -- the second waits for the first, and never writes the room folder's pictures while it does
+        val surveyWrite = remember { Mutex() }
         SurveyPrepDialog(
             deviceId = k.row.deviceId, previewPano = k.pano, title = k.title,
             lengthMm = k.size[0], widthMm = k.size[1], heightMm = k.size[2],
@@ -543,8 +548,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
             // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4), read the same way
             projectLine = QuoteStageSync.prepLine(context,
                 WishSync.stageKey(context, k.row.project, k.row.customerName, k.row.projectTitle), tx),
-            onDone = { p, size ->
-                surveyKept = null; surveyTick++
+            // ✓ SAVE SAVES AND STAYS (port 63 slice I1b, P2; Amit, 23 Nov 2026: "Click on save always take me out to room
+            // foto. its annoying."): everything a save did here is still done, once a press -- but survey prep stays open
+            // (surveyKept is NOT cleared: only ← clears it, onCancel below), and how the pictures went is told back to its
+            // bar through [report] as well as to the room screen's result line.
+            onSaved = { p, size, report ->
+                surveyTick++
                 // The room size as survey prep now has it (v51: its size line is editable) goes to the
                 // capture's row, in inches; and the room folder's elevations follow the lines as they now
                 // stand, squared to THAT size, REPLACING the earlier ones (FaceWriter.writeSurvey).
@@ -552,14 +561,22 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 keepRoomSize(row.deviceId, size)
                 lastResult = { tx -> tx.app_msg_survey_prep_saved_writing }
                 scope.launch(Dispatchers.Default) {
-                    val n = runCatching {
-                        FaceWriter.rewriteSurvey(context, File(row.panoPath), row.deviceId, row.room,
-                            row.captureDate, row.stage,
-                            Handover.relativePath(row.customerName, row.projectTitle, row.room), p, size)
+                    val n = surveyWrite.withLock {
+                        runCatching {
+                            FaceWriter.rewriteSurvey(context, File(row.panoPath), row.deviceId, row.room,
+                                row.captureDate, row.stage,
+                                Handover.relativePath(row.customerName, row.projectTitle, row.room), p, size)
+                        }
                     }
                     withContext(Dispatchers.Main) {
-                        n.onSuccess { c -> lastResult = { tx -> tx.app_msg_survey_prep_saved_x(c.toString()) } }
-                            .onFailure { e -> lastResult = { tx -> tx.app_msg_survey_prep_saved_not_written_x(why = FaceNote.line(tx, e)) } }
+                        n.onSuccess { c ->
+                            lastResult = { tx -> tx.app_msg_survey_prep_saved_x(c.toString()) }
+                            report(c, null)
+                        }.onFailure { e ->
+                            lastResult = { tx -> tx.app_msg_survey_prep_saved_not_written_x(why = FaceNote.line(tx, e)) }
+                            report(null, FaceNote.line(tx, e))
+                        }
+                        surveyTick++
                     }
                 }
             },
@@ -4050,7 +4067,9 @@ private fun NewCaptureSurvey(
         // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4)
         projectLine = QuoteStageSync.prepLine(context,
             WishSync.stageKey(context, pending.projectName, pending.customerName, pending.projectTitle), tx),
-        onDone = { p, size -> keepWith(p, size) },
+        // ✓ SAVE ON A NEW CAPTURE IS THE READ-BACK SAVE ALONE AND STAYS (port 63 slice I1b, P2; SaveStay.Flow.NEW): the
+        // capture is filed -- once -- by ← alone, which then queues the upload a Save held back
+        onSaved = null,
         onCancel = { p, size -> keepWith(p, size) },
         onDiscard = onDiscard)
 }

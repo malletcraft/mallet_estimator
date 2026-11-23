@@ -1,7 +1,5 @@
 package com.malletcrafts.interiorestimate.pano
 
-import com.malletcrafts.interiorestimate.pano.MeasureFlow.Kind
-import com.malletcrafts.interiorestimate.pano.MeasureFlow.Move
 import com.malletcrafts.interiorestimate.pano.MeasureFlow.Refused
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
@@ -59,7 +57,6 @@ class MeasureFlowTest {
 
     private fun id(p: SurveyPrep.Prep, code: String) = p.surface("front").marks.first { it.code == code }.id
     private fun figure(p: SurveyPrep.Prep, code: String, active: String?, stage: Int?) = MeasureFlow.figure(p, code, active, stage, ::ab)
-    private fun body(p: SurveyPrep.Prep, id: String, picked: String?, active: String?, stage: Int?) = MeasureFlow.body(p, id, picked, active, stage, ::ab)
     private fun readAll(p: SurveyPrep.Prep, s: String = "front") { for (k in ab(s).let { MeasureWalk.stops(p, s, it[0], it[1]) }) p.actual[k] = 1000.0 }
 
     // ------------------------------------------------------------------ what may be measured
@@ -171,7 +168,6 @@ class MeasureFlowTest {
         // a reading such a mark holds from an earlier build changes nothing: it is shown, never asked for
         p.actual["FD2.w"] = 200.0
         assertEquals(Refused.NOT_IN_ROOM, figure(p, "FD2.w", null, SURVEY).refused)
-        assertEquals("200", MeasureFlow.value(p, "FD2.w", ::ab)?.text)
     }
 
     @Test fun `after Survey a tap on a figure picks its owner, says the phase's refusal, and makes nothing active`() {
@@ -185,30 +181,6 @@ class MeasureFlowTest {
         assertEquals("Readings are taken in the Survey phase — move the phase back on the project screen to key one", PhaseTools.readingRefusal(Tx.EN, 3))
     }
 
-    @Test fun `a tap on a mark in 3 Measure picks it and makes its first unmeasured dimension active - never by a second tap, never off the room`() {
-        val p = wall()
-        val d1 = id(p, "FD1"); val w1 = id(p, "FW1")
-        // a fresh pick: its first unmeasured dimension
-        body(p, d1, null, null, SURVEY).let { assertEquals(d1, it.pick?.id); assertEquals("FD1.w", it.active); assertFalse(it.pad); assertNull(it.refused) }
-        assertEquals("FW1.w", body(p, w1, d1, "FD1.l", SURVEY).active, "another mark picked: its own first, the other's let go")
-        // TAPPED AGAIN while one of its own dimensions is active: that one stays -- a second tap must not lose what he chose
-        assertEquals("FD1.l", body(p, d1, d1, "FD1.l", SURVEY).active)
-        // picked, but what is active is another item's (or nothing): its first unmeasured
-        assertEquals("FD1.w", body(p, d1, d1, "FW1.s", SURVEY).active); assertEquals("FD1.w", body(p, d1, d1, null, SURVEY).active)
-        // as readings land the first unmeasured moves on; a measured mark is picked with nothing active
-        p.actual["FD1.w"] = 905.0
-        assertEquals("FD1.h", body(p, d1, null, null, SURVEY).active)
-        for (k in listOf("FD1.h", "FD1.l", "FD1.p")) p.actual[k] = 100.0
-        body(p, d1, null, "FW1.w", SURVEY).let { assertEquals(d1, it.pick?.id); assertNull(it.active, "fully measured: picked, nothing active") }
-        // a mark not in the room, and a Note: picked -- its label opens its sheet -- nothing active, and NOTHING SAID
-        for (code in listOf("FD2", "FW2", "FNOTE1")) body(p, id(p, code), null, "FW1.w", SURVEY).let {
-            assertEquals(id(p, code), it.pick?.id, code); assertNull(it.active, code); assertNull(it.refused, code) }
-        // after Survey: picked, nothing active, nothing said (a tap on a mark is how its label is reached there)
-        for (st in AFTER) body(p, w1, null, null, st).let { assertEquals(w1, it.pick?.id); assertNull(it.active); assertNull(it.refused) }
-        assertEquals("FW1.w", body(p, w1, null, null, null).active, "unread: as at Survey")
-        // an id nothing has: nobody's tap
-        body(p, "nothing", d1, "FD1.l", SURVEY).let { assertNull(it.pick); assertEquals("FD1.l", it.active) }
-    }
 
     // ------------------------------------------------------------------ after a reading
 
@@ -260,46 +232,7 @@ class MeasureFlowTest {
 
     // ------------------------------------------------------------------ the one figure, and the check
 
-    @Test fun `the one figure of any reading - the reading, else the photo's estimate, else a question mark`() {
-        val p = wall()
-        fun v(code: String) = MeasureFlow.value(p, code, ::ab)?.let { Triple(it.text, it.state, it.check) }
-        assertEquals(Triple("≈900", MarkDims.State.ESTIMATE, false), v("FD1.w"))
-        assertEquals(Triple("?", MarkDims.State.UNKNOWN, false), v("FD1.p"), "what the photo cannot show")
-        assertEquals(Triple("≈1000", MarkDims.State.ESTIMATE, false), v("F-M1.len"), "a Line: 800 across and 600 up")
-        assertEquals(Triple("≈900", MarkDims.State.ESTIMATE, false), v("FK1.1")); assertEquals(Triple("≈2100", MarkDims.State.ESTIMATE, false), v("FK1.t"))
-        p.actual["FD1.w"] = 905.0; p.actual["FD1.p"] = 230.4; p.actual["F-M1.len"] = 1240.0; p.actual["F-M2.per"] = 5734.0; p.actual["FK1.t"] = 2105.0
-        assertEquals(Triple("905", MarkDims.State.MEASURED, false), v("FD1.w")); assertEquals(Triple("230", MarkDims.State.MEASURED, false), v("FD1.p"))
-        assertEquals(Triple("1240", MarkDims.State.MEASURED, false), v("F-M1.len")); assertEquals(Triple("5734", MarkDims.State.MEASURED, false), v("F-M2.per"))
-        assertEquals(Triple("2105", MarkDims.State.MEASURED, false), v("FK1.t"))
-        // a mark's figure is MarkDims' own, the plate's: one rule, so the bar's box and the photo cannot disagree
-        for (k in listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FE1.cr", "FW1.s")) {
-            val (s, e) = p.markOf(k)!!; val z = ab(s)
-            val d = MarkDims.of(s, e, z[0], z[1]).first { it.code == k }
-            val plate = MarkDims.value(p.actual, s, e, k, d.est, z[0], z[1])
-            assertEquals(Triple(plate.text, plate.state, plate.check), v(k), k)
-        }
-        // a key nothing asks for has no figure
-        for (k in listOf("FZ9.w", "FD1.s", "F-T1.len", "FK1.9")) assertNull(v(k), k)
-    }
 
-    @Test fun `the check's sentence names the photo's estimate - only for a mark's reading far from it, on a mark in the squared plane`() {
-        val p = wall()
-        p.put("front", "CRP", 1, 150.0, 1350.0, 0.0, 2100.0)   // a wardrobe: it stands off the wall, and is never checked
-        fun est(code: String) = MeasureFlow.checkEst(p, code, ::ab)
-        assertNull(est("FD1.w"), "no reading yet: nothing to check")
-        p.actual["FD1.w"] = 1100.0
-        assertEquals(900.0, est("FD1.w"), "200 mm off a 900 door: more than the larger of 150 mm and 15 %")
-        assertEquals("The photo says ≈900 mm. Check the mark, or shoot again.", MeasureText.photoSays(Tx.EN, est("FD1.w")!!))
-        assertTrue(MeasureFlow.value(p, "FD1.w", ::ab)!!.check, "the same answer as the plate's !")
-        p.actual["FD1.w"] = 1040.0
-        assertNull(est("FD1.w"), "140 mm: an ordinary estimate, not a shot at the wrong target")
-        // a mark that stands off the squared plane: its true reading is far from the photo, and it is never flagged
-        p.actual["FCRP1.w"] = 700.0
-        assertNull(est("FCRP1.w"), "a 1200 box read 700: a wardrobe nearer the camera, not a wrong shot")
-        // what the photo cannot estimate has nothing to compare; a Line, an area and a chain are not checked; nor a key nobody owns
-        p.actual["FD1.p"] = 5000.0; p.actual["F-M1.len"] = 9999.0; p.actual["FK1.1"] = 9999.0
-        for (k in listOf("FD1.p", "F-M1.len", "FK1.1", "FZ9.w", "FD1.s")) assertNull(est(k), k)
-    }
 
     // ------------------------------------------------------------------ a mark with four free corners (port 63 slice Q1)
 
@@ -317,283 +250,11 @@ class MeasureFlowTest {
     }
     private val SAY = "The other sides make the bottom side ≈2466 mm. Check the readings, or the corners."
 
-    @Test fun `the closing check's sentence is said as the reading that completes the four lands - in walk order, on the left upright`() {
-        val p = trapezoid()
-        fun say(code: String) = MeasureFlow.checkText(Tx.EN, p, code, ::qab)
-        // THE WALK reads the sloping bottom FIRST: 2495, then right 1550, top 2370 -- nothing to close yet, nothing said
-        var at = MeasureWalk.next(p, "front", QA, QB, null)
-        for ((code, mm) in listOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0)) {
-            assertEquals(code, at); p.actual[code] = mm
-            assertNull(say(code), "$code: three of the four are not a check")
-            at = MeasureFlow.stay(p, "front", QA, QB, code, ::qab)
-        }
-        // the left upright typed 870 by mistake completes the four: sqrt(2370^2 + 680^2) = 2465.6, off the 2495 by 29.4
-        assertEquals("FW1.left", at); p.actual["FW1.left"] = 870.0
-        assertEquals(SAY, say("FW1.left"), "said as the 870 lands on the LEFT side -- and it names the bottom side")
-        // ... while the walk moves on to the corner offset, where nothing is said
-        assertEquals("FW1.l", MeasureFlow.stay(p, "front", QA, QB, "FW1.left", ::qab)); assertNull(say("FW1.l")); assertNull(say("FW1.s")); assertNull(say("FW1.p"))
-        // the 870 is 90 from the photo's 780, inside the photo check: no other sentence competes
-        assertNull(MeasureFlow.checkEst(p, "FW1.left", ::qab))
-        // THE SAME SENTENCE on every one of its four side codes while the check fails -- whichever becomes active
-        for (k in listOf("bottom", "right", "top", "left")) assertEquals(SAY, say("FW1.$k"), k)
-        // the `!` is on the sloping side's plate alone
-        assertEquals(listOf(true, false, false, false), listOf("bottom", "right", "top", "left").map { MeasureFlow.value(p, "FW1.$it", ::qab)!!.check })
-        assertEquals("2495", MeasureFlow.value(p, "FW1.bottom", ::qab)!!.text)
-        // the photo has nothing to say of the bottom: 2495 is 3 mm from its 2492 -- checkEst is the photo's half alone
-        assertNull(MeasureFlow.checkEst(p, "FW1.bottom", ::qab))
-        // corrected to 780 the four close (the others make 2491.9, off by 3): nothing is said, no `!`
-        p.actual["FW1.left"] = 780.0
-        for (k in listOf("bottom", "right", "top", "left")) assertNull(say("FW1.$k"), k)
-        assertFalse(MeasureFlow.value(p, "FW1.bottom", ::qab)!!.check)
-        // nothing was stored but the readings themselves
-        assertEquals(setOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FW1.bottom", "FW1.right", "FW1.top", "FW1.left"), p.actual.keys)
-    }
 
-    @Test fun `which sentence when a code could say two - the photo's for the figure just read, the closing one on the sloping side`() {
-        val p = trapezoid()
-        fun say(code: String) = MeasureFlow.checkText(Tx.EN, p, code, ::qab)
-        p.actual.putAll(mapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0))
-        // A LEFT TYPED FAR FROM THE PHOTO -- 300 against its 780 -- fails its OWN photo check: on that code the photo's
-        // sentence is said, because it names the figure just read
-        p.actual["FW1.left"] = 300.0
-        assertEquals(780.0, MeasureFlow.checkEst(p, "FW1.left", ::qab)!!, 0.01)
-        assertEquals("The photo says ≈780 mm. Check the mark, or shoot again.", say("FW1.left"))
-        // ... while on the sloping side's own code, and on the two sides that pass their photo check, the closing sentence
-        val far = "The other sides make the bottom side ≈2679 mm. Check the readings, or the corners."        // sqrt(2370^2 + 1250^2)
-        assertEquals(far, say("FW1.bottom")); assertEquals(far, say("FW1.right")); assertEquals(far, say("FW1.top"))
-        // ON THE SLOPING SIDE'S OWN CODE the closing sentence is said also when that plate fails the photo check too
-        p.actual["FW1.left"] = 780.0; p.actual["FW1.bottom"] = 2900.0                                     // 408 from the photo's 2492
-        assertEquals(2491.95, MeasureFlow.checkEst(p, "FW1.bottom", ::qab)!!, 0.01)
-        assertEquals("The other sides make the bottom side ≈2492 mm. Check the readings, or the corners.", say("FW1.bottom"))
-        assertTrue(MeasureFlow.value(p, "FW1.bottom", ::qab)!!.check)
-        // a photo check alone, with the four closing: the photo's sentence on that code, nothing on the others
-        p.actual["FW1.bottom"] = 2495.0; p.actual["FW1.l"] = 1000.0                                        // the corner offset, 400 from the photo's 600
-        assertEquals("The photo says ≈600 mm. Check the mark, or shoot again.", say("FW1.l")); assertNull(say("FW1.bottom")); assertNull(say("FW1.left"))
-        // A RECTANGLE SAYS WHAT checkEst SAID, on every one of its codes, read or not -- and nothing more
-        p.actual["FD1.w"] = 700.0                                                                           // 300 off the door's 400
-        for (k in listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FD1.s", "FZ9.w")) {
-            val est = MeasureFlow.checkEst(p, k, ::qab)
-            assertEquals(est?.let { MeasureText.photoSays(Tx.EN, it) }, say(k), k)
-        }
-        assertEquals("The photo says ≈400 mm. Check the mark, or shoot again.", say("FD1.w")); assertNull(say("FD1.h"))
-        // on the floor the sentence names the side in the plan's words
-        val u = p.put("floor", "X", 1, 400.0, 2200.0, 500.0, 2500.0)
-        assertTrue(Quad.set(u, listOf(pt(400.0, 900.0), pt(2200.0, 500.0), pt(2200.0, 2500.0), pt(400.0, 2500.0))))
-        p.actual.putAll(mapOf("GX1.bottom" to 1700.0, "GX1.right" to 2000.0, "GX1.top" to 1800.0, "GX1.left" to 1600.0))
-        assertEquals("The other sides make the back side ≈1844 mm. Check the readings, or the corners.", say("GX1.top"))
-    }
 
-    @Test fun `a four-corner mark on the measuring screen - a tap on a side's figure, the bar's words, and where the photo pans to`() {
-        val p = trapezoid(); val w = p.markOf("FW1.bottom")!!.second
-        // a tap on a side's figure picks the window and makes that side the reading being taken; again, the pad opens
-        val t = MeasureFlow.figure(p, "FW1.right", null, 0, ::qab)
-        assertEquals(w.id, t.pick!!.id); assertEquals("FW1.right", t.active); assertFalse(t.pad)
-        assertTrue(MeasureFlow.figure(p, "FW1.right", "FW1.right", 0, ::qab).pad)
-        // a tap on the mark makes its FIRST unmeasured dimension active: the bottom side
-        assertEquals("FW1.bottom", MeasureFlow.body(p, w.id, null, null, 0, ::qab).active)
-        // w and h take no reading on it, in any phase: nobody asks them
-        assertFalse(MeasureFlow.takes(p, "FW1.w", 0, ::qab)); assertTrue(MeasureFlow.takes(p, "FW1.left", 0, ::qab)); assertFalse(MeasureFlow.takes(p, "FW1.left", 1, ::qab))
-        // the bar: the side's words over the face's progress
-        val bar = MeasureFlow.onFace(Tx.EN, p, "front", w.id, "FW1.bottom", 0, ::qab)
-        assertEquals(Kind.ACTIVE, bar.kind); assertEquals("bottom side", bar.what); assertEquals("4 of 11 measured", bar.line); assertEquals("≈2492", bar.figure!!.text)
-        // what the reading measures on its face: the true sloping side, corner to corner -- where the photo pans to
-        assertEquals(listOf(600.0, 1670.0, 2970.0, 900.0), MeasureFlow.span(p, "FW1.bottom", ::qab)!!.map { Math.round(it * 10) / 10.0 })
-        assertEquals(listOf(2970.0, 0.0, 2970.0, 900.0), MeasureFlow.span(p, "FW1.s", ::qab)!!.toList())
-    }
 
-    // ------------------------------------------------------------------ the measure bar
-
-    private fun onFace(p: SurveyPrep.Prep, s: String, picked: String?, active: String?, stage: Int?, tx: Tx = Tx.EN) =
-        MeasureFlow.onFace(tx, p, s, picked, active, stage, ::ab)
-
-    @Test fun `3 Measure's bar while a dimension is being measured - the label, its own words over the progress, the one figure, D2, both arrows`() {
-        val p = wall()
-        val b = onFace(p, "front", id(p, "FD1"), "FD1.l", SURVEY)
-        assertEquals(Kind.ACTIVE, b.kind)
-        assertEquals("FD1\nDoor", b.cell?.text)
-        assertEquals("from left corner", b.what, "the measure's own words ALONE: the code and the type are in the label cell")
-        assertEquals("0 of 16 measured", b.line)
-        assertEquals("≈300", b.figure?.text); assertEquals(MarkDims.State.ESTIMATE, b.figure?.state)
-        assertTrue(b.d2); assertTrue(b.prev); assertTrue(b.next); assertNull(b.nextFace); assertNull(b.nextFaceText)
-        // the progress and the figure follow the readings
-        p.actual["FD1.l"] = 298.0; p.actual["FD1.w"] = 905.0
-        onFace(p, "front", id(p, "FD1"), "FD1.l", SURVEY).let { assertEquals("2 of 16 measured", it.line); assertEquals("298", it.figure?.text); assertEquals(MarkDims.State.MEASURED, it.figure?.state) }
-        // a Line, an area and a chain: their own words; a chain has no label cell (it opens no sheet), a Line its code
-        onFace(p, "front", "m1", "F-M1.len", SURVEY).let { assertEquals("length", it.what); assertEquals("F-M1", it.cell?.text); assertEquals("≈1000", it.figure?.text) }
-        onFace(p, "front", "m2", "F-M2.per", SURVEY).let { assertEquals("perimeter", it.what); assertEquals("F-M2", it.cell?.text) }
-        onFace(p, "front", "k1", "FK1.2", SURVEY).let { assertEquals("segment 2", it.what); assertNull(it.cell); assertEquals(Kind.ACTIVE, it.kind) }
-        assertEquals("total", onFace(p, "front", "k1", "FK1.t", SURVEY).what)
-        // nothing picked: no label cell; the bar is still the whole bar
-        onFace(p, "front", null, "FE1.cr", SURVEY).let { assertNull(it.cell); assertEquals("from right corner, to centre", it.what); assertTrue(it.d2) }
-        // unread: as at Survey
-        assertEquals(Kind.ACTIVE, onFace(p, "front", null, "FD1.h", null).kind)
-        // the measure's words are keys the app already had: under मराठी they read as they always did
-        assertEquals("डाव्या कोपऱ्यापासून", onFace(p, "front", id(p, "FD1"), "FD1.l", SURVEY, Tx.MR).what)
-    }
-
-    @Test fun `3 Measure's bar with nothing being measured - the progress and both arrows while something is left`() {
-        val p = wall(); p.actual["FD1.w"] = 905.0
-        val b = onFace(p, "front", id(p, "FD1"), null, SURVEY)
-        assertEquals(Kind.IDLE, b.kind); assertEquals("FD1\nDoor", b.cell?.text); assertNull(b.what); assertEquals("1 of 16 measured", b.line)
-        assertNull(b.figure); assertFalse(b.d2); assertTrue(b.prev); assertTrue(b.next, "the arrow goes to the first unmeasured")
-        // what is active on ANOTHER face is not this face's: the bar is the progress alone
-        p.put("floor", "S", 1, 800.0, 1700.0, 150.0, 450.0)
-        assertEquals(Kind.IDLE, onFace(p, "front", null, "GS1.w", SURVEY).kind); assertEquals(Kind.ACTIVE, onFace(p, "floor", null, "GS1.w", SURVEY).kind)
-        // ... nor is a key of a mark that is not in the room, were one ever set
-        assertEquals(Kind.IDLE, onFace(p, "front", id(p, "FD2"), "FD2.w", SURVEY).kind)
-    }
-
-    @Test fun `a finished face keeps its back arrow and offers the next face with something left - it never turns the room for him`() {
-        val p = wall()
-        p.put("right", "W", 1, 500.0, 1700.0, 900.0, 2100.0)
-        p.put("floor", "S", 1, 800.0, 1700.0, 150.0, 450.0)
-        readAll(p)
-        val b = onFace(p, "front", null, null, SURVEY)
-        assertEquals(Kind.DONE, b.kind); assertEquals("Front wall · all 16 measured ✓", b.line)
-        assertEquals("right", b.nextFace?.s); assertEquals(5, b.nextFace?.left); assertEquals("Next: Right wall · 5 to measure ▸", b.nextFaceText)
-        assertTrue(b.prev, "a reading on a finished face is still reached: the back arrow goes to its last stop"); assertFalse(b.next); assertFalse(b.d2); assertNull(b.figure); assertNull(b.what)
-        assertEquals("FK1.t", ab("front").let { MeasureWalk.previous(p, "front", it[0], it[1], null) })
-        // a reading re-opened on a finished face (a tap on its plate, or the back arrow): the whole bar again
-        assertEquals(Kind.ACTIVE, onFace(p, "front", id(p, "FD1"), "FD1.w", SURVEY).kind); assertEquals("16 of 16 measured", onFace(p, "front", null, "FD1.w", SURVEY).line)
-        // the next face in TAB order, wrapping: from the floor it is the front wall's turn only if something is left there
-        readAll(p, "right")
-        onFace(p, "front", null, null, SURVEY).let { assertEquals("floor", it.nextFace?.s); assertEquals("Next: Floor · 5 to measure ▸", it.nextFaceText) }
-        // NO FACE HAS ANYTHING LEFT: the room is measured, and there is no next face to offer
-        readAll(p, "floor")
-        onFace(p, "front", null, null, SURVEY).let {
-            assertEquals(Kind.DONE, it.kind); assertEquals("Room measured · all 26 ✓", it.line); assertNull(it.nextFace); assertNull(it.nextFaceText); assertTrue(it.prev) }
-        assertEquals("Room measured · all 26 ✓", onFace(p, "floor", null, null, SURVEY).line)
-    }
-
-    @Test fun `a face with nothing to measure says so`() {
-        val p = wall()
-        val b = onFace(p, "back", null, null, SURVEY)
-        assertEquals(Kind.EMPTY, b.kind); assertEquals("Nothing to measure on this face yet", b.line)
-        assertNull(b.cell); assertNull(b.what); assertNull(b.figure); assertFalse(b.d2); assertFalse(b.prev); assertFalse(b.next); assertNull(b.nextFace)
-        // a face that holds only what is never asked -- a Note, a wish, a tape -- is empty too, and its picked mark keeps its label
-        val q = SurveyPrep.fresh(L, W, H)
-        q.put("front", "D", 2, 50.0, 250.0, 0.0, 2100.0, wish); q.put("front", MarkTypes.NOTE, 1, 100.0, 150.0, 1200.0, 1250.0)
-        q.addMeas("front", SurveyMeas.TAPE, listOf(pt(0.0, 1000.0), pt(1234.0, 1000.0)), "t1")
-        onFace(q, "front", "id-front-D2", null, SURVEY).let { assertEquals(Kind.EMPTY, it.kind); assertEquals("FD2\nDoor", it.cell?.text) }
-        // a chain whose one segment the laser's total already gives: a stop with nothing pending -- the back arrow still reaches it
-        val c = SurveyPrep.fresh(L, W, H)
-        c.addChain("front", "x", listOf(pt(0.0, 1200.0), pt(W, 1200.0)), listOf(null, null), "edge")
-        onFace(c, "front", null, null, SURVEY).let { assertEquals(Kind.EMPTY, it.kind); assertTrue(it.prev); assertFalse(it.next) }
-        // the sentence is an existing key: its Marathi is what Face Prep already said
-        assertEquals("या बाजूवर मोजायला अजून काही नाही", onFace(p, "back", null, null, SURVEY, Tx.MR).line)
-    }
-
-    @Test fun `after Survey 3 Measure's bar is the picked item's label and the phase's refusal, standing - no box, no D2, no arrows, no count`() {
-        val p = wall(); p.actual["FD1.w"] = 905.0
-        for (st in AFTER) {
-            val b = onFace(p, "front", id(p, "FD1"), null, st)
-            assertEquals(Kind.READ_ONLY, b.kind, "$st")
-            assertEquals("Readings are taken in the Survey phase — move the phase back on the project screen to key one", b.line)
-            assertEquals("FD1\nDoor", b.cell?.text, "the label stays at every stage: it opens the Mark sheet (L4: the label stays, controls are hidden)")
-            assertNull(b.what); assertNull(b.figure); assertFalse(b.d2); assertFalse(b.prev); assertFalse(b.next); assertNull(b.nextFace); assertNull(b.nextFaceText)
-            // whatever was active before the stage moved, nothing is being measured
-            assertEquals(Kind.READ_ONLY, onFace(p, "front", null, "FD1.h", st).kind)
-            assertNull(onFace(p, "front", null, null, st).cell, "nothing picked: the sentence alone")
-            // a mark born a wish is picked there too, and keeps its label
-            assertEquals("FD2\nDoor", onFace(p, "front", id(p, "FD2"), null, st).cell?.text)
-            // an empty face says the same: the step never reads as a broken screen
-            assertEquals(Kind.READ_ONLY, onFace(p, "back", null, null, st).kind)
-        }
-        // the refusal is an existing key, with the Marathi it had
-        assertEquals("रीडिंग सर्व्हे फेजमध्ये घेतले जातात — रीडिंग टाकण्यासाठी प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या", onFace(p, "front", null, null, 2, Tx.MR).line)
-    }
-
-    /** The bar of 2 · Mark and 4 · 360 with the reading's OWNER picked, as the screen has it whenever it sets one. */
-    private fun onItem(p: SurveyPrep.Prep, active: String?, stage: Int?, withCell: Boolean = false) =
-        MeasureFlow.onItem(Tx.EN, p, active?.let { p.ownerOf(it)?.id }, active, stage, withCell, ::ab)
-
-    @Test fun `in 2 Mark and 4 360 the bar shows only while a dimension is active, and its arrows stay inside the picked item`() {
-        val p = wall()
-        p.put("floor", "S", 1, 800.0, 1700.0, 150.0, 450.0)
-        val b = onItem(p, "FD1.l", SURVEY)!!
-        assertEquals(Kind.ACTIVE, b.kind); assertEquals("from left corner", b.what); assertEquals("0 of 16 measured", b.line)
-        assertEquals("≈300", b.figure?.text); assertTrue(b.d2)
-        assertNull(b.cell, "the picked mark's own row carries its label, as it always did")
-        assertTrue(b.prev && b.next, "a door asks four things: the arrows move among them")
-        // WITH THE PAD OPEN the pad has taken that row's place, and the bar carries the label
-        assertEquals("FD1\nDoor", onItem(p, "FD1.l", SURVEY, withCell = true)!!.cell?.text)
-        // an item with ONE key draws neither arrow; a chain moves among its own, and has no label even then
-        onItem(p, "F-M1.len", SURVEY, withCell = true)!!.let { assertFalse(it.prev); assertFalse(it.next); assertEquals("F-M1", it.cell?.text); assertEquals("length", it.what) }
-        onItem(p, "FK1.2", SURVEY, withCell = true)!!.let { assertTrue(it.prev && it.next); assertNull(it.cell); assertEquals("segment 2", it.what) }
-        // the arrows' keys are the owner's own, read or not, wrapping -- never another mark's
-        val keys = MeasureWalk.stopsOf(p, id(p, "FD1"), ::ab)
-        assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p"), keys)
-        assertEquals("FD1.w", MeasureWalk.step(keys, "FD1.p", forward = true)); assertEquals("FD1.p", MeasureWalk.step(keys, "FD1.w", forward = false))
-        // LINE 2 COUNTS THE OWNER'S FACE (4 · 360 has no open face): the floor's step counts the floor
-        assertEquals("0 of 5 measured", onItem(p, "GS1.w", SURVEY)!!.line)
-        p.actual["GS1.w"] = 900.0
-        assertEquals("1 of 5 measured", onItem(p, "GS1.h", SURVEY)!!.line); assertEquals("0 of 16 measured", onItem(p, "FD1.w", SURVEY)!!.line)
-        // NO BAR: nothing active, after Survey, a mark not in the room, a key nobody asks -- and unread is as Survey
-        assertNull(onItem(p, null, SURVEY)); assertNull(onItem(p, "FD2.w", SURVEY)); assertNull(onItem(p, "FZ9.w", SURVEY)); assertNull(onItem(p, "F-T1.len", SURVEY))
-        for (st in AFTER) assertNull(onItem(p, "FD1.l", st), "$st: the refusal is said on the tap, there is no standing bar")
-        assertNotNull(onItem(p, "FD1.l", null))
-    }
-
-    // ------------------------------------------------------------------ the M2 review: nothing picked, nothing measured
-
-    @Test fun `in 2 Mark and 4 360 the bar is the picked item's - nothing picked or another item picked draws no bar and no pad`() {
-        val p = wall()
-        fun bar(picked: String?, active: String?, withCell: Boolean = false) = MeasureFlow.onItem(Tx.EN, p, picked, active, SURVEY, withCell, ::ab)
-        val door = id(p, "FD1"); val window = id(p, "FW1")
-        // the picked door's own reading: the bar, and under the pad its label
-        assertEquals("width", bar(door, "FD1.w")!!.what)
-        assertEquals("FD1\nDoor", bar(door, "FD1.w", withCell = true)!!.cell?.text)
-        // NOTHING PICKED (3 - Measure left with the walk's dimension still active): no bar -- so no pad in the palette's
-        // place, whatever the pad's flag says. It read `width - 0 of 16 measured` with no code and nothing gold on the photo
-        assertNull(bar(null, "FD1.w")); assertNull(bar(null, "FD1.w", withCell = true))
-        // ANOTHER ITEM PICKED (a Line's end grabbed while the door's width was being taken): the Line's row would have
-        // had the door's bar under it
-        assertNull(bar(window, "FD1.w")); assertNull(bar("m1", "FD1.w")); assertNull(bar("no-such-id", "FD1.w"))
-        // a Line and a chain picked: their own readings
-        assertEquals("length", bar("m1", "F-M1.len")!!.what); assertEquals("segment 1", bar("k1", "FK1.1")!!.what)
-        // the rule itself: what stays the reading being taken when [picked] is the picked item
-        assertEquals("FD1.w", MeasureFlow.own(p, "FD1.w", door))
-        assertNull(MeasureFlow.own(p, "FD1.w", null)); assertNull(MeasureFlow.own(p, "FD1.w", window)); assertNull(MeasureFlow.own(p, null, door))
-        assertNull(MeasureFlow.own(p, "FZ9.w", door), "a key nobody owns")
-        assertEquals("F-M1.len", MeasureFlow.own(p, "F-M1.len", "m1")); assertNull(MeasureFlow.own(p, "F-M1.len", "t1"))
-    }
-
-    @Test fun `a step or a face pressed - the walk starts in 3 Measure, every other step lets the reading go, and the open one changes nothing`() {
-        val steps = StepRoute.STEPS; val M = StepRoute.MEASURE
-        val faces = SurveyPrep.SURFACES; val tabs = StepRoute.TAB_ROWS.flatten()
-        assertEquals(6, faces.size); assertEquals(7, tabs.size)
-        // A STEP PRESSED on the tab [t] (setMode: the tab stays)
-        for (from in steps) for (to in steps) for (t in tabs) {
-            val mv = MeasureFlow.move(from, to, t, t)
-            val want = when {
-                to != M -> Move.DROP                                 // 1 - Lines, 2 - Mark, 4 - 360: nothing picked, nothing measured
-                from == M && StepRoute.isFace(t) -> Move.STAY        // 3 - Measure pressed while it is open: not a change
-                else -> Move.WALK                                    // 3 - Measure entered
-            }
-            assertEquals(want, mv, "step $from -> $to on $t")
-        }
-        // A FACE TAB PRESSED in the step [st] (showTab: the step stays)
-        for (st in steps) for (from in tabs) for (to in tabs) {
-            val mv = MeasureFlow.move(st, st, from, to)
-            val want = when {
-                st != M -> Move.DROP                                 // the selection goes, and the reading with it
-                from == to && StepRoute.isFace(to) -> Move.STAY      // the open face's own tab: the walk is not restarted
-                else -> Move.WALK                                    // another face: its first unmeasured dimension
-            }
-            assertEquals(want, mv, "tab $from -> $to in $st")
-        }
-        // the cases the review named, by name
-        assertEquals(Move.DROP, MeasureFlow.move(M, "mark", "front", "front"), "3 - Measure -> 2 - Mark: the walk's dimension is let go")
-        assertEquals(Move.DROP, MeasureFlow.move(M, "360", "front", "front"))
-        assertEquals(Move.DROP, MeasureFlow.move("mark", "mark", "front", "right"), "a face change in 2 - Mark")
-        assertEquals(Move.STAY, MeasureFlow.move(M, M, "front", "front"), "the open step, or the open face's tab")
-        assertEquals(Move.WALK, MeasureFlow.move(M, M, "front", "right")); assertEquals(Move.WALK, MeasureFlow.move("mark", M, "front", "front"))
-        // only a face is walked: on the Plan tab a press is what it always was (the screen's walkOn does nothing there)
-        assertEquals(Move.WALK, MeasureFlow.move(M, M, "plan", "plan"))
-        // STAY is the only answer that changes nothing, and it never leaves 3 - Measure
-        for (a in steps) for (b in steps) for (f in tabs) for (g in tabs)
-            if (MeasureFlow.move(a, b, f, g) == Move.STAY) { assertEquals(M, a); assertEquals(M, b); assertEquals(f, g); assertTrue(StepRoute.isFace(g)) }
-    }
+    // The measure bar's tests -- its kinds, its words, ‹ and ›, the M2 review's "nothing picked, nothing measured" and
+    // the four-step route's moves -- went with the bar in port 63 slice I1b; their rules that survive are PickTest's.
 
     // ------------------------------------------------------------------ the photo pans only if it must
 

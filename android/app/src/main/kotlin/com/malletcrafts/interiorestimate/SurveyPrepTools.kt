@@ -66,26 +66,27 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
 
 /**
  * SURVEY PREP'S 2 · MARK PALETTE (prototype v52, sp.js 1356-1399 and v42.css .tb.pt; v52 slice 7). ONE row at
- * the bottom, every slot the same width, nothing scrolling sideways: Select, then the three types of the
- * surface, then More ▸ -- a sheet of every type with its name. Exactly one slot is lit: a 26 % tint of its
- * colour and a 2 dp ring. A type is STICKY (each tap on empty photo places one more); tapping the slot that is
- * on goes back to Select. A More type that is on lights the More slot in its colour and names it ("Loft ▾").
+ * the bottom, every slot the same width, nothing scrolling sideways: the tools, the three types of the surface,
+ * More ▸ -- a sheet of every type with its name -- and, since port 63 slice I1, `▸` last. At most one slot is lit: a
+ * 26 % tint of its colour and a 2 dp ring. A TOOL PLACES ONE ITEM AND GOES OFF (port 63 slice I1;
+ * SurveyPrepPalette.afterPlaced): there is no Select slot -- with no tool on, a touch selects -- and tapping the slot
+ * that is on turns it off. A More type that is on lights the More slot in its colour and names it ("Loft ▾").
  *
  * Amit, 14 Oct 2026 11:48 IST (item 5): "i am getting confused between measure. add one more tool called as
  * Tape which act as a actual tape and can plot measurements like a real tape measure"; 20:45: "i had requested
  * two separate tools. one tape measure like anothr is actual marking simple line." -- v52's eight slots are
  * Select, Tape, Line, Chain, three types and More ▸. A SLOT APPEARS ONLY WHEN ITS TOOL WORKS: Tape and Line
  * joined in slice 9 and Chain (rose, #fb7185) in slice 11 through SurveyPrepPalette.TOOLS, which COMPLETES the eight;
- * the slot list is SurveyPrepPalette.slots, tested in :pano (PaletteTest: exactly 8). Amit, 11 Oct 2026 20:36 (item 11): "electric control panels plate are rectangle. add mark
+ * the slot list is SurveyPrepPalette.row, tested in :pano. Amit, 11 Oct 2026 20:36 (item 11): "electric control panels plate are rectangle. add mark
  * type for it. also add seprate mark type for fan" -- the Switch plate and the Fan are in More ▸, with their
  * own icons. The old one-row SpMarkToolbar (a tap added a mark at its default place) is gone: there is no
  * second way to add a mark.
  *
  * THE CHAIN'S SLOT IS NOT DRAWN (port 63 slice F1, 16 Nov 2026; Amit, with build 0.3.337 on his phone: "chain mark is
- * rarely used. get rid of it."): SurveyPrepPalette.slots answers SEVEN slots while Features.CHAINS is off -- Select,
- * Tape, Line, three types, More ▸ -- and every slot is weighed alike here, so each is a seventh of the row and nothing
- * is left where the eighth stood. This file asks slots() with no list of its own; the Chain's icon and its chip below
- * are kept, and drawn again by the one line in Features.
+ * rarely used. get rid of it."): SurveyPrepPalette.row answers SEVEN slots while Features.CHAINS is off -- Tape,
+ * Line, three types, More ▸ and `▸` (port 63 slice I1: Select's slot went, `▸` is last) -- and every slot is weighed
+ * alike here, so each is a seventh of the row. This file asks row() with no list of its own; the Chain's icon and its
+ * chip below are kept, and drawn again by the one line in Features.
  */
 /**
  * THE TOOL REMEMBERS THE LAST KIND PICKED (port 62 slice L6; T53's subMem, index61c2.html 2470-2473): type and kind of
@@ -96,55 +97,67 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
 internal val spKinds = mutableStateMapOf<String, String>()
 
 @Composable
-internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) -> Unit, onMore: () -> Unit) {
+internal fun SpPalette(s: String, tool: String, land: Boolean, next: SurveyPrepPalette.NextSlot, onTool: (String) -> Unit,
+                       onMore: () -> Unit, onNext: () -> Unit) {
     val tx = LocalTx.current
     val kind = SurveyPrep.kind(s)
-    // .tools.pal: 6 dp over the row, no gap between slots; a slot 50 dp tall (46 in landscape)
+    // .tools.pal: 6 dp over the row, no gap between slots; a slot 50 dp tall (46 in landscape). THE ROW FROM SLICE I1
+    // (port 63; DESIGN-imagemeter §2.1, §7): Tape, Line, three types, More ▸, and `▸` LAST -- seven equal slots, no
+    // Select (with no tool on, a touch selects). `▸` carries no number, and where it is not drawn its place stays empty,
+    // so no other slot moves. Nothing in the row fires the laser and nothing in it deletes. SurveyPrepPalette.row.
     Row(Modifier.fillMaxWidth().padding(top = SurveyPrepPalette.TOP_DP.dp)) {
-        for (slot in SurveyPrepPalette.slots(kind)) {
-            val on = SurveyPrepPalette.isOn(slot, kind, tool)
-            val armed = if (slot.kind == SurveyPrepPalette.SlotKind.MORE) SurveyPrepPalette.moreArmed(kind, tool) else null
+        for (slot in SurveyPrepPalette.row(kind)) {
+            val slotMod = Modifier.weight(1f).height(if (land) 46.dp else 50.dp)
+            if (slot.kind == SurveyPrepPalette.RowKind.NEXT) {
+                // `▸`: the gold to the open face's next unread figure; the count is in its description alone
+                if (next.shown) Box(slotMod.clip(RoundedCornerShape(12.dp)).border(1.5.dp, SP_SELECT, RoundedCornerShape(12.dp))
+                    .clickable { onNext() }
+                    .semantics { contentDescription = next.label ?: ""; role = Role.Button },
+                    contentAlignment = Alignment.Center) {
+                    Text(SurveyPrepPalette.NEXT_GLYPH, color = SP_SELECT, fontSize = 22.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
+                else Spacer(slotMod)
+                continue
+            }
+            val on = SurveyPrepPalette.rowOn(slot, kind, tool)
+            val armed = if (slot.kind == SurveyPrepPalette.RowKind.MORE) SurveyPrepPalette.moreArmed(kind, tool) else null
             val col = when (slot.kind) {
-                SurveyPrepPalette.SlotKind.SELECT -> SP_SELECT
-                SurveyPrepPalette.SlotKind.MORE -> armed?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
+                SurveyPrepPalette.RowKind.MORE -> armed?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
                 // Tape yellow, Line blue (v52 slice 9)
-                SurveyPrepPalette.SlotKind.TOOL -> Color(SurveyPrepDraw.argb(SurveyPrepPalette.toolColour(slot.key)))
-                SurveyPrepPalette.SlotKind.TYPE -> slot.type?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
+                SurveyPrepPalette.RowKind.TOOL -> Color(SurveyPrepDraw.argb(SurveyPrepPalette.toolColour(slot.key)))
+                else -> slot.type?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
             }
             val name = when (slot.kind) {
-                SurveyPrepPalette.SlotKind.SELECT -> tx.common_select
-                SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel(tx, kind, tool)
-                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(tx, slot.key)
-                SurveyPrepPalette.SlotKind.TYPE -> SurveyPrepPalette.short(tx, slot.type?.name ?: slot.key)
+                SurveyPrepPalette.RowKind.MORE -> SurveyPrepPalette.moreLabel(tx, kind, tool)
+                SurveyPrepPalette.RowKind.TOOL -> SurveyPrepPalette.toolName(tx, slot.key)
+                else -> SurveyPrepPalette.short(tx, slot.type?.name ?: slot.key)
             }
             val aria = when (slot.kind) {
-                SurveyPrepPalette.SlotKind.SELECT -> tx.common_select
-                SurveyPrepPalette.SlotKind.MORE -> tx.common_more_2
-                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(tx, slot.key)
-                SurveyPrepPalette.SlotKind.TYPE -> Masters.type(tx, slot.type?.name ?: slot.key)
+                SurveyPrepPalette.RowKind.MORE -> tx.common_more_2
+                SurveyPrepPalette.RowKind.TOOL -> SurveyPrepPalette.toolName(tx, slot.key)
+                else -> Masters.type(tx, slot.type?.name ?: slot.key)
             }
             // an armed More type whose name is longer than "Opening ▾" is whole in its slot only drawn tight (CSS 993, long53)
-            val tight = slot.kind == SurveyPrepPalette.SlotKind.MORE && SurveyPrepPalette.moreLong(tx, kind, tool)
+            val tight = slot.kind == SurveyPrepPalette.RowKind.MORE && SurveyPrepPalette.moreLong(tx, kind, tool)
             val shape = RoundedCornerShape(12.dp)
             Column(
-                Modifier.weight(1f).height(if (land) 46.dp else 50.dp).clip(shape)
+                slotMod.clip(shape)
                     .background(if (on) col.copy(alpha = 0.26f) else Color.Transparent)
                     .let { if (on) it.border(2.dp, col, shape) else it }
-                    .clickable { if (slot.kind == SurveyPrepPalette.SlotKind.MORE) onMore() else onTool(slot.key) }
+                    .clickable { if (slot.kind == SurveyPrepPalette.RowKind.MORE) onMore() else onTool(slot.key) }
                     .semantics { contentDescription = aria; role = Role.Button; selected = on }
                     .padding(top = 4.dp, bottom = 3.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Canvas(Modifier.size(22.dp)) {
                     when (slot.kind) {
-                        SurveyPrepPalette.SlotKind.SELECT -> drawSelectIcon(SP_SELECT)
                         // the More icon keeps its grey dots when a More type is on; only the tint and ring take its colour
-                        SurveyPrepPalette.SlotKind.MORE -> drawMoreIcon(SP_MORE)
-                        SurveyPrepPalette.SlotKind.TOOL -> when (slot.key) {
+                        SurveyPrepPalette.RowKind.MORE -> drawMoreIcon(SP_MORE)
+                        SurveyPrepPalette.RowKind.TOOL -> when (slot.key) {
                             SurveyPrepPalette.TAPE -> drawTapeIcon(col)
                             SurveyPrepPalette.CHAIN -> drawChainIcon(col)
                             else -> drawLineIcon(col)
                         }
-                        SurveyPrepPalette.SlotKind.TYPE -> drawMarkIcon(slot.type?.name ?: "", col)
+                        else -> drawMarkIcon(slot.type?.name ?: "", col)
                     }
                 }
                 Spacer(Modifier.height(2.dp))
@@ -388,16 +401,6 @@ internal fun SpPhaseBand(band: PhaseTools.Band, land: Boolean, modifier: Modifie
 
 private fun lerpColour(a: Color, b: Color, t: Float) =
     Color(a.red + (b.red - a.red) * t, a.green + (b.green - a.green) * t, a.blue + (b.blue - a.blue) * t, 1f)
-
-/** Select: an arrow pointer (sp.js selIcon, drawn on a 24 grid). */
-private fun DrawScope.drawSelectIcon(c: Color) {
-    val k = size.width / 24f
-    val p = Path().apply {
-        moveTo(6 * k, 3 * k); lineTo(6 * k, 19 * k); lineTo(10 * k, 15 * k); lineTo(13 * k, 21 * k)
-        lineTo(15.5f * k, 20 * k); lineTo(12.6f * k, 14 * k); lineTo(18 * k, 14 * k); close()
-    }
-    drawPath(p, c)
-}
 
 /** Tape (v52 slice 9, sp.js tapeIcon): its case, the reel in it, and the tongue pulled out with its hook. */
 private fun DrawScope.drawTapeIcon(c: Color) {

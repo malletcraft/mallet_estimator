@@ -64,7 +64,7 @@ class FeaturesTest {
         // in the SAME build that ships the new measuring screen, slice M2: its step 11 teaches the list that build removes
         val tours: Boolean = Features.HELP_TOURS
         assertFalse(tours, "Features.HELP_TOURS is on: the survey tour would teach 3 · List, a step the phone no longer has (port 63 slice M2)")
-        assertFalse("list" in StepRoute.STEPS, "the screen the tour's step 11 teaches is gone")
+        assertFalse("list" in StepRoute.ROUTE, "the screen the tour's step 11 teaches is gone")
         assertEquals(TourDone.Mode("list"), TourFlows.all(Tx.EN).single { it.id == "survey" }.steps[10].done, "survey.11 still asks for the list: the tour is rewritten after Amit approves the journey")
     }
 
@@ -495,9 +495,9 @@ class FeaturesTest {
         // ENTRY 1, THE PALETTE: its default IS the switch; off, no slot's key is the Chain's on any kind of surface
         assertEquals(SurveyPrepPalette.offered(chains = Features.CHAINS), SurveyPrepPalette.offered())
         for (kind in listOf("wall", "floor", "ceil")) {
-            assertEquals(SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = Features.CHAINS)).map { it.key }, SurveyPrepPalette.slots(kind).map { it.key })
-            assertFalse(SurveyPrepPalette.CHAIN in SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = false)).map { it.key }, kind)
-            assertTrue(SurveyPrepPalette.CHAIN in SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = true)).map { it.key }, "$kind: the other side is whole")
+            assertEquals(SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = Features.CHAINS)).map { it.key }, SurveyPrepPalette.row(kind).map { it.key })
+            assertFalse(SurveyPrepPalette.CHAIN in SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = false)).map { it.key }, kind)
+            assertTrue(SurveyPrepPalette.CHAIN in SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = true)).map { it.key }, "$kind: the other side is whole")
         }
         // ENTRY 2, THE TOOL THAT IS ON: whatever was picked, at every stage and unread
         for (st in listOf(0, 1, 2, 3, 4, 5, null)) {
@@ -584,7 +584,7 @@ class FeaturesTest {
         val declared = all.filter { Regex("""\bCHAINS\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
         assertEquals(listOf(pano + "Features.kt"), declared, "CHAINS is given a value in one place")
         assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun offered(chains: Boolean = Features.CHAINS): List<String> = if (chains) TOOLS else TOOLS - CHAIN"))
-        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun slots(kind: String, tools: List<String> = offered()): List<Slot> {"))
+        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun row(kind: String, tools: List<String> = offered()): List<RowSlot> {"))
         assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS): String ="))
         assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS): Boolean ="))
         assertEquals(1, count(code(pano + "SurveyPrepEdit.kt"), "DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains)"))
@@ -597,18 +597,21 @@ class FeaturesTest {
         }
         val screen = code(app + "SurveyPrepScreen.kt"); val tools = code(app + "SurveyPrepTools.kt"); val p3 = code(app + "SurveyPrep360.kt")
         // ENTRY 1: the palette draws the slots the rule gives, weighed alike -- no list of its own, so no gap
-        assertEquals(1, count(tools, "for (slot in SurveyPrepPalette.slots(kind)) {"))
-        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepTools.kt") 1 else 0, count(code(rel), "SurveyPrepPalette.slots("), rel)
-        assertEquals(1, count(tools, "Modifier.weight(1f).height(if (land) 46.dp else 50.dp).clip(shape)"), "every slot the same share of the row")
+        assertEquals(1, count(tools, "for (slot in SurveyPrepPalette.row(kind)) {"))
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepTools.kt") 1 else 0, count(code(rel), "SurveyPrepPalette.row("), rel)
+        assertEquals(1, count(tools, "val slotMod = Modifier.weight(1f).height(if (land) 46.dp else 50.dp)"), "every slot the same share of the row")
         // ENTRY 2: ONE tool is on, the rule's answer, and both views, the palette and More are handed that one
         assertEquals(1, count(screen, "val tool = PhaseTools.toolFor(toolSet, quoteStage)"))
         for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "PhaseTools.toolFor("), rel)
-        assertEquals(1, count(screen, "Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, sel, active, tool,"))
+        assertEquals(1, count(screen, "Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, selNow(), pick.gold, tool,"))
         assertEquals(1, count(screen, "tool = tool,"), "2 - Mark's photo")
-        assertEquals(1, count(screen, "SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })"))
+        assertEquals(1, count(screen, "SpPalette(tab, tool, land,"))
+        assertEquals(1, count(screen, "onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen }, onNext = { nextFigure() })"))
         assertEquals(1, count(screen, "SpMoreSheet(tab, tool, land,"))
         // ... and the tool last picked is only ever what a slot gave, the tool that is on, or Select
-        assertEquals(5, count(screen, "toolSet = "), "pickTool, the phase's move, a face, a step and Start over")
+        assertEquals(10, count(screen, "toolSet = "), "pickTool, the phase's move, a face, a step, Start over, and the five placings")
+        // A TOOL PLACES ONE ITEM AND GOES OFF (port 63 slice I1b): a mark on the photo and on the 360, a chain, a Tape or a Line, an area
+        assertEquals(5, count(screen, "toolSet = SurveyPrepPalette.afterPlaced(tool)"))
         assertEquals(1, count(screen, "toolSet = SurveyPrepPalette.next(tool, t)")); assertEquals(1, count(screen, "toolSet = tool;"))
         assertEquals(3, count(screen, "toolSet = SurveyPrepPalette.SEL"))
         // a new chain's point is added in one place, behind the tool: 2 - Mark's branch and the 360's pick order
@@ -634,8 +637,8 @@ class FeaturesTest {
             pano + "Pano360.kt" to listOf("if (chain) { out.add(Step.CHAIN); return out }", "Step.CHAIN -> return Pick.Chain"),
             pano + "MeasureWalk.kt" to listOf("chains"),
             app + "SurveyPrepScreen.kt" to listOf("fun finishChain(d: SurveyChain.Draft)", "fun flushChain()", "fun chainPress(mm: DoubleArray, tol: Double): Int?",
-                "fun nodeGrab(cid: String, i: Int): SpGrab?", "fun hitChain(sx: Float, sy: Float): String?", "fun selectChain(s: String, cid: String)",
-                "Text(SurveyChain.rowValue(tx, kv),", "else if (chainTool) SurveyChain.chipText(tx, chainN)"),
+                "fun nodeGrab(cid: String, i: Int): SpGrab?", "fun hitChain(sx: Float, sy: Float): String?", "pickChain = { s, cid ->",
+                "val sk = prep.surface(tab).chains.firstOrNull { it.id == sl.id }", "else if (chainTool) SurveyChain.chipText(tx, chainN)"),
             app + "SurveyPrepDraw.kt" to listOf("private fun drawChains(c: Canvas,", "if (o.mode != "),
             app + "SurveyPrepTools.kt" to listOf("private fun DrawScope.drawChainIcon(c: Color)", "SurveyPrepPalette.CHAIN -> drawChainIcon(col)"),
             app + "SurveyPrep360.kt" to listOf("Pano360.Pick.Chain -> chainOn = true", "is Pano360.Pick.Node -> {", "fun chainAt(x: Double, y: Double): Int?"),

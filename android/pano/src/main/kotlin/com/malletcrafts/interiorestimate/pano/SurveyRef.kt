@@ -63,17 +63,11 @@ object SurveyRef {
     fun sizeFrom(tx: Tx) = tx.sp_size_from
     fun placeHint(tx: Tx) = tx.sp_drag_four_cyan_corners
 
-    /** What the eye says (sp.js setRefShown) -- on, it names the phone's own steps: "Reference shown on 2 · Mark,
-     *  3 · Measure and 4 · 360" (port 63 slice M2: the third step is the photo, not a list; the prototype's own
-     *  sentence, sp.reference_shown_2_mark, stays in the tables with no phone reader). English first: its Marathi is
+    /** What the eye says (sp.js setRefShown) on the three-step route (port 63 slice I1a; DESIGN-imagemeter §11): on,
+     *  "Reference shown on 2 · Mark and 3 · 360"; off, that the faces still square. It took the old `shownSaid`'s place
+     *  in slice I1b, which deleted it with its key, sp.reference_shown_measure (it named 3 · Measure). The prototype's own
+     *  sentence, sp.reference_shown_2_mark, stays in the tables with no phone reader. English first: its Marathi is
      *  pending (android/i18n/mr-pending.tsv). */
-    fun shownSaid(tx: Tx, s: String, shown: Boolean) =
-        if (shown) tx.sp_reference_shown_measure
-        else tx.sp_reference_hidden_faces_still(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
-
-    /** [shownSaid] on the three-step route (port 63 slice I1a; DESIGN-imagemeter §11): on, "Reference shown on 2 · Mark
-     *  and 3 · 360" -- there is no 3 · Measure to name any more. It takes [shownSaid]'s place from slice I1b on.
-     *  English first: its Marathi is pending (android/i18n/mr-pending.tsv). */
     fun shownOnRoute(tx: Tx, s: String, shown: Boolean) =
         if (shown) tx.sp_reference_shown_mark
         else tx.sp_reference_hidden_faces_still(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())

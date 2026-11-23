@@ -95,7 +95,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkDims.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkSheet.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkTypes.kt	0
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureBarLayout.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureFlow.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasurePad.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureText.kt	0

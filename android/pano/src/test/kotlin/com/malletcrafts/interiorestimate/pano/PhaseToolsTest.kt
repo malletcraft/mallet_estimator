@@ -163,7 +163,8 @@ class PhaseToolsTest {
             for (picked in listOf(null, "exist", "wish", "vadd")) assertNull(PhaseTools.asFor(stage, picked), "asFor at $stage, picked $picked")
             assertEquals(AsChip.NONE, PhaseTools.asChip(stage)); assertNull(PhaseTools.nextAs(stage, "wish"))
             assertEquals(SurveyPrepPalette.SEL, PhaseTools.toolFor("W", stage)); assertEquals(SurveyPrepPalette.SEL, PhaseTools.toolFor(SurveyPrepPalette.LINE, stage))
-            assertFalse("mark" in PhaseTools.steps(stage)); assertEquals("measure", PhaseTools.modeFor("mark", stage, markable = true))
+            // 2 · Mark is the VIEW there (port 63 slice I1b): the step stays, and nothing is held or placed on it
+            assertTrue("mark" in PhaseTools.routeSteps(stage)); assertFalse(PhaseTools.holds(stage))
             // and so no mark is born a wish there: with nothing answered, placeAs writes nothing
             val e = mark(); assertNull(MarkLife.placeAs(e, PhaseTools.asFor(stage, "wish"), stage, now)); assertEquals(emptyMap(), e.extra)
         }
@@ -179,43 +180,26 @@ class PhaseToolsTest {
 
     // ------------------------------------------------------------------ the step strip
 
-    @Test fun `the steps the strip shows at each stage -- a step whose tool the phase hides is not drawn`() {
-        // THE PHONE'S THIRD STEP IS 3 · MEASURE (port 63 slice M2): it stands where the prototype's 3 · List stands and
-        // reads that row of the table, which keeps the prototype's name -- shown in every phase
-        assertEquals(listOf("lines", "mark", "measure", "360"), StepRoute.STEPS)
-        assertEquals(listOf(Tool.LINES, Tool.MARK, Tool.LIST, Tool.VIEW_360), StepRoute.STEPS.map { PhaseTools.toolOf(it) })
-        assertNull(PhaseTools.toolOf("plan")); assertFalse(PhaseTools.stepShown("plan", null))
-        // the list is no step any more: its old key stands for no tool, and is shown in no phase
-        assertNull(PhaseTools.toolOf("list")); for (st in STAGES) assertFalse(PhaseTools.stepShown("list", st), "$st")
-        assertEquals(listOf(
-            "0: lines mark measure 360",
-            "1: mark measure 360",
-            "2: mark measure 360",
-            "3: measure 360",
-            "4: mark measure 360",
-            "5: measure 360",       // the third step alone of the prototype's three: its steps 1 and 2 are drawn there but cannot be entered (Q-list 6)
-            "null: lines mark measure 360",
-        ), STAGES.map { "$it: " + PhaseTools.steps(it).joinToString(" ") })
-        assertEquals(PhaseTools.steps(0), PhaseTools.steps(PhaseTools.stageOf(null, phoneOnly = true)), "not on S5: Survey's strip")
-        for (st in STAGES) for (s in StepRoute.STEPS) assertEquals(s in PhaseTools.steps(st), PhaseTools.stepShown(s, st), "$s at $st")
+    @Test fun `the steps the strip shows at each stage -- all three in every phase, each its tool's row`() {
+        // THE STEPS ARE 1 · LINES, 2 · MARK, 3 · 360 (port 63 slice I1b): 2 · Mark reads the row the prototype's third step
+        // read, Tool.LIST -- the view every phase shows -- and the prototype's `mark` row says what may be held there
+        assertEquals(listOf("lines", "mark", "360"), StepRoute.ROUTE)
+        assertEquals(listOf(Tool.LINES, Tool.LIST, Tool.VIEW_360), StepRoute.ROUTE.map { PhaseTools.routeTool(it) })
+        assertNull(PhaseTools.routeTool("plan")); assertNull(PhaseTools.routeTool("list")); assertNull(PhaseTools.routeTool("measure"))
+        for (st in STAGES) assertEquals(StepRoute.ROUTE, PhaseTools.routeSteps(st), "$st")
+        assertEquals(PhaseTools.routeSteps(0), PhaseTools.routeSteps(PhaseTools.stageOf(null, phoneOnly = true)), "not on S5: Survey's strip")
     }
 
-    @Test fun `a step the phase hides is moved on - Lines to Mark where the face can be marked, else to Measure - Mark to Measure`() {
-        fun row(mode: String, markable: Boolean) = STAGES.joinToString(" ") { PhaseTools.modeFor(mode, it, markable) }
+    @Test fun `the step survey prep is on - kept, and 2 Mark on a face that cannot be squared falls to 1 Lines in every phase`() {
+        fun row(mode: String, markable: Boolean) = STAGES.joinToString(" ") { PhaseTools.routeMode(mode, it) { markable } }
         //                           Survey Wish  Vendor Estim. Revis. Appr.  unread
-        assertEquals("lines mark mark measure mark measure lines", row("lines", true))
-        assertEquals("lines measure measure measure measure measure lines", row("lines", false), "a face not bounded yet cannot be marked")
-        assertEquals("mark mark mark measure mark measure mark", row("mark", true))
-        assertEquals("mark mark mark measure mark measure mark", row("mark", false))
-        assertEquals("measure measure measure measure measure measure measure", row("measure", true))
+        assertEquals("lines lines lines lines lines lines lines", row("lines", true))
+        assertEquals("mark mark mark mark mark mark mark", row("mark", true))
+        assertEquals("lines lines lines lines lines lines lines", row("mark", false), "a face not bounded yet cannot be marked")
         assertEquals("360 360 360 360 360 360 360", row("360", false))
-        // the palette's tool goes back to Select where there is no palette, and is kept everywhere else
-        assertEquals("W W W sel W sel W", STAGES.joinToString(" ") { PhaseTools.toolFor("W", it) })
-        assertEquals("T T T sel T sel T", STAGES.joinToString(" ") { PhaseTools.toolFor(SurveyPrepPalette.TAPE, it) })
-        assertEquals("sel sel sel sel sel sel sel", STAGES.joinToString(" ") { PhaseTools.toolFor(SurveyPrepPalette.SEL, it) })
+        assertEquals(l4row(0), l4row(PhaseTools.stageOf(null, phoneOnly = true)))
+        assertEquals(l4row(0), l4row(PhaseTools.stageOf(Cache(listed = false, stage = "Client wish list", by = "", at = "", readAt = "2026-11-11T04:59:00Z"), false)))
     }
-
-    // ------------------------------------------------------------------ what a new mark is placed as
 
     @Test fun `AS_FIXED - what a mark is placed as in each of the six stages`() {
         assertEquals(listOf(null, "wish", "vadd", null, "vadd", null), PhaseTools.AS_FIXED)
@@ -536,34 +520,21 @@ class PhaseToolsTest {
         assertEquals(l4row(0), l4row(PhaseTools.stageOf(Cache(listed = false, stage = "Client wish list", by = "", at = "", readAt = "2026-11-11T04:59:00Z"), false)))
     }
 
-    @Test fun `L4 - the strip survey prep draws - no 2 Mark at Estimated and at Client approved, 1 Lines kept until slice J3`() {
-        // PORT 63 SLICE M2 ADDS `readings`: after Survey a figure is not keyed (DESIGN-port63 §1.8, the readings part of
-        // port 62's L10). It changes no step: the strip is what it was, with 3 · Measure where 3 · List stood.
+    @Test fun `L4 - the rows survey prep honours - 2 Mark and the palette, the readings, 1 Lines kept until slice J3`() {
+        // PORT 63 SLICE M2 ADDS `readings`: after Survey a figure is not keyed (DESIGN-port63 §1.8). Since slice I1b no row
+        // hides a step: the strip is all three steps in every phase, and `mark` says what may be HELD on 2 · Mark.
         assertEquals(setOf(Tool.MARK, Tool.PALETTE, Tool.READINGS), PhaseTools.PREP_HONOURS)
-        val all = listOf("lines", "mark", "measure", "360"); val noMark = listOf("lines", "measure", "360")
-        assertEquals(listOf(all, all, all, noMark, all, noMark, all), STAGES.map { PhaseTools.prepSteps(it) })
-        // every step it draws is one of the strip's, in the strip's order, so each keeps its own number
-        for (st in STAGES) assertEquals(PhaseTools.prepSteps(st), StepRoute.STEPS.filter { it in PhaseTools.prepSteps(st) })
-        // what it shows is the table's cell for a row it honours, and shown for one it does not yet
         for (t in Tool.entries) assertEquals(STAGES.joinToString("") { if (t !in PhaseTools.PREP_HONOURS || PhaseTools.can(t, it)) "1" else "0" },
             bits { PhaseTools.prepShows(t, it) }, t.id)
         assertEquals("1110101", bits { PhaseTools.prepShows(Tool.MARK, it) }); assertEquals("1110101", bits { PhaseTools.prepShows(Tool.PALETTE, it) })
+        assertEquals("1110101", bits { PhaseTools.holds(it) }, "what may be held is the `mark` row")
         assertEquals("1111111", bits { PhaseTools.prepShows(Tool.LINES, it) }, "slice J3's row: 1 · Lines stays in every phase until then")
         assertEquals("1000001", bits { PhaseTools.prepShows(Tool.READINGS, it) }, "honoured since port 63 slice M2: Survey, and while the stage is unread")
-        // ... which is exactly where it differs from the whole table: the one row still to come, `lines`
-        assertEquals(listOf("", "lines", "lines", "lines", "lines", "lines", ""), STAGES.map { st -> (PhaseTools.prepSteps(st) - PhaseTools.steps(st).toSet()).joinToString(",") })
-        for (st in STAGES) assertTrue(PhaseTools.prepSteps(st).containsAll(PhaseTools.steps(st)), "$st: nothing the whole table shows is missing")
     }
 
-    @Test fun `L4 - a step and a tool the phase does not show are moved on - Mark to Measure, the tool to Select`() {
-        val never = { error("1 · Lines is not hidden by this build, so whether the face can be marked is never asked") }
-        fun row(mode: String) = STAGES.joinToString(" ") { PhaseTools.prepMode(mode, it, never) }
-        assertEquals("mark mark mark measure mark measure mark", row("mark"))
-        assertEquals("lines lines lines lines lines lines lines", row("lines"))
-        assertEquals("measure measure measure measure measure measure measure", row("measure"))
-        assertEquals("360 360 360 360 360 360 360", row("360"))
-        // the step it lands on is always one the strip draws
-        for (st in STAGES) for (m in StepRoute.STEPS) assertTrue(PhaseTools.prepMode(m, st, never) in PhaseTools.prepSteps(st), "$m at $st")
+    @Test fun `L4 - a tool the phase does not show is moved on to Select, and the step it is on is always one the strip draws`() {
+        for (st in STAGES) for (m in StepRoute.ROUTE) for (mk in listOf(true, false))
+            assertTrue(PhaseTools.routeMode(m, st) { mk } in PhaseTools.routeSteps(st), "$m at $st")
         // the tool: a type, a Tape, a Line and a Chain all go back to Select where there is no palette
         for (t in listOf("W", "E", "T", "M")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it) }, t)
         for (t in listOf("W", "E", "T", "M", "K")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it, chains = true) }, t)
@@ -800,16 +771,17 @@ class PhaseToolsTest {
         assertEquals(2, count(screen, "quoteStage, asPicked, java.time.Instant.now(), SurveyPrepPalette.subFor(spKinds, t, s)) { snapshot() } ?: return null"), "born what the phase places, one undo step, or nothing")
         assertEquals(2, count(screen, "if (placed.amber) say(MarkLife.afterEstimate(tx))"))
         // the step and the tool that are ON are the phase's answer, and only a step or tool change writes the ones last set
-        assertEquals(1, count(screen, "val mode = PhaseTools.prepMode(modeSet, quoteStage) {"))
+        assertEquals(1, count(screen, "val mode = PhaseTools.routeMode(modeSet, quoteStage) {"))
         assertEquals(1, count(screen, "val tool = PhaseTools.toolFor(toolSet, quoteStage)"))
         assertFalse(Regex("""(?<![A-Za-z.])mode = "(lines|mark|list|360)"""").containsMatchIn(screen), "no step is set past the phase")
         assertFalse(Regex("""(?<![A-Za-z.])tool = SurveyPrepPalette""").containsMatchIn(screen), "no tool is set past the phase")
-        // the strip, a press routed to a step and setMode all read the steps the phase shows -- never the strip's whole list
-        assertEquals(3, count(screen, "PhaseTools.prepSteps(quoteStage)")); assertEquals(0, count(screen, "StepRoute.STEPS"))
+        // the strip and its landscape twin read the steps the phase shows (port 63 slice I1b: setMode asks PhaseTools.routeAsk)
+        assertEquals(2, count(screen, "PhaseTools.routeSteps(quoteStage)")); assertEquals(0, count(screen, "StepRoute.STEPS"))
+        assertEquals(1, count(screen, "val ask = PhaseTools.routeAsk(m, quoteStage) {"))
         // the palette and the More sheet are drawn only where the phase has a palette
         assertEquals(2, count(screen, "PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)"))
-        // ... and, since port 63 slice M2, not under an open measure pad, which takes the palette's place (`!padUp`)
-        assertTrue(screen.contains("if (!padUp && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))\n            SpPalette("))
+        // ... and, since port 63 slice I1b, only where StepRoute.underMark puts the tool row (the keypad and the held row take its place)
+        assertTrue(screen.contains("val toolRow = PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)")); assertTrue(screen.contains("if (toolRow) SpPalette("))
         assertTrue(screen.contains("if (moreOpen && marking && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))"))
         // the band: one line from one rule, drawn in both orientations
         assertEquals(1, count(screen, "val band = PhaseTools.band(tx, quoteStage, projectLine)"))
@@ -845,6 +817,10 @@ class PhaseToolsTest {
             assertEquals(4, count(src, "PhaseTools.refuseText(txS, "), "a mark, a chain's point, a Line's end and a Line's body")
             assertEquals(4, Regex("""PhaseTools\.refuseText\(txS, \w+, stageS\), (gate = true, )?said = true\)""").findAll(src).count(), "each said as it is, nothing moved")
         }
-        for (src in listOf(screen, p3)) { assertEquals(1, count(src, "PhaseTools.delOk(prep, sid, stage)"), "the trash"); assertEquals(1, count(src, "PhaseTools.editable(prep, sid, stage)"), "the tabs") }
+        assertEquals(1, count(p3, "PhaseTools.delOk(prep, sid, stage)"), "the 360's trash"); assertEquals(1, count(p3, "PhaseTools.editable(prep, sid, stage)"), "the 360's tabs")
+        // 2 · Mark since port 63 slice I1b: the trash is Pick.trash (which asks PhaseTools.delOk) at its press and its drawing,
+        // and the tabs are drawn only on the HELD item, which Pick.mayHold let be held (it asks PhaseTools.editable)
+        assertEquals(2, count(screen, "Pick.trash(")); assertEquals(1, count(screen, "tabs = mode == StepRoute.MARK && pick.held"))
+        assertEquals(0, count(screen, "PhaseTools.delOk(prep, sid, stage)")); assertEquals(0, count(screen, "PhaseTools.editable(prep, sid, stage)"))
     }
 }

@@ -347,14 +347,14 @@ class QuadMeetsF1Test {
         assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)")); assertEquals(1, count(screen, "menuItemsOf("))
         // the press: Drawn with no corners; hit with F1's `body`
         assertEquals(1, count(screen, "SurveyPrepTouch.Drawn(")); assertEquals(0, count(screen, "corners ="))
-        assertEquals(1, count(screen, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = body != null)"))
+        assertEquals(1, count(screen, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null)"))
         // the trash: a mark's keep by its box and whether it is a spot; the 360's by the view's dp
         assertEquals(1, count(screen, "SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)")); assertEquals(1, count(screen, "keepOfMark("))
         assertEquals(1, count(p3, "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())"))
         // the 360's tabs: the eight
         assertEquals(2, count(p3, "Pano360.tabsOf(e)")); assertEquals(2, count(p3, "tabsOf("))
-        // the plates: DimLayout.mark with no `free`
-        assertEquals(1, count(draw, "DimLayout.mark(o.prep.actual, s, e, o.a, o.b, on, hand, o.active, toPx, du, dp, textW, o.live)")); assertEquals(1, count(draw, "DimLayout.mark("))
+        // the plates: PhotoFigures.layout with no `free` (port 63 slice I1b: it replaced DimLayout.mark in the painter)
+        assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)")); assertEquals(0, count(draw, "DimLayout.mark("))
         for (name in dir.list()!!.filter { it.endsWith(".kt") }) {
             val text = code(name)
             assertFalse(Regex("""\bQuad\.""").containsMatchIn(text), "$name names Quad")
@@ -385,13 +385,13 @@ class QuadMeetsF1Test {
                 "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)",                           // gains `shape = true`
                 "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(",                            // a third: the shape's act
                 "(232 + DeleteGuard.CLEAR_DP).dp.toPx()",                                                     // the menu's height for six rows
-                "SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)",            // gains the corners
-                "MeasureFlow.checkEst(prep, c) { ab(it) }", "say(MeasureText.photoSays(tx, est))"),          // become the one checkText
+                "SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)"),           // gains the corners
+                // (sayCheck's two lines went in port 63 slice I1b: no photo estimate is said any more)
             "SurveyPrep360.kt" to listOf(
                 "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())"),   // gains `free`
             "SurveyPrepDraw.kt" to listOf(
                 "val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->",                 // the hole is the shape's
-                "DimLayout.mark(o.prep.actual, s, e, o.a, o.b, on, hand, o.active, toPx, du, dp, textW, o.live)"))  // gains `free`
+                "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)"))   // gains `free` (I1b)
         val sources = tests.listFiles()!!.filter { it.name.endsWith("Test.kt") }.associate { it.name.removeSuffix(".kt") to it.readText() }
         assertTrue(sources.size > 90, "the tests are where this test reads them")
         val named = mutableSetOf<String>()

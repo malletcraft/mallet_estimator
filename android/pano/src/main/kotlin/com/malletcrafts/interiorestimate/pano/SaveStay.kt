@@ -83,9 +83,11 @@ object SaveStay {
     /** Survey prep just opened: no save yet. */
     val OPENED = Mem()
 
-    /** A press saved the change count [rev], and the save [readBack] or did not; its pictures are being written. The
-     *  press is the next [Mem.seq]. */
-    fun saved(m: Mem, rev: Int, readBack: Boolean): Mem = Mem(rev, readBack, Pictures.WRITING, 0, null, m.seq + 1)
+    /** A press saved the change count [rev], and the save [readBack] or did not; its pictures are being written --
+     *  unless [pictures] is false: a NEW capture's press writes none ([effects], [Flow.NEW]), its pictures being the
+     *  keep's own. The press is the next [Mem.seq]. */
+    fun saved(m: Mem, rev: Int, readBack: Boolean, pictures: Boolean = true): Mem =
+        Mem(rev, readBack, if (pictures) Pictures.WRITING else Pictures.NONE, 0, null, m.seq + 1)
 
     /** Press [seq]'s pictures were written, [n] of them. An older press's answer changes nothing. */
     fun written(m: Mem, seq: Int, n: Int): Mem = if (seq != m.seq) m else m.copy(pictures = Pictures.WRITTEN, written = n, why = null)
@@ -107,7 +109,10 @@ object SaveStay {
         if (m.at == null || m.at != rev) return auto(tx)
         if (!m.readBack) return tx.sp_msg_not_saved_did_not
         return when (m.pictures) {
-            Pictures.NONE, Pictures.WRITING -> tx.app_msg_survey_prep_saved_writing
+            // a press that writes no pictures (a NEW capture's, [saved]): the save's own line is the autosave's -- "Saved
+            // ✓ 14:05" -- never "writing its pictures…", which would wait for ever
+            Pictures.NONE -> auto(tx)
+            Pictures.WRITING -> tx.app_msg_survey_prep_saved_writing
             Pictures.WRITTEN -> tx.app_msg_survey_prep_saved_x(m.written.toString())
             Pictures.NOT_WRITTEN -> tx.app_msg_survey_prep_saved_not_written_x(m.why ?: "")
         }

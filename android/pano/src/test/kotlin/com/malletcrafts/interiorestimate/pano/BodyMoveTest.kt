@@ -291,26 +291,31 @@ class BodyMoveTest {
             "the body rule is asked with the tape's own band")
         // only the item PICKED on the open face
         assertEquals(2, count(c, "val m = prepS.surface(tab).meas.firstOrNull { it.id == sid } ?: return null"), "the end's press and the body's: each of the item picked on the open face")
-        val grab = c.substring(c.indexOf("fun bodyGrab(sx: Float, sy: Float): SpGrab? {"), c.indexOf("fun hitMarks(sx: Float, sy: Float, tagged: () -> Unit = {}): SpGrab? {"))
-        assertEquals(1, count(grab, "val sid = selS?.takeIf { it.s == tab }?.id ?: return null"))
+        // ... since port 63 slice I1b the HELD one (Pick.handleId): a picked item's body is pressed only once it is held
+        val grab = c.substring(c.indexOf("fun bodyGrab(sx: Float, sy: Float): SpGrab? {"), c.indexOf("fun markHit(sx: Float, sy: Float): SurveyPrepTouch.Hit? {"))
+        assertEquals(1, count(grab, "val sid = Pick.handleId(pickS) ?: return null"))
         assertEquals(1, count(grab, "val m = prepS.surface(tab).meas.firstOrNull { it.id == sid } ?: return null"))
         // it stands in the hit order where :pano puts it: one hit test, handed whether the finger is on the body
-        assertEquals(1, count(c, "val body = bodyGrab(sx, sy)")); assertEquals(1, count(c, "bodyGrab(sx, sy)"))
-        assertEquals(1, count(c, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = body != null)) {"))
-        assertEquals(1, count(c, "is SurveyPrepTouch.Hit.Body -> body"))
-        assertEquals(2, count(c, "SurveyPrepTouch.hit("), "2 - Mark's and 3 - Measure's, and 3 - Measure's hands no body")
+        // (port 63 slice I1b: markHit asks whether the finger is on the body; markGrab makes the grab -- the same rule, twice read)
+        assertEquals(2, count(c, "bodyGrab(sx, sy)"))
+        assertEquals(1, count(c, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null)"))
+        assertEquals(1, count(c, "is SurveyPrepTouch.Hit.Body -> bodyGrab(sx, sy)"))
+        assertEquals(1, count(c, "SurveyPrepTouch.hit("), "2 - Mark's alone: 3 - Measure is gone (port 63 slice I1b)")
         // the move: every point from where the drag BEGAN, through the one rule, behind the dead zone (gate), with no guide
         assertEquals(1, count(c, "SurveyGuide.bodyMove("))
         assertEquals(1, count(c, "val start = m.pts.map { it.copyOf() }; val mx0 = sq.mmX(at[0]); val my0 = sq.mmY(at[1])"))
-        assertEquals(1, count(c, "return SpGrab(at[0], at[1], pick, null, gate = true) { jx, jy ->"))
+        // ... the body's dead zone is Pick.BODY_SLOP_DP (port 63 slice I1b, SpGrab.slop), an end's stays END_DEAD_DP
+        assertEquals(1, count(c, "return SpGrab(at[0], at[1], pick, null, slop = true) { jx, jy ->"))
         assertEquals(1, count(c, "SurveyGuide.bodyMove(m, start, sq.mmX(jx) - mx0, sq.mmY(jy) - my0, ab[0], ab[1])"))
         // a locked one and one the phase holds: picked, nothing moves, and the drag says why
         assertEquals(1, count(c, "if (bp is SurveyGuide.BodyPress.Locked) return SpGrab(at[0], at[1], pick, null, bp.code, endLock = true, gate = true) { _, _ -> }"))
         assertEquals(1, count(c, "if (!PhaseTools.editable(m, stageS)) return SpGrab(at[0], at[1], pick, null, PhaseTools.refuseText(txS, m, stageS), gate = true, said = true) { _, _ -> }"))
         // ONE UNDO STEP: the gesture takes its one snapshot at the first move past the gate, for every grab alike
-        assertEquals(1, count(c, "if (!gated || endGate.move(e.dx, e.dy)) {")); assertEquals(1, count(c, "if (!snapped) { onBeforeChangeS(); snapped = true }"))
-        assertTrue(c.indexOf("if (!gated || endGate.move(e.dx, e.dy)) {") < c.indexOf("if (!snapped) { onBeforeChangeS(); snapped = true }"), "the snapshot is taken past the gate")
-        assertEquals(1, count(c, "if (h != null) { grab = h; if (h.gate) gated = true; onGrabS(h.sel); gc.grabbed() }"), "a gated grab waits for the dead zone")
+        val gate = "if (if (g.slop) bodyGate.move(e.dx, e.dy) else !gated || endGate.move(e.dx, e.dy)) {"
+        assertEquals(1, count(c, gate)); assertEquals(1, count(c, "if (!snapped) { onBeforeChangeS(); snapped = true }"))
+        assertTrue(c.indexOf(gate) < c.indexOf("if (!snapped) { onBeforeChangeS(); snapped = true }"), "the snapshot is taken past the gate")
+        assertEquals(1, count(c, "val bodyGate = SurveyGuide.EndGate(max(Pick.BODY_SLOP_DP.dp.toPx().toDouble(), viewConfiguration.touchSlop.toDouble()))"))
+        assertEquals(1, count(c, "grab = g; if (g.gate) gated = true; gc.grabbed()"), "a gated grab waits for the dead zone")
         // 4 - 360: the same rule through the 360's own pick order, the same move in the surface's mm
         assertEquals(1, count(p3, "val body = sq?.let { (s, m) -> Pano360.measLine(v, s, fr.getValue(s), m, d) }"))
         assertEquals(1, count(p3, "return P3Scene(Pano360.Scene(ends, tabs, nodes, polys, sid, body), sq, sm, chainL, measL)"))

@@ -121,9 +121,8 @@ class ChainTest {
     @Test fun `the total -- the laser's edge to edge, derived from the segments short of it, and the one unknown segment derived`() {
         val p = room(); val k = fk1(p)
         val v0 = SurveyChain.vals(k, p.actual, A, B)
-        // ct52 K: 'total "laser 3310"', the row "FK1 ≈905 · ≈2405 · Σ 3310 laser"
+        // ct52 K: 'total "laser 3310"' (the held chain's row prints no value since port 63 slice I1b)
         assertEquals(SurveyChain.LASER, v0.src); assertEquals(3310.0, v0.total)
-        assertEquals("≈905 · ≈2405 · Σ 3310 laser", SurveyChain.rowValue(Tx.EN, v0))
         assertEquals("FK1 Σ 3310 laser", SurveyChain.totalTag(Tx.EN, k.code, v0))
         assertTrue(SurveyChain.totalReadOnly(v0), "the laser's total is not typed over")
         // ct52 K: "typing 900 into FK1.1 derives FK1.2 = 2410 (dashed, derived); the total reads laser 3310"
@@ -132,7 +131,6 @@ class ChainTest {
         assertEquals(1, v1.der); assertEquals(2410.0, v1.value[1]!!, 1e-9)
         assertEquals("2410 d" to SurveyChain.DERIVED_COLOUR, SurveyChain.segFigure(v1, 1))
         assertEquals("900" to SurveyChain.MEASURED_COLOUR, SurveyChain.segFigure(v1, 0))
-        assertEquals("900 · 2410 d · Σ 3310 laser", SurveyChain.rowValue(Tx.EN, v1))
         // both read: checked against the laser (0 off: rose); 60 off is amber
         p.actual["FK1.2"] = 2410.0
         assertEquals(0.0, SurveyChain.vals(k, p.actual, A, B).check!!, 1e-9)
@@ -145,11 +143,10 @@ class ChainTest {
         k.nodes[2][0] = 3000.0
         val v2 = SurveyChain.vals(k, p.actual, A, B)
         assertNull(v2.laser); assertEquals(SurveyChain.DERIVED, v2.src); assertEquals(3310.0, v2.total)
-        assertEquals("900 · 2410 · Σ 3310 d", SurveyChain.rowValue(Tx.EN, v2))
         assertFalse(SurveyChain.totalReadOnly(v2))
         // short of the edge with nothing read: the photo's sum, unknown
         val v3 = SurveyChain.vals(k, emptyMap(), A, B)
-        assertNull(v3.total); assertEquals("≈905 · ≈2095 · Σ ≈3000", SurveyChain.rowValue(Tx.EN, v3))
+        assertNull(v3.total)
         // a measured total wins over the laser, and derives the one unknown segment
         k.nodes[2][0] = 3310.0
         val v4 = SurveyChain.vals(k, mapOf("FK1.t" to 3300.0, "FK1.1" to 900.0), A, B)

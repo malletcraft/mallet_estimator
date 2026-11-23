@@ -34,156 +34,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.malletcrafts.interiorestimate.pano.MarkDims
-import com.malletcrafts.interiorestimate.pano.MeasureBarLayout
-import com.malletcrafts.interiorestimate.pano.MeasureFlow
 import com.malletcrafts.interiorestimate.pano.MeasurePad
 import com.malletcrafts.interiorestimate.pano.StepRoute
+import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 
 /**
- * THE MEASURE BAR AND ITS PAD (port 63 slice M2, 16 Nov 2026; DESIGN-port63 §1.4). Amit, 15 Nov 2026, after his first
- * use of the app on a client site: "Having both measurements foto and measured and both is very confusing while using
- * app. The laundry list of measurements shown below screen is also frustrating. … imagemeter shows all dimensions on
- * the annotation there itself which is easy to use."
- *
- * So measuring happens on the photo, and under the photo there is ONE bar, the same in steps 2, 3 and 4:
- *
- *     label · ‹ › · the measure's words over the progress · the figure box · D2
- *
- * and, only when asked for (a tap on the figure box, or on the plate that is already active), the app's own PAD of
- * four rows -- not the system keyboard, which covers far more of the screen, jumps at every field and has no Next.
- *
- * D2 CANNOT BE FIRED BY ACCIDENT (port 63 slice F1; Amit, 16 Nov 2026, with this bar's first build on his phone:
- * "navigation button and D2 aer very close where d2 get accidentally fired"). M2 drew D2 between the figure box and ›,
- * 4 dp from each. Now ‹ and › are a pair on the left, and D2 stands ALONE at the right end, 48 x 36 dp, with 12 dp of
- * bar that takes no tap between it and the figure box; the pad's first row starts 6 dp under the bar, so its ⌫ is no
- * nearer either. The order, every width and every gap are MeasureBarLayout's in :pano, where they are tested -- this
- * file lays the bar out from MeasureBarLayout.slots and holds no number of its own for them.
- *
- * THIS FILE ONLY DRAWS. What the bar is and says is MeasureFlow.Bar, built in :pano (MeasureFlow.onFace for
- * 3 · Measure, MeasureFlow.onItem for 2 · Mark and 4 · 360) and tested there; what a key of the pad does to the text
- * is MeasurePad; the heights are StepRoute.measureBarDp / padRowDp, whose arithmetic of what fits a landscape column
- * is tested too. The widths leave the two lines 68 dp in portrait and 46 in landscape under the whole bar
- * (MeasureBarLayout.linesDp), so line 1 is cut with an ellipsis where it must.
- * Every word is a tx accessor (English first: the `sp.measure.*` keys' Marathi is pending, android/i18n/mr-pending.tsv);
- * the glyphs are the same in every language.
- */
-@Composable
-internal fun SpMeasureBar(
-    bar: MeasureFlow.Bar,
-    land: Boolean,
-    /** The label cell's left edge: the picked mark's state colour (MarkLife.barColour, rgb), or null: none. */
-    cellBar: Int?,
-    /** The pad's uncommitted digits (MeasurePad.live): null, the box shows the dimension's own one figure; empty, its
-     *  `mm` hint. */
-    live: String?,
-    /** The label cell: the picked item's Mark sheet opens. */
-    onCell: () -> Unit,
-    /** ‹ and ›. */
-    onPrev: () -> Unit,
-    onNext: () -> Unit,
-    /** The figure box: the pad opens. */
-    onBox: () -> Unit,
-    /** D2: the laser fires. */
-    onD2: () -> Unit,
-    /** A finished face's button: the next face with something left. */
-    onNextFace: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val tx = LocalTx.current
-    val on = bar.kind == MeasureFlow.Kind.ACTIVE
-    Row(modifier.fillMaxWidth().height(StepRoute.measureBarDp(land).dp)
-        .background(if (on) MB_ON else MB_OFF).border(1.5.dp, if (on) MB_GOLD else MB_EDGE)
-        .padding(horizontal = MeasureBarLayout.PAD_DP.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        // THE BAR, SLOT BY SLOT, AS :pano LAYS IT OUT (MeasureBarLayout.slots): the dead bar before each part -- a
-        // Spacer, which takes no tap -- then the part at its own width. ‹ and › stand together on the left; D2 is the
-        // last, 12 dp of nothing between it and the figure box.
-        for (slot in MeasureBarLayout.slots(bar)) {
-            if (slot.gapDp > 0) Spacer(Modifier.width(slot.gapDp.dp))
-            when (slot.part) {
-                // THE LABEL CELL: the picked item's code over its type's short name (or `locked`), its state's 3 dp bar
-                // on the left edge; a tap opens its Mark sheet -- at every stage, after Survey too, where the rest of the
-                // bar is not
-                MeasureBarLayout.Part.CELL -> bar.cell?.let { cell ->
-                    Text(cell.text, color = MB_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(slot.widthDp.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
-                            if (cellBar != null) drawRect(Color(SurveyPrepDraw.argb(cellBar)), size = Size(3.dp.toPx(), size.height))
-                        }.clickable(role = Role.Button) { onCell() }
-                            .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(cell.code) }
-                            .padding(vertical = 4.dp))
-                }
-                MeasureBarLayout.Part.PREV -> MbArrow("‹", tx.sp_measure_aria_previous, slot.widthDp, onPrev) // text:value glyph
-                MeasureBarLayout.Part.NEXT -> MbArrow("›", tx.sp_measure_aria_skip, slot.widthDp, onNext) // text:value glyph
-                // LINE 1, the measure's own words alone (12 sp, two lines at most), over LINE 2, the progress (10 sp, one
-                // line); with nothing being measured the one line there is -- the progress, a finished face, nothing to
-                // measure, or after Survey the phase's refusal -- at 11 sp, three lines at most. No tap: words only.
-                MeasureBarLayout.Part.LINES -> Column(Modifier.weight(1f)) {
-                    bar.what?.let { what ->
-                        Text(what, color = Color.White, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    if (on) Text(bar.line, color = MB_MUTED, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    else Text(bar.line, color = if (bar.kind == MeasureFlow.Kind.READ_ONLY) MB_AMB else MB_FG, fontSize = 11.sp, lineHeight = 13.sp,
-                        maxLines = 3, overflow = TextOverflow.Ellipsis)
-                }
-                // THE FIGURE BOX: the same ONE figure as the plate on the photo, in the same style -- the reading, else ≈
-                // and the photo's estimate, else ? -- on the gold plate of the one being measured; from the first key of
-                // the pad it shows the digits typed. A tap opens the pad.
-                MeasureBarLayout.Part.BOX -> bar.figure?.let { fig ->
-                    val typed = live != null
-                    val st = MarkDims.style(if (typed) MarkDims.State.MEASURED else fig.state, true)
-                    Row(Modifier.width(slot.widthDp.dp).height(MeasureBarLayout.BOX_H_DP.dp).clip(RoundedCornerShape(6.dp))
-                        .background(Color(SurveyPrepDraw.argb(st.fill, st.fillAlpha)))
-                        .border(1.5.dp, Color(SurveyPrepDraw.argb(st.outline ?: MarkDims.LINE_COLOUR)), RoundedCornerShape(6.dp))
-                        .clickable(role = Role.Button) { onBox() }
-                        .semantics { contentDescription = tx.sp_measure_aria_type }
-                        .padding(horizontal = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-                        if (live != null && live.isEmpty()) Text("mm", color = MB_DIM, fontSize = 12.sp, maxLines = 1) // text:value unit
-                        else Text(live ?: fig.text, color = Color(SurveyPrepDraw.argb(st.ink)), fontFamily = FontFamily.Monospace,
-                            fontWeight = if (st.bold) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp, maxLines = 1, softWrap = false)
-                        // the check's mark after a reading that is far from the photo: a mark, never a second number
-                        if (!typed && fig.check) Text(MarkDims.CHECK_GLYPH, color = Color(SurveyPrepDraw.argb(MarkDims.CHECK_COLOUR)),
-                            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
-                    }
-                }
-                // D2, ALONE AT THE RIGHT END: the laser fires, as the meter's own button does -- a red dot and its name.
-                // Larger than M2's, and nothing that takes a tap within 12 dp of it (the slot's own gap, above).
-                MeasureBarLayout.Part.D2 -> Row(Modifier.width(slot.widthDp.dp).height(MeasureBarLayout.D2_H_DP.dp).clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF3A1512)).border(1.dp, Color(0xFFFF5A4A), RoundedCornerShape(8.dp))
-                    .clickable(role = Role.Button) { onD2() },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFFFF3B2F)))
-                    Spacer(Modifier.width(3.dp))
-                    Text("D2", color = Color(0xFFFFB3A8), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1) // text:value the laser, DISTO D2
-                }
-                // A FINISHED FACE offers the next one with something left, at the right end where it always was: "Next:
-                // Right wall · 4 to measure ▸". The screen never changes face by itself -- he has to turn round.
-                MeasureBarLayout.Part.NEXT_FACE -> bar.nextFaceText?.let { next ->
-                    Text(next, color = MB_INK, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                        maxLines = 3, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(slot.widthDp.dp).clip(RoundedCornerShape(8.dp)).background(MB_GOLD)
-                            .clickable(role = Role.Button) { onNextFace() }.padding(horizontal = 6.dp, vertical = 4.dp))
-                }
-            }
-        }
-    }
-}
-
-/** ‹ or ›: [widthDp] wide (MeasureBarLayout.ARROW_DP) and as tall as the bar; [label] is what a screen reader says. */
-@Composable
-private fun MbArrow(glyph: String, label: String, widthDp: Int, onClick: () -> Unit) {
-    Box(Modifier.width(widthDp.dp).fillMaxHeight().clickable(role = Role.Button) { onClick() }.semantics { contentDescription = label },
-        contentAlignment = Alignment.Center) {
-        Text(glyph, color = Color.White, fontSize = 24.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    }
-}
-
-/**
- * THE PAD (DESIGN-port63 §1.4): four rows of StepRoute.padRowDp, under the measure bar, the photo giving up the height
- * so nothing is covered.
+ * THE KEYPAD (DESIGN-imagemeter §5; port 63 slice I1b): four rows of StepRoute.padRowDp IN THE COLUMN, in place of the
+ * tool row (StepRoute.underMark, Under.KEYPAD), the photo giving up the height and the whole face rescaled into what is
+ * left, so nothing is covered and the gold plate is always in view. It has NO DISPLAY LINE: the digits typed appear on
+ * the gold plate on the photo (MeasurePad.live). There is no measure bar any more -- nothing under the photo shows a
+ * measurement -- and no key of it fires the laser. It opens only on a tap on the gold figure (Pick row 5).
  *
  *      1   2   3   ⌫
  *      4   5   6   Clear
@@ -192,10 +52,9 @@ private fun MbArrow(glyph: String, label: String, widthDp: Int, onClick: () -> U
  *
  * It holds no text of its own: a digit, ⌫ and Clear are handed to [onKey] (MeasurePad.press decides what they do to
  * the text -- the first digit replaces what was there, six at most, a leading 0 ignored); Next ▸ commits and moves on
- * as › does ([onNext]); ⌄ commits and hides it ([onHide]). Digits only, whole mm.
- *
- * Its first row starts MeasureBarLayout.PAD_GAP_DP under the bar (port 63 slice F1): dead space, so ⌫ -- the key right
- * under D2 -- is no nearer the laser's button than anything in the bar is. No key of the pad fires the laser.
+ * as a reading that passes does ([onNext]: Landing.keyed, or `▸` when nothing was typed); ⌄ commits and hides it
+ * ([onHide]). Digits only, whole mm. Its first row starts SurveyPrepPalette.TOP_DP under the photo, as the tool row
+ * does (StepRoute.keypadDp).
  */
 @Composable
 internal fun SpMeasurePad(
@@ -207,8 +66,8 @@ internal fun SpMeasurePad(
 ) {
     val tx = LocalTx.current
     Column(modifier.fillMaxWidth()) {
-        // the dead space between the bar and the pad's first row
-        Spacer(Modifier.height(MeasureBarLayout.PAD_GAP_DP.dp))
+        // the same 6 dp over its first row as the tool row has over its slots (StepRoute.keypadDp)
+        Spacer(Modifier.height(SurveyPrepPalette.TOP_DP.dp))
         Row(Modifier.fillMaxWidth().height((StepRoute.PAD_ROWS * StepRoute.padRowDp(land)).dp)) {
             // the three columns of digits, and under them ⌄ and a 0 two columns wide
             Column(Modifier.weight(3f).fillMaxHeight()) {
@@ -247,17 +106,8 @@ private fun MbKey(label: String, modifier: Modifier, quiet: Boolean = false, gol
     }
 }
 
-/** The bar's ground while a dimension is being measured, and otherwise; its gold; its edge when nothing is. */
-private val MB_ON = Color(0xFF2A2410)
-private val MB_OFF = Color(0xFF1A1C18)
+/** The gold of Next ▸, ink on gold, a digit's key, and the quieter ⌫, Clear and ⌄. */
 private val MB_GOLD = Color(0xFFE0B040)
-private val MB_EDGE = Color(0xFF3A3E35)
-private val MB_FG = Color(0xFFECEEE8)
-private val MB_MUTED = Color(0xFF9AA096)
-private val MB_DIM = Color(0xFF555A50)
-private val MB_AMB = Color(0xFFFFC46B)
-/** Ink on gold. */
 private val MB_INK = Color(0xFF1A1A12)
-/** A digit's key, and the quieter ⌫, Clear and ⌄. */
 private val MB_KEY = Color(0xFF2C2F28)
 private val MB_KEY_QUIET = Color(0xFF23261F)

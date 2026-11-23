@@ -123,6 +123,6 @@ class TourFlowsTest {
         // whoever rewrites it after Amit approves the journey starts from
         val eleven = TourFlows.all(Tx.EN).single { it.id == "survey" }.steps[10]
         assertEquals("mode:list", eleven.anchor); assertEquals(TourDone.Mode("list"), eleven.done)
-        assertTrue("list" !in StepRoute.STEPS)
+        assertTrue("list" !in StepRoute.ROUTE)
     }
 }

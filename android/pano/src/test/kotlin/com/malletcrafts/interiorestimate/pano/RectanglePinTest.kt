@@ -90,11 +90,11 @@ class RectanglePinTest {
     private fun box(b: Box) = "${r(b.l)} ${r(b.t)} ${r(b.r)} ${r(b.b)}"
     private fun seg(s: DimLayout.Seg?) = if (s == null) "-" else "${r(s.x1)} ${r(s.y1)} ${r(s.x2)} ${r(s.y2)}"
 
-    private fun plates(els: List<SurveyPrep.Mark>, scope: DimLayout.Scope, picked: String?, active: String?, tabs: Boolean, actual: Map<String, Double>): List<String> {
+    private fun plates(els: List<SurveyPrep.Mark>, scope: OldPlace.Scope, picked: String?, active: String?, tabs: Boolean, actual: Map<String, Double>): List<String> {
         val ms = els.map { e -> DimLayout.mark(actual, "front", e, W, H, e.id == picked, tabs && e.id == picked && !SurveyPrep.isPoint(e.t) && !SurveyPrep.isLocked(e),
             active, ::toPx, U, DP, ::textW, null) }
         val keep = codes(els) + Box(SIZE - 50 * DP, 6.0 * DP, SIZE - 6 * DP, 84.0 * DP)
-        val out = DimLayout.place(ms, scope, SIZE, SIZE, keep, U, DP, textW(" × ", 10.0 * DP, false))
+        val out = OldPlace.place(ms, scope, SIZE, SIZE, keep, U, DP, textW(" × ", 10.0 * DP, false))
         return ms.flatMap { m -> m.figs.map { f -> "fig ${f.code} ${f.role} ${seg(f.line)} | ${f.at?.let { r(it[0]) + " " + r(it[1]) } ?: "-"} | ${r(f.w)} ${r(f.fs)} ${f.rank} ${f.measured} ${f.text} ${f.state} ${f.check} | ${seg(f.span)}" } } +
             ms.map { m -> "mark ${m.id} ${box(m.box)} ${m.picked} ${m.tabs}" } +
             out.plates.map { p -> "plate ${p.code} ${p.how} ${p.turned} ${p.arrowsIn} ${p.off} ${box(p.box)} | ${box(p.tap)} | ${seg(p.leader)} | ${p.whole?.let(::box) ?: "-"}" }
@@ -127,10 +127,10 @@ class RectanglePinTest {
         out["dims"] = ws.flatMap { e -> MarkDims.of("front", e, W, H).map { d -> "${d.code} ${d.role} ${r(d.x1)} ${r(d.y1)} ${r(d.x2)} ${r(d.y2)} ${d.line} ${d.known} ${MarkDims.value(emptyMap(), "front", e, d.code, d.est, W, H).text}" } }
         // 3. where every plate goes, at the phone's own numbers
         val read = mapOf("FD1.w" to 1400.0, "FW1.h" to 1198.0, "FE2.cs" to 300.0, "FS1.w" to 200.0, "FW1.p" to 230.0)
-        out["plates.face"] = plates(ws, DimLayout.Scope.FACE, "id-D1", "FD1.w", false, emptyMap())
-        out["plates.all"] = plates(ws, DimLayout.Scope.ALL, null, null, false, read) + plates(ws, DimLayout.Scope.ALL, "id-W1", "FW1.s", false, read)
-        out["plates.picked"] = plates(ws, DimLayout.Scope.PICKED, "id-D1", "FD1.w", true, read) + plates(ws, DimLayout.Scope.PICKED, "id-S1", null, true, emptyMap()) +
-            plates(ws, DimLayout.Scope.PICKED, "id-E2", "FE2.cs", true, emptyMap())
+        out["plates.face"] = plates(ws, OldPlace.Scope.FACE, "id-D1", "FD1.w", false, emptyMap())
+        out["plates.all"] = plates(ws, OldPlace.Scope.ALL, null, null, false, read) + plates(ws, OldPlace.Scope.ALL, "id-W1", "FW1.s", false, read)
+        out["plates.picked"] = plates(ws, OldPlace.Scope.PICKED, "id-D1", "FD1.w", true, read) + plates(ws, OldPlace.Scope.PICKED, "id-S1", null, true, emptyMap()) +
+            plates(ws, OldPlace.Scope.PICKED, "id-E2", "FE2.cs", true, emptyMap())
         // 4. every type and sub-kind on every kind of surface: its checklist and its dimensions
         val every = ArrayList<String>()
         for ((s, a, b) in listOf(Triple("front", W, H), Triple("floor", W, L), Triple("ceil", W, L))) for (type in SurveyPrep.types(s)) {
@@ -181,7 +181,7 @@ class RectanglePinTest {
         // 8. the walk, the check's estimate, the menu and a copy
         val flow = ArrayList<String>()
         for (s in SurveyPrep.SURFACES) { val ab = SurveyPrep.size(s, L, W, H); flow += "stops $s " + MeasureWalk.stops(rm, s, ab[0], ab[1]).joinToString(",") }
-        for (k in rm.actual.keys + listOf("FW1.w", "BD1.h")) flow += "check $k ${r(MeasureFlow.checkEst(rm, k) { SurveyPrep.size(it, L, W, H) })} ${MeasureFlow.value(rm, k) { SurveyPrep.size(it, L, W, H) }?.let { it.text + " " + it.state + " " + it.check }}"
+        for (k in rm.actual.keys + listOf("FW1.w", "BD1.h")) flow += "check $k ${r(oldCheckEst(rm, k) { SurveyPrep.size(it, L, W, H) })} ${oldValue(rm, k) { SurveyPrep.size(it, L, W, H) }?.let { it.text + " " + it.state + " " + it.check }}"
         for (st in listOf<Int?>(0, 1, 3, 5, null)) flow += "menu $st " + SurveyPrepEdit.menuItemsOf(en, rm, "m0", st, null).joinToString("|") { it.first + "=" + it.second }
         flow += "menu3 " + SurveyPrepEdit.menuItemsOf(en, rm, "m0").joinToString("|") { it.second } + " / " + SurveyPrepEdit.menuItems(en, rm, "front", rm.markById("m0")!!.second).joinToString("|") { it.second }
         val c = SurveyPrepEdit.duplicate(rm, "m0", W, H, "copy")!!
@@ -204,7 +204,7 @@ class RectanglePinTest {
         for ((i, e) in ws.withIndex()) {
             val d = drawn[i]; val bb = Box(d.x0, d.yT, d.x1, d.yB); val keep = SurveyPrepTouch.keepOfMark(bb, SurveyPrep.isSpot(e.t))
             val ms = ws.map { m -> DimLayout.mark(read, "front", m, W, H, m.id == e.id, m.id == e.id && !SurveyPrep.isPoint(m.t), null, ::toPx, U, DP, ::textW, null) }
-            val figs = DimLayout.place(ms, DimLayout.Scope.PICKED, SIZE, SIZE, codes(ws), U, DP, textW(" × ", 10.0 * DP, false)).plates.map { it.tap }
+            val figs = OldPlace.place(ms, OldPlace.Scope.PICKED, SIZE, SIZE, codes(ws), U, DP, textW(" × ", 10.0 * DP, false)).plates.map { it.tap }
             trash += "disc ${e.code} bare ${spot(SurveyPrepTouch.trashSpot(bb, emptyList(), SIZE, SIZE, DP, keep))} | figures ${figs.size} ${spot(SurveyPrepTouch.trashSpot(bb, figs, SIZE, SIZE, DP, keep))}" +
                 " | keep " + pts(keep.points) + " ${keep.body.size} ${r(keep.bodyHalf)}"
         }
@@ -240,6 +240,26 @@ class RectanglePinTest {
             body += "pick $x $y " + Pano360.pick(Pano360.order(SurveyPrepPalette.SEL, false), sc, x.toDouble(), y.toDouble(), DP).let { pk -> if (pk is Pano360.Pick.Body) "Body" else pk.toString() }
         out["body"] = body
         return out
+    }
+
+    /** MeasureFlow.checkEst and MeasureFlow.value as they were until port 63 slice I1b deleted them with the measure bar
+     *  (the photo's estimate a check named, and the bar box's one figure): restated here, line for line, so that the
+     *  section they print is held to the digest it was pinned at. Nothing on the screen asks either any more. */
+    private fun oldCheckEst(prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): Double? {
+        val (s, e) = prep.markOf(code) ?: return null
+        val z = ab(s)
+        val d = MarkDims.of(s, e, z[0], z[1]).firstOrNull { it.code == code } ?: return null
+        return d.est?.takeIf { MarkDims.photoCheck(prep.actual, s, e, code, it, z[0], z[1]) }
+    }
+    private fun oldValue(prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): MarkDims.Value? {
+        prep.markOf(code)?.let { (s, e) ->
+            val z = ab(s)
+            val d = MarkDims.of(s, e, z[0], z[1]).firstOrNull { it.code == code } ?: return null
+            return MarkDims.value(prep.actual, s, e, code, d.est, z[0], z[1])
+        }
+        val m = prep.readingOf(code, ab)?.second ?: return null
+        val state = if (prep.actual[code] != null) MarkDims.State.MEASURED else if (m.est == null) MarkDims.State.UNKNOWN else MarkDims.State.ESTIMATE
+        return MarkDims.Value(SurveyPlan.figure(prep.actual, code, m.est).t, state, false)
     }
 
     private fun digest(lines: List<String>): String =

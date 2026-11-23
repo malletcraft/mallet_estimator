@@ -260,8 +260,7 @@ class PhotoFiguresTest {
         // nothing to say of a reading that passes, of an unread figure, of a Line
         p.actual["FD1.h"] = 2095.0
         for (k in listOf("FD1.h", "FD1.l", "F-M1.len", "FZ9.w")) assertNull(MeasureFlow.guardText(Tx.EN, p, k, ::ab), k)
-        // the old sentence quoted the photo's estimate: it is the one this replaces
-        assertEquals("The photo says ≈900 mm. Check the mark, or shoot again.", MeasureFlow.checkText(Tx.EN, p, "FD1.w", ::ab))
+        // the old sentence quoted the photo's estimate: it went with MeasureFlow.checkText in slice I1b, and its key with it
     }
 
     // ------------------------------------------------------------------ rule 3: a Line, an area, a chain

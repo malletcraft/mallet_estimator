@@ -102,7 +102,7 @@ class PickTest {
         val p = wall()
         for (st in STAGES) for (step in StepRoute.ROUTE)
             assertEquals(step == StepRoute.MARK && (st == 0 || st == null), Pick.goldOk(sc(p, st, step)), "$step at $st")
-        assertFalse(Pick.goldOk(sc(p, SURVEY, StepRoute.MEASURE)), "the old third step is no step")
+        assertFalse(Pick.goldOk(sc(p, SURVEY, "measure")), "the old third step is no step")
     }
 
     @Test fun `a figure turned gold - a new key, never none and never the same one`() {
@@ -163,9 +163,9 @@ class PickTest {
         read(p, "FD1.l"); assertEquals(State(D1, true, "FD1.l"), Pick.body(sc(p), State(D1, false, "FD1.l"), D1).state)
         // nothing gold on it: its first unread
         assertEquals(State(D1, true, "FD1.w"), Pick.body(sc(p), State(D1, false, null), D1).state)
-        // the same answer as the rule it is re-anchored from
+        // the rule it is re-anchored from (MeasureFlow.body, gone in slice I1b): an own figure stays gold, else the first unread
         for (g in listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", null))
-            assertEquals(MeasureFlow.body(p, D1, D1, g, SURVEY, ::ab).active, Pick.body(sc(p), State(D1, false, g), D1).state.gold, "$g")
+            assertEquals(g ?: "FD1.w", Pick.body(sc(p), State(D1, false, g), D1).state.gold, "$g")
         // after Survey nothing is gold, whatever was
         assertEquals(State(D1, false, null), Pick.body(sc(p, 2), State(D1, false, "FD1.l"), D1).state)
     }
@@ -506,9 +506,8 @@ class PickTest {
         val st = State(D1, false, "FD1.l")
         for (s in SurveyPrep.SURFACES) Pick.tab(st, s, s).let { assertSame(st, it.state); assertTrue(it.stay); assertEquals(Pad.KEEP, it.pad) }
         for (step in StepRoute.ROUTE) Pick.step(st, step, step, "front", PhaseTools.Ask.OPEN).let { assertSame(st, it.state); assertTrue(it.stay) }
-        // exactly where the rule it is re-anchored from stayed: the same step and the same face, a face only
-        assertEquals(MeasureFlow.Move.STAY, MeasureFlow.move(StepRoute.MEASURE, StepRoute.MEASURE, "front", "front"))
-        assertEquals(MeasureFlow.Move.WALK, MeasureFlow.move(StepRoute.MEASURE, StepRoute.MEASURE, "plan", "plan"))
+        // exactly where the rule it is re-anchored from (MeasureFlow.Move.STAY, gone in slice I1b) stayed: the same step and
+        // the same face, a face only
         assertFalse(Pick.step(st, "mark", "mark", "plan", PhaseTools.Ask.OPEN).stay)
     }
 
@@ -537,7 +536,7 @@ class PickTest {
             assertEquals(PhaseTools.Ask.OPEN, PhaseTools.routeAsk(StepRoute.MARK, stage) { true }, "$stage")
             // the step falls to 1 · Lines, never to a step that no longer exists
             assertEquals(StepRoute.LINES, PhaseTools.routeMode(StepRoute.MARK, stage) { false }, "$stage")
-            assertEquals(StepRoute.LINES, PhaseTools.routeMode(StepRoute.MEASURE, stage) { false }, "$stage")
+            assertEquals(StepRoute.LINES, PhaseTools.routeMode("measure", stage) { false }, "$stage")
         }
         Pick.step(st, "lines", "mark", "front", PhaseTools.Ask.LINES_OPEN).let { assertSame(st, it.state); assertTrue(it.stay); assertEquals(Pad.KEEP, it.pad) }
         Pick.step(st, "mark", "360", "front", PhaseTools.Ask.HIDDEN).let { assertSame(st, it.state); assertTrue(it.stay) }

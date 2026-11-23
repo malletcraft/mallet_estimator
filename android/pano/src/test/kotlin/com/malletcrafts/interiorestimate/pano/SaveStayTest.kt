@@ -101,4 +101,14 @@ class SaveStayTest {
             assertFalse(f.returnType == String::class.java && f.name.startsWith("open"), f.name)
         }
     }
+
+    @Test fun `a NEW capture's press writes no pictures - its bar says the autosave's line, never writing its pictures for ever`() {
+        // port 63 slice I1b: the screen passes pictures = (PICTURES in effects), false on Flow.NEW, where the keep on back
+        // writes them; an answer that never comes must not leave "writing its pictures..." on the bar
+        assertFalse(Effect.PICTURES in SaveStay.effects(6, readBack = true, flow = SaveStay.Flow.NEW))
+        val m = SaveStay.saved(SaveStay.OPENED, 4, readBack = true, pictures = false)
+        assertEquals(SaveStay.Pictures.NONE, m.pictures)
+        assertEquals("Saved ✓ 14:05", SaveStay.bar(Tx.EN, m, 4, auto)); assertFalse(SaveStay.changedSince(m, 4))
+        assertEquals("Not saved: did not read back", SaveStay.bar(Tx.EN, SaveStay.saved(m, 5, readBack = false, pictures = false), 5, auto))
+    }
 }

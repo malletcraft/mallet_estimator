@@ -32,16 +32,16 @@ import java.time.Instant
  * ("The tools keep following the project's own phase, Survey for a project made on the phone", index61c2.html
  * 4091-4093); null while a listed project's stage is unread, when every tool shows and every move is offered, as v53
  * did. Pure. SLICE L3 wired the moves and the gate (the Mark sheet); SLICE L4 (11 Nov 2026) wires survey prep itself:
- * the band ([band]), the `mark` and `palette` rows ([prepSteps], [prepMode], [toolFor]), what a type tool's tap places
+ * the band ([band]), the `mark` and `palette` rows ([routeSteps], [routeMode], [holds], [toolFor]), what a type tool's tap places
  * ([place], and the chip's second half through SurveyPrepPalette.chip), and the marks of earlier phases held read-only
  * ([editable], [delOk], [lockOk], [bulk] and what a refused act says). PORT 63 SLICE M2 (16 Nov 2026) wires the
  * `readings` row -- after Survey a figure is not keyed ([PREP_HONOURS], [readingRefusal]) -- and the `capture` row, on
  * the room screen (MainActivity asks [can] for [Tool.CAPTURE]). The `lines` row is still to come (DESIGN-port63 J3).
  *
- * THE THIRD STEP IS 3 · MEASURE SINCE PORT 63 (Amit, 15 Nov 2026: "The laundry list of measurements shown below screen
- * is also frustrating."): the phone has no list any more, and the step every phase shows -- the one survey prep lands
- * on where a phase has no 2 · Mark -- is the squared photo with its figures, [StepRoute.MEASURE]. The prototype's row
- * for it keeps its name, [Tool.LIST]: the table is the prototype's, cell for cell.
+ * THE STEP EVERY PHASE SHOWS IS 2 · MARK SINCE PORT 63 SLICE I1b (Amit, 16 Nov 2026: "do we really need two screen
+ * now? which is mark and measure?"): the squared photo with its figures, marked and measured on one step
+ * ([StepRoute.ROUTE]). The prototype's row for the view every phase shows keeps its name, [Tool.LIST]: the table is
+ * the prototype's, cell for cell.
  */
 object PhaseTools {
 
@@ -123,38 +123,11 @@ object PhaseTools {
 
     // ------------------------------------------------------------------ the step strip
 
-    /** The tool a step of [StepRoute.STEPS] stands for; null for a key that is no step. THE PHONE'S THIRD STEP IS
-     *  3 · MEASURE since port 63 (slice M2): it stands where the prototype's 3 · List stands, shown in every phase, so
-     *  it reads that row, [Tool.LIST] -- the row keeps the prototype's name. */
-    fun toolOf(step: String): Tool? = when (step) {
-        "lines" -> Tool.LINES
-        "mark" -> Tool.MARK
-        StepRoute.MEASURE -> Tool.LIST
-        "360" -> Tool.VIEW_360
-        else -> null
-    }
-
-    /** Whether the strip shows [step] at [stage]: a step whose tool the phase hides is not drawn at all. */
-    fun stepShown(step: String, stage: Int?): Boolean = toolOf(step)?.let { can(it, stage) } ?: false
-
-    /**
-     * The steps the strip shows at [stage], in [StepRoute.STEPS] order: all four at Survey and while unread; 2 · Mark
-     * on through the Wish list, Vendor review and Revisions; 3 · Measure (and the 360) alone at Estimation -- and at
-     * Client approved, where the prototype draws steps 1 and 2 but lets neither be entered (Q-list 6).
+    /*
+     * The four-step route of port 63 slice M2 (1 · Lines, 2 · Mark, 3 · Measure, 4 · 360) and its rules -- toolOf,
+     * stepShown, steps, modeFor, prepSteps and prepMode -- went with 3 · Measure in slice I1b. The steps are
+     * [StepRoute.ROUTE] and their rules [routeTool], [routeSteps], [routeMode] and [routeAsk], below.
      */
-    fun steps(stage: Int?): List<String> = StepRoute.STEPS.filter { stepShown(it, stage) }
-
-    /**
-     * The step survey prep is on, moved on from one the phase hides (spPre): a hidden 1 · Lines goes to 2 · Mark when
-     * the phase shows it and the open tab is [markable] (a face whose four lines are set, so it can be squared), else
-     * to 3 · Measure; a hidden 2 · Mark goes to 3 · Measure. Any other [mode] is kept.
-     */
-    fun modeFor(mode: String, stage: Int?, markable: Boolean): String {
-        var m = mode
-        if (m == "lines" && !can(Tool.LINES, stage)) m = if (can(Tool.MARK, stage) && markable) "mark" else StepRoute.MEASURE
-        if (m == "mark" && !can(Tool.MARK, stage)) m = StepRoute.MEASURE
-        return m
-    }
 
     /**
      * THE TOOL THAT IS ON, from the one last picked ([tool]): put back to Select where the phase has no palette (spPre)
@@ -178,34 +151,13 @@ object PhaseTools {
      * readings part of port 62's L10). The last of the phase's hiding -- 1 · Lines and the room-size pencil -- adds
      * [Tool.LINES] here (DESIGN-port63 J3); until then the strip keeps 1 · Lines in every phase, as before. `list`
      * and `view360` are shown in every phase, so honouring them changes nothing. ONE PLACE: the strip, the step survey
-     * prep is on and every press routed to a step read [prepSteps] / [prepMode], never a rule of their own; whether a
-     * reading may be keyed is [prepShows] of [Tool.READINGS].
+     * prep is on and every press routed to a step read [routeSteps] / [routeMode] / [routeAsk], never a rule of their
+     * own; whether a reading may be keyed is [prepShows] of [Tool.READINGS].
      */
     val PREP_HONOURS: Set<Tool> = setOf(Tool.MARK, Tool.PALETTE, Tool.READINGS)
 
     /** Whether survey prep shows [tool] at [stage] in this build: the table's cell for a row it honours, else shown. */
     fun prepShows(tool: Tool, stage: Int?): Boolean = tool !in PREP_HONOURS || can(tool, stage)
-
-    /**
-     * The steps survey prep's strip draws at [stage], in [StepRoute.STEPS] order -- each keeps its own number, so with
-     * 2 · Mark hidden the strip reads 1 · 3 · 4, as the prototype's does with its hidden step's circle gone (CSS
-     * 1272-1274): all four at Survey, the Wish list, Vendor review, Revisions and while unread; no 2 · Mark at
-     * Estimation and at Client approved, where 3 · Measure is the step that places nothing (port 63).
-     */
-    fun prepSteps(stage: Int?): List<String> = StepRoute.STEPS.filter { k -> toolOf(k)?.let { prepShows(it, stage) } ?: false }
-
-    /**
-     * The step survey prep is on at [stage], moved on from one it does not show (spPre, by the rows it honours): 2 ·
-     * Mark goes to 3 · Measure where the phase has no Mark; every other [mode] is kept. (A hidden 1 · Lines will go
-     * to 2 · Mark when [markable] -- the open tab is a face whose four lines close -- else to 3 · Measure, once that
-     * row is honoured (DESIGN-port63 J3); [markable] is asked only then.)
-     */
-    fun prepMode(mode: String, stage: Int?, markable: () -> Boolean): String {
-        var m = mode
-        if (m == "lines" && !prepShows(Tool.LINES, stage)) m = if (prepShows(Tool.MARK, stage) && markable()) "mark" else StepRoute.MEASURE
-        if (m == "mark" && !prepShows(Tool.MARK, stage)) m = StepRoute.MEASURE
-        return m
-    }
 
     // ------------------------------------------------------------------ the three-step route (port 63 slice I1a)
 
@@ -216,8 +168,7 @@ object PhaseTools {
      * four-step route had 3 · Measure. What the phase takes away is not the step but what can be DONE in it: placing
      * ([Tool.PALETTE]: no tool row at Estimation and Client approved), holding and moving ([holds]) and keying a
      * reading ([Tool.READINGS]: after Survey nothing turns gold, there is no keypad, no laser chip, no count and no
-     * `▸`). These stand BESIDE [toolOf], [prepSteps] and [prepMode], which the screen reads until slice I1b switches
-     * it over and deletes them.
+     * `▸`). The four-step route's own rules went in slice I1b.
      */
 
     /**

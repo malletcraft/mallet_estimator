@@ -22,9 +22,6 @@ import kotlin.math.max
  */
 object StepRoute {
 
-    /** The third step's key: 3 · Measure (port 63 slice M2). A step's key is never shown; its name is [stepName]. */
-    const val MEASURE = "measure"
-
     /** How far below a step's top a press still belongs to it: the APK's minimum touch size. */
     const val REACH_DP = 48.0
 
@@ -86,29 +83,6 @@ object StepRoute {
     /** The ✓ goes on a face whose four lines are all set; Plan never carries one. */
     fun tabTick(t: String, bounded: Boolean): Boolean = isFace(t) && bounded
 
-    /**
-     * The steps of a face, in order: 1 · Lines, 2 · Mark, 3 · Measure, 4 · 360. THE THIRD STEP IS THE PHOTO, NOT A
-     * LIST (port 63 slice M2; DESIGN-port63 §1.3): the same squared face with one figure on every dimension and a walk
-     * through the unmeasured ones, where nothing can be moved, resized or placed. 4 · 360 joined with slice 17, once
-     * it works (Amit, 15 Oct 2026: "Yes, last, after everything else"); until then it was hidden, never greyed -- no
-     * dead step, by the no-fallbacks rule.
-     */
-    val STEPS: List<String> = listOf("lines", "mark", MEASURE, "360")
-
-    /** A step's name: Lines, Mark, Measure (common.*) and 360, which is a number in every language. */
-    fun stepName(tx: Tx, key: String): String = when (key) {
-        "lines" -> tx.common_lines
-        "mark" -> tx.common_mark
-        MEASURE -> tx.common_measure
-        else -> key // "360"
-    }
-
-    /** The step's name as it is read out and labelled: "2 · Mark" -- its number, the separator, its name. */
-    fun label(tx: Tx, i: Int): String = "${i + 1}$SEP${stepName(tx, STEPS[i])}"
-
-    /** Where [mode] sits in the strip (-1: not a step shown). */
-    fun stepIndex(mode: String): Int = STEPS.indexOf(mode)
-
     /** The separator in a step's label and after the strip's face. */
     private const val SEP = " · " // text:value the prototype's separator, the same in both languages
 
@@ -129,18 +103,15 @@ object StepRoute {
      *  64 portrait, 56 landscape. */
     fun budgetDp(land: Boolean, tab: String): Int = 2 * tabRowDp(land) + if (showStrip(tab)) stripDp(land) else 0
 
-    // ------------------------------------------------------------------ the measure bar and its pad (port 63 slice M1)
+    // ------------------------------------------------------------------ the keypad (port 63 slices M1, I1)
 
     /*
-     * MEASURING HAPPENS ON THE PHOTO (DESIGN-port63 §1.4): under it, one bar -- label · ‹ · two lines · the figure box
-     * · D2 · › -- and, only when asked for, the app's own pad of four rows under the bar. Their heights are here so the
-     * arithmetic of what still fits is tested in this module; slice M2 draws them (app/SurveyMeasure.kt).
+     * THE KEYPAD STANDS IN THE COLUMN, in the tool row's place, and only while he types (DESIGN-imagemeter §5). The
+     * measure bar that stood over it until slice I1b is gone: nothing under the photo shows a measurement. Its heights
+     * are here so the arithmetic of what still fits is tested in this module (app/SurveyMeasure.kt draws it).
      */
 
-    /** The measure bar, dp: 56 in portrait, 48 in landscape. */
-    fun measureBarDp(land: Boolean): Int = if (land) 48 else 56
-
-    /** One row of the pad, dp: 44 in portrait, 36 in landscape. */
+    /** One row of the keypad, dp: 44 in portrait, 36 in landscape. */
     fun padRowDp(land: Boolean): Int = if (land) 36 else 44
 
     /** The pad's rows: 1 2 3 ⌫ / 4 5 6 Clear / 7 8 9 Next / ⌄ 0 (Next, two rows tall). */
@@ -150,19 +121,16 @@ object StepRoute {
      *  its 12 dp of padding): the top bar, dp ... */
     const val LAND_TOPBAR_DP = 32
 
-    /** ... and the column's whole height, dp. The bar, the tabs, the strip, the measure bar and the open pad must fit
-     *  in it (StepRouteTest); the palette and the picked mark's row do NOT fit beside the pad, which is why an open pad
-     *  takes their place in 2 · Mark and 4 · 360. */
+    /** ... and the column's whole height, dp. The bar, the tabs, the strip and whatever 2 · Mark stands under them --
+     *  the tool row, the held item's row over it, or the keypad -- must fit in it ([landFits]). */
     const val LAND_COLUMN_DP = 324
 
     // ------------------------------------------------------------------ ONE STEP TO MARK AND MEASURE (port 63 slice I1a)
 
     /*
      * Amit, 16 Nov 2026, on build 0.3.337: "do we really need two screen now? which is mark and measure? as we should
-     * be measure where marking is done." So the steps become 1 · Lines, 2 · Mark, 3 · 360 (DESIGN-imagemeter §0, §2.1,
-     * §14 I1): 3 · Measure goes, and with it the measure bar. What follows is that route, BESIDE the four-step one
-     * above, which the screen still draws until slice I1b switches it over and deletes [MEASURE], [STEPS], [label],
-     * [stepName], [stepIndex] and [measureBarDp].
+     * be measure where marking is done." So the steps are 1 · Lines, 2 · Mark, 3 · 360 (DESIGN-imagemeter §0, §2.1,
+     * §14 I1): 3 · Measure went in slice I1b, and with it the measure bar and the four-step route.
      */
 
     /** The three steps' keys. A key is never shown; its name is [routeName]. */
@@ -187,16 +155,11 @@ object StepRoute {
     fun routeLabel(tx: Tx, i: Int): String = "${i + 1}$SEP${routeName(tx, ROUTE[i])}"
 
     /**
-     * THE STEP A MODE KEY MEANS ON THE THREE-STEP ROUTE: itself when it is one of [ROUTE]; the old third step's key
-     * ([MEASURE], "measure") is 2 · Mark, where its figures now are; anything else is 1 · Lines, the step every face
-     * starts on. Nothing stores a step, so this only ever meets a key a caller still holds in memory -- but a key that
-     * is nobody's must never leave the screen on no step at all.
+     * THE STEP A MODE KEY MEANS ON THE THREE-STEP ROUTE: itself when it is one of [ROUTE]; anything else is 1 · Lines,
+     * the step every face starts on. Nothing stores a step, so this only ever meets a key a caller holds in memory --
+     * but a key that is nobody's must never leave the screen on no step at all.
      */
-    fun routeOf(mode: String): String = when (mode) {
-        in ROUTE -> mode
-        MEASURE -> MARK
-        else -> LINES
-    }
+    fun routeOf(mode: String): String = if (mode in ROUTE) mode else LINES
 
     /** The palette's row under the photo, dp: 6 over 50 in portrait, 6 over 46 in landscape (as it stands today). */
     fun toolRowDp(land: Boolean): Int = SurveyPrepPalette.TOP_DP + if (land) 46 else 50

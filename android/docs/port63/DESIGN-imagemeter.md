@@ -1247,6 +1247,131 @@ in I1a: §12's "Deleted" keys and `sp.measure.photo_says_x` still have their rea
 
 ---
 
+## 20. I1b as built — the screen switched over (23 Nov 2026)
+
+I1b is the third commit of slice I1 on `port63-i1`, over I1c (`4311e1e`) over I1a (`2b0f7bf`) over `main` (`3c377c3`,
+Play 0.3.345). It makes survey prep CALL the pure rules of §19 and §21 and DELETES what they replace (§13's "Deleted"
+rows for I1). `:app` holds no rule of its own for any of it: who is picked, held or gold, where a reading goes, what
+the chip, the bar, the tool row and the photo show are `:pano`'s answers, and the screen applies them.
+
+**What was checked, and what was not.** `:pano` after I1b: 107 test classes, 1,518 tests, 0 failures (after I1c: 109
+and 1,549 — the 31 fewer are the deleted rules' own tests: `MeasureBarLayoutTest` 6, `OnFaceTest` 4, `MeasureFlowTest`
+14, `MeasureTextTest` 5, one each of `DeleteGuardTest`, `MeasureScreenTest` and `StepRouteTest`, less one new
+`SaveStayTest`). `:app` is compiled only by CI. In this container it was TYPE-CHECKED against stand-ins: kotlinc 2.0.21
+(from `~/.gradle`), the real `:pano` classes, and hand-written stubs of the Compose and Android APIs, compiling
+`SurveyPrepScreen.kt`, `SurveyPrepDraw.kt`, `SurveyPrep360.kt`, `SurveyPrepTools.kt`, `SurveyMeasure.kt`, `MarkSheet.kt`,
+`SurveyPlanScreen.kt` and `SurveyPrepLocks.kt` together, and the same eight files of `4311e1e` against `4311e1e`'s
+`:pano` with the same stubs. `SurveyPrepScreen.kt`, `SurveyPrepDraw.kt` and `SurveyMeasure.kt` have NO error at all;
+every error left (235 now, 247 before) is in the other five files, in lines this commit did not write, and is a stub
+gap (a Compose overload the stubs lack — `Modifier.size(w, h)`, `DrawScope.drawRect(style =)`, `Color(r, g, b, a)`,
+`Path`); no kind of error grew. `MainActivity.kt` was NOT type-checked (it reaches most of the app); its two changed
+call sites were read against the dialog's new parameters. Nothing has been seen on a phone.
+
+### 20.1 What the phone shows, state by state (Survey, unless said)
+
+- **Opening a face (P1).** A face whose four lines are all placed by hand and close (`PhaseTools.linesSet`) opens on
+  **2 · Mark**; any other face on **1 · Lines**. A face tab does the same; the open face's own tab changes nothing
+  (Pick row 26); the Plan keeps its step; 3 · 360 stays on 3 · 360. 2 · Mark on a face whose lines do not close is
+  refused in the words it always was, and nothing changes.
+- **The strip is three steps**, `1 · Lines`, `2 · Mark`, `3 · 360` (`StepRoute.ROUTE`, `routeSteps` per phase). There
+  is no 3 · Measure, no measure bar, no figure box, no ‹ ›, no on-screen D2 and no `all` button.
+- **2 · Mark, nothing picked.** Every mark's CODE on its box (it names the mark), and every figure of every mark that
+  has been READ — its size and its position, the `⊥` depth included — as the number alone, laid along its own
+  dimension: a width plate level on its width line, a height plate turned up its height line, a Line's or a Tape's
+  figure turned to the line and breaking it, never upside down (P3, P4, P5; `PhotoFigures.layout`,
+  `DimLayout.placeShown`). An unread figure shows NOTHING. No photo estimate anywhere, on the photo or the 360 (§18).
+  A Line, an area, a Tape and a chain carry no code on the photo.
+- **A tap on a mark (or a Line, a Tape's band, an area, a chain): picked and HELD** (Pick rows 1 and 2): its unread
+  figures show a quiet `?`, and at Survey its first unread figure is **gold** — `▶ ?` on a gold plate over a dark
+  casing — unless one of its figures already was. Its handles show. Under the photo the TOOL ROW gives way to the HELD
+  ROW (`StepRoute.underMark`): the mark's label (a tap opens its Mark sheet), its nudges and its padlock; for a Line,
+  an area, a Tape or a chain its code (the one place a code is shown, P4) and its padlock. No value and no Delete in
+  any row. A second tap keeps the gold he chose.
+- **Only the held item moves** (`Pick.drag`): a tab resizes from the first pixel; the body moves once the finger is
+  `Pick.BODY_SLOP_DP` (8 dp) away. A drag on anything else pans. A locked item or one the phase holds read-only is
+  picked, never held, and a drag on it says why.
+- **The trash disc shows only while an item is held and no tool is armed** (`Pick.trash`), and it deletes the held item
+  only (Pick row 24). The long-press menu keeps its Delete. A delete is one undo step, as before.
+- **A tap on a figure** turns it gold (its owner picked, held only if it already was); a tap on the GOLD figure opens
+  the KEYPAD in the tool row's place (`Under.KEYPAD`). Its Next ▸ stores what was typed (`Landing.keyed`) or moves on
+  (`Pick.next`). Any other tap on the photo stores what was typed and shuts the keypad.
+- **The laser.** The chip in the top bar (`LaserChip`, shown in the phases that take readings): grey "Laser not
+  connected · tap to connect" (a tap starts the link and asks for Bluetooth once), connecting, gold "D2 connected ·
+  press the meter's own button to read". A figure turning gold starts the link by itself (`LaserChip.gold`). A reading
+  from the meter's own button goes to the gold figure (`Landing.route`): one light tick when it lands and passes, two
+  when it fails the check (`1234!`, the gold stays, "This reading does not match the mark. Shoot again, or ▸ to keep
+  it."), one strong buzz when it is thrown away (nothing gold, the 360, after Survey), whose note stays until the next
+  touch. The plate it landed on carries a gold ring for a second. After a pass the gold moves on by itself to the next
+  unread figure on the wall, the handles go, and the photo pans to it if it is off screen. A reading that lands while a
+  sheet is open or a finger is on a grab waits, and moves on when the sheet closes or the finger lifts.
+- **The tool row's last slot is `▸`** (`SurveyPrepPalette.nextSlot`): the next figure to measure on the wall, or, while
+  a figure is gold and nothing is left, "keep this reading". There is no Select slot: with a type armed, a tap places
+  it, and the tool lets go after one placement (`afterPlaced`); the new item is picked, held and its first figure gold.
+- **✓ Save saves and STAYS (P2).** On a kept capture a press does, once each: the read-back save, the as-is upload
+  queued, the room size kept, the survey pictures rewritten (one press at a time — a `Mutex` in `MainActivity`). The
+  screen stays on the same face, step and zoom, and the bar says "Survey prep saved — writing its pictures…", then
+  "… · 6 pictures in the room folder" or why not, until the next change. On a NEW capture a press is the read-back save
+  alone and the bar says the autosave's line; ← files the capture, as before, and then queues the upload the press
+  held back, once (`SaveStay.Flow.NEW`). Only ← leaves.
+- **Estimation and Client approved.** 2 · Mark is the view: nothing is held, nothing is gold, figures are the READ ones
+  only; the phase's refusals are as before.
+
+### 20.2 What was deleted
+
+From `:app`: the measure bar `SpMeasureBar` and its arrows, `measurePanel` and its dispatch, the 3 · Measure step and
+every branch for it (`measureHit`, the measure-mode taps), `fire()` and `distoGo()` (the on-screen D2 of survey prep;
+1 · Lines' reference box keeps its own D2, `fireRef`, until I4), the row Delete buttons and `SpDeleteGap` with their
+colours and heights, the row values, the Select slot and its icon (`drawSelectIcon`), the sticky tool, the `all`
+button and `figScope` / `allFigs`, `figureTag`, the old plate layout call, the photo estimate on every screen path, and
+`onDone` (its body is the kept capture's `onSaved`, its NEW-capture use is `onCancel`).
+
+From `:pano` (each with its tests, where it had any): `MeasureBarLayout` (file); `StepRoute.MEASURE`, `STEPS`,
+`stepName`, `label`, `stepIndex`, `measureBarDp`; `PhaseTools.toolOf`, `stepShown`, `steps`, `modeFor`, `prepSteps`,
+`prepMode`; `MeasureFlow.Bar`, `Kind`, `onFace`, `onItem`, `Move`, `move`, `body`, `own`, `value`, `checkEst`,
+`checkText`; `MeasureText.label`, `Cell`, `cell`, `progress`, `nextFace`, `photoSays`, `sidesSay`; `DeleteGuard.rowGapDp`,
+`rowClearDp`, `rowPadDp`, `rowToBarDp`, `clearOfD2Dp`, `rowToPaletteDp`, `clearOfPaletteDp`; `SurveyMeas.rowValue`;
+`SurveyChain.rowValue`; `SurveyPrepPalette.SlotKind`, `Slot`, `slots`, `isOn`; `DimLayout.Scope`, `shows`, `place`;
+`SurveyRef.shownSaid`.
+
+Keys (from both tables, from `mr-pending.tsv` where listed, and `index.tsv` regenerated): `sp.measure.all`,
+`sp.measure.aria.all`, `sp.measure.aria.previous`, `sp.measure.aria.skip`, `sp.measure.aria.type`, `sp.measure.x_of_x`,
+`sp.measure.next_face_x`, `sp.measure.photo_says_x`, `sp.measure.sides_say_x`, `sp.reference_shown_measure`,
+`refuse.sp.tap_measurement_first`, `common.select`, `sp.tape_x_mm` and `sp.x_x_mark_x` — the fourteen whose last
+reader this commit deleted (found by diffing the keys with no reader at `4311e1e` against now; the 658 accessors that
+had no reader before are untouched). 1,931 keys; `mr-pending.tsv` 34 → 24 keys (ten of the fourteen were pending); `unkeyed.tsv` stays empty.
+
+### 20.3 Departures, and why
+
+1. **`DimLayout.mark` and the level-plate rule (`DimLayout.placeBy`) stay, with no production caller.** The cases
+   of `DimLayoutTest`, `RectanglePinTest` and `TurnedLabelsTest` pin the placing rule through them, case by case and
+   in the old scopes; the scopes went to a test helper (`OldPlace`) and `placeBy` is `internal`. Deleting them would
+   delete the evidence that `placeShown` keeps every level plate where it was.
+2. **`MeasureText.sidesSay` and its key went too** — the four-corner closing check's sentence (Q1), which carried the
+   photo's `≈` figure and so cannot be said under §18. Q2 needs a sentence of its own for that check; none is written.
+3. **A locked item cannot be held, so its padlock is not in a row.** Unlocking is the long-press menu's Unlock (as the
+   held row needs a held item, Pick row 17). One tap more than 0.3.345 for a locked mark.
+4. **A double tap is still two taps** until I4 brings the zoom (Pick row 13 is built and not called).
+5. **A NEW capture's Save says the autosave's line**, not "writing its pictures…": it writes none (`SaveStay.saved(…,
+   pictures = false)`), and a line waiting for an answer that never comes would stay for ever.
+6. **The haptics are played as pulses** (`Landing.pulses`: one light tick, two light ticks 140 ms apart, one strong
+   buzz), because Compose's haptic API has only two kinds; the double is a second light tick, not a distinct effect.
+7. **The tests that pinned `:app` lines were moved, not loosened**: every source pin that named a deleted line now
+   names the line that replaced it (`PhaseToolsTest`, `BodyMoveTest`, `PaletteTest`, `MarkSheetTest`, `QuadMeetsF1Test`,
+   `FeaturesTest`, `DeleteGuardTest`, `MastersTest`), and `DESIGN-quad` §10 note 6 says that `sayCheck`'s two lines are
+   gone and that the plates are now `PhotoFigures.layout`.
+8. Carried from I1c (§21.3) unchanged: "lines set" means placed by hand AND closing (an older capture marked without
+   ever touching its guessed lines opens on 1 · Lines once); the NEW-capture flow above; `Σ` kept on a chain total;
+   the held mark's height plate turned; plates kept apart by their turned rectangles.
+
+### 20.4 Three things for Amit to look at first, on the phone
+
+1. **Open a wall whose lines are set, and one whose are not** — the first opens on 2 · Mark, the second on 1 · Lines —
+   then press ✓ Save on a kept capture: it stays, and the bar says the pictures were written.
+2. **Unpicked marks show every READ figure as a number along its line, and nothing else** — no code on a Line, no `≈`,
+   no `mm`; slanting Lines' figures lie along them. Check that plates on a busy wall do not overlap.
+3. **Laser walk**: tap a window, press the meter's button — one tick, the gold `▶ ?` moves to the next figure on its
+   own, and the thumb resting on the photo moves nothing; then a bad reading — two ticks, `!`, the gold stays.
+
 ## 21. Amit's five points from 0.3.345 (23 Nov 2026)
 
 Build 0.3.345 is 0.3.341's screen (1 · Lines, 2 · Mark, 3 · Measure, the measure bar, photo estimates) on Play. Amit

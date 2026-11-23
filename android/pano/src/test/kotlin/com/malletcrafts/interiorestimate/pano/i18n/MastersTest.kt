@@ -201,7 +201,7 @@ class MastersTest {
             Trades::class.java to listOf("tradeOf", "of", "catOf", "subOf", "withCat", "setCat", "ownOn", "seesOn", "moreRows"),
             // ... and what a phase shows, offers and places decides what is WRITTEN (asFor: the `born` a new mark gets); only
             // the band, the gate's line and the refusals take a Tx
-            PhaseTools::class.java to listOf("stageOf", "can", "steps", "modeFor", "toolFor", "asFor", "asChip", "nextAs", "moveOk", "gate",
+            PhaseTools::class.java to listOf("stageOf", "can", "toolFor", "asFor", "asChip", "nextAs", "moveOk", "gate",
                 "editable", "delOk", "lockOk", "bulk"),
             // port 62 slice L3: the Mark sheet's state holds what Done WRITES -- the move's target, the act, the why, the note,
             // its audience, the trade -- so opening it, every tap and keystroke, and apply take no Tx; only view (and the

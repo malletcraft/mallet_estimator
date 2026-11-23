@@ -141,7 +141,7 @@ class TurnedLabelsTest {
         // ... and so would their BOUNDING boxes: which is why the layout keeps turned rectangles apart, not boxes
         assertTrue(DimLayout.Turned.of(pa.box).hits(DimLayout.Turned.of(pb.box), 0.0), "their bounding boxes overlap")
         // the old level rule, handed the same two, cannot keep the second on its line's middle
-        val old = DimLayout.place(listOf(a, b), DimLayout.Scope.ALL, S, S, emptyList(), U, DP)
+        val old = OldPlace.place(listOf(a, b), OldPlace.Scope.ALL, S, S, emptyList(), U, DP)
         old.of("b.len")!!.let { assertFalse(it.how == DimLayout.How.ON_LINE && abs((it.box.l + it.box.r) / 2 - 180.0) < 1e-6 && abs((it.box.t + it.box.b) / 2 - 200.0) < 1e-6) }
     }
 
@@ -195,7 +195,7 @@ class TurnedLabelsTest {
         val bo = place(listOf(shown(beam, mapOf("FB1.d" to 400.0), picked = false)))
         assertEquals(LabelAngle.UP, bo.of("FB1.d")!!.angle)
         // the old rule left the floor figure upright: the one step is the only path that turns it
-        val old = DimLayout.place(listOf(DimLayout.mark(read, "front", win, W, H, true, false, null, ::toPx, U, DP, textW)), DimLayout.Scope.ALL, S, S, emptyList(), U, DP)
+        val old = OldPlace.place(listOf(DimLayout.mark(read, "front", win, W, H, true, false, null, ::toPx, U, DP, textW)), OldPlace.Scope.ALL, S, S, emptyList(), U, DP)
         assertFalse(old.of("FW1.s")!!.turned); assertEquals(LabelAngle.LEVEL, old.of("FW1.s")!!.angle)
     }
 

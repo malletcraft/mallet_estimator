@@ -61,11 +61,11 @@ class PaletteTest {
         assertEquals("Every mark type · Ceiling", SurveyPrepPalette.sheetTitle(Tx.EN, "ceil"))
     }
 
-    private fun names(slots: List<SurveyPrepPalette.Slot>, kind: String = "wall") = slots.joinToString("|") { s ->
+    private fun names(slots: List<SurveyPrepPalette.RowSlot>, kind: String = "wall") = slots.joinToString("|") { s ->
         when (s.kind) {
-            SurveyPrepPalette.SlotKind.SELECT -> "Select"
-            SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel(Tx.EN, kind, SurveyPrepPalette.SEL)
-            SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(Tx.EN, s.key)
+            SurveyPrepPalette.RowKind.NEXT -> SurveyPrepPalette.NEXT_GLYPH
+            SurveyPrepPalette.RowKind.MORE -> SurveyPrepPalette.moreLabel(Tx.EN, kind, SurveyPrepPalette.SEL)
+            SurveyPrepPalette.RowKind.TOOL -> SurveyPrepPalette.toolName(Tx.EN, s.key)
             else -> SurveyPrepPalette.short(Tx.EN, s.type?.name ?: s.key)
         } }
 
@@ -76,20 +76,20 @@ class PaletteTest {
         assertEquals(listOf("T", "M"), SurveyPrepPalette.offered(chains = false))
         assertEquals(listOf("T", "M", "K"), SurveyPrepPalette.offered(chains = true))
         assertEquals(SurveyPrepPalette.offered(chains = Features.CHAINS), SurveyPrepPalette.offered())
-        // THE ROW AS DRAWN: Select · Tape · Line · three types · More ▸ -- seven, on every kind of surface
-        assertEquals("Select|Tape|Line|Window|Door|Electric|More ▸", names(SurveyPrepPalette.slots("wall")))
-        assertEquals("Select|Tape|Line|Column|Step|Electric|More ▸", names(SurveyPrepPalette.slots("floor"), "floor"))
-        assertEquals("Select|Tape|Line|Beam|Electric|Bulb|More ▸", names(SurveyPrepPalette.slots("ceil"), "ceil"))
+        // THE ROW AS DRAWN (port 63 slice I1b): Tape · Line · three types · More ▸ · `▸` -- seven, on every kind of surface
+        assertEquals("Tape|Line|Window|Door|Electric|More ▸|▸", names(SurveyPrepPalette.row("wall")))
+        assertEquals("Tape|Line|Column|Step|Electric|More ▸|▸", names(SurveyPrepPalette.row("floor"), "floor"))
+        assertEquals("Tape|Line|Beam|Electric|Bulb|More ▸|▸", names(SurveyPrepPalette.row("ceil"), "ceil"))
         for (kind in listOf("wall", "floor", "ceil")) {
-            val sl = SurveyPrepPalette.slots(kind)
+            val sl = SurveyPrepPalette.row(kind)
             assertEquals(7, sl.size, kind)
-            assertEquals(listOf("T", "M"), sl.filter { it.kind == SurveyPrepPalette.SlotKind.TOOL }.map { it.key }, kind)
+            assertEquals(listOf("T", "M"), sl.filter { it.kind == SurveyPrepPalette.RowKind.TOOL }.map { it.key }, kind)
             assertTrue(sl.none { it.key == SurveyPrepPalette.CHAIN }, "$kind: no slot turns the Chain on")
-            // NOTHING IS LEFT AS A DEAD CONTROL: every slot is Select, a tool that works, a type of the surface, or More ▸
+            // NOTHING IS LEFT AS A DEAD CONTROL: every slot is a tool that works, a type of the surface, More ▸ or `▸`
             // -- the screen weighs them alike, so seven slots are a seventh of the row each
-            assertEquals(listOf(SurveyPrepPalette.SlotKind.SELECT, SurveyPrepPalette.SlotKind.TOOL, SurveyPrepPalette.SlotKind.TOOL,
-                SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.MORE), sl.map { it.kind }, kind)
-            assertTrue(sl.filter { it.kind == SurveyPrepPalette.SlotKind.TYPE }.all { it.type != null }, kind)
+            assertEquals(listOf(SurveyPrepPalette.RowKind.TOOL, SurveyPrepPalette.RowKind.TOOL, SurveyPrepPalette.RowKind.TYPE,
+                SurveyPrepPalette.RowKind.TYPE, SurveyPrepPalette.RowKind.TYPE, SurveyPrepPalette.RowKind.MORE, SurveyPrepPalette.RowKind.NEXT), sl.map { it.kind }, kind)
+            assertTrue(sl.filter { it.kind == SurveyPrepPalette.RowKind.TYPE }.all { it.type != null }, kind)
         }
         // More ▸ lists MARK TYPES and nothing else: no row, no tile and no name is the Chain's, on any surface
         for (s in SurveyPrep.SURFACES) for (tx in listOf(Tx.EN, Tx.MR)) {
@@ -115,38 +115,24 @@ class PaletteTest {
         assertNull(SurveyPrepPalette.moreArmed("wall", "K")); assertNull(SurveyPrepPalette.chipText(Tx.EN, "front", "K"))
     }
 
-    @Test fun `palette with the chain tool on - exactly 8 slots, Select, Tape, Line, Chain, three types, More (ct52 T, v52 slice 11)`() {
-        // the other side of Features.CHAINS, kept whole: one line in Features brings the eighth slot back
-        val now = SurveyPrepPalette.slots("wall", SurveyPrepPalette.offered(chains = true))
-        // ct52 T: "palette: exactly 8 slots, Select · Tape · Line · Chain · Window · Door · Electric · More ▸" -- never "Measure"
+    @Test fun `the row with the chain tool on - eight slots, Tape, Line, Chain, three types, More and the next slot (ct52 T, v52 slice 11)`() {
+        // the other side of Features.CHAINS, kept whole: one line in Features brings the Chain's slot back
+        val now = SurveyPrepPalette.row("wall", SurveyPrepPalette.offered(chains = true))
         assertEquals(8, now.size)
-        assertEquals("Select|Tape|Line|Chain|Window|Door|Electric|More ▸", now.joinToString("|") { s ->
-            when (s.kind) {
-                SurveyPrepPalette.SlotKind.SELECT -> "Select"
-                SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel(Tx.EN, "wall", SurveyPrepPalette.SEL)
-                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(Tx.EN, s.key)
-                else -> SurveyPrepPalette.short(Tx.EN, s.type?.name ?: s.key)
-            } })
+        assertEquals("Tape|Line|Chain|Window|Door|Electric|More ▸|▸", names(now))
         assertEquals(0xfacc15, SurveyPrepPalette.toolColour("T"))
         assertEquals(0x7dd3fc, SurveyPrepPalette.toolColour("M"))
         assertEquals(0xfb7185, SurveyPrepPalette.toolColour("K"))
-        // Tape, Line and Chain all present, as tools, and every surface kind has its eight
         for (kind in listOf("wall", "floor", "ceil")) {
-            val sl = SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = true))
+            val sl = SurveyPrepPalette.row(kind, SurveyPrepPalette.offered(chains = true))
             assertEquals(8, sl.size, kind)
-            assertEquals(listOf("T", "M", "K"), sl.filter { it.kind == SurveyPrepPalette.SlotKind.TOOL }.map { it.key }, kind)
+            assertEquals(listOf("T", "M", "K"), sl.filter { it.kind == SurveyPrepPalette.RowKind.TOOL }.map { it.key }, kind)
         }
         assertFalse(SurveyPrepPalette.isType("K")); assertNull(SurveyPrepPalette.chipText(Tx.EN, "front", "K"))
         assertTrue(SurveyPrepPalette.isMeasTool("T") && SurveyPrepPalette.isMeasTool("M")); assertFalse(SurveyPrepPalette.isMeasTool("K"))
         assertFalse(SurveyPrepPalette.isType("T")); assertFalse(SurveyPrepPalette.isType("M")); assertTrue(SurveyPrepPalette.isType("W"))
         assertNull(SurveyPrepPalette.chipText(Tx.EN, "front", "T")); assertNull(SurveyPrepPalette.moreArmed("wall", "M"))
-        // slice 11's palette: Tape, Line, Chain between Select and the types -- exactly eight
-        val v52 = SurveyPrepPalette.slots("wall", listOf("T", "M", "K"))
-        assertEquals(8, v52.size)
-        assertEquals("sel,T,M,K,W,D,E,", v52.joinToString(",") { it.key })
-        assertEquals(SurveyPrepPalette.SlotKind.MORE, v52.last().kind)
-        assertEquals(8, SurveyPrepPalette.slots("floor", listOf("T", "M", "K")).size)
-        assertEquals(8, SurveyPrepPalette.slots("ceil", listOf("T", "M", "K")).size)
+        assertEquals("T,M,K,W,D,E,,", SurveyPrepPalette.row("wall", listOf("T", "M", "K")).joinToString(",") { it.key })
     }
 
     @Test fun `Loft is in More now, and More names it with a narrow no-break space`() {
@@ -165,16 +151,17 @@ class PaletteTest {
         assertNull(SurveyPrepPalette.moreArmed("floor", "S"))
     }
 
-    @Test fun `exactly one slot is lit`() {
-        for ((kind, tool) in listOf("wall" to SurveyPrepPalette.SEL, "wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "wall" to "T", "floor" to "M")) {
-            val lit = SurveyPrepPalette.slots(kind).filter { SurveyPrepPalette.isOn(it, kind, tool) }
+    @Test fun `at most one slot is lit - none with no tool on, and the next slot never`() {
+        for ((kind, tool) in listOf("wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "wall" to "T", "floor" to "M")) {
+            val lit = SurveyPrepPalette.row(kind).filter { SurveyPrepPalette.rowOn(it, kind, tool) }
             assertEquals(1, lit.size, "$kind $tool")
         }
+        // no tool on: nothing is lit -- there is no Select slot to light (port 63 slice I1b)
+        for (kind in listOf("wall", "floor", "ceil")) assertEquals(0, SurveyPrepPalette.row(kind).count { SurveyPrepPalette.rowOn(it, kind, SurveyPrepPalette.SEL) })
         // the Chain's slot lights with the chain tool on -- and with it off there is no such slot to light (slice F1)
-        assertEquals(1, SurveyPrepPalette.slots("ceil", SurveyPrepPalette.offered(chains = true)).count { SurveyPrepPalette.isOn(it, "ceil", "K") })
-        assertEquals(0, SurveyPrepPalette.slots("ceil").count { SurveyPrepPalette.isOn(it, "ceil", "K") })
-        assertEquals(SurveyPrepPalette.SlotKind.MORE,
-            SurveyPrepPalette.slots("wall").single { SurveyPrepPalette.isOn(it, "wall", "N") }.kind)
+        assertEquals(1, SurveyPrepPalette.row("ceil", SurveyPrepPalette.offered(chains = true)).count { SurveyPrepPalette.rowOn(it, "ceil", "K") })
+        assertEquals(0, SurveyPrepPalette.row("ceil").count { SurveyPrepPalette.rowOn(it, "ceil", "K") })
+        assertEquals(SurveyPrepPalette.RowKind.MORE, SurveyPrepPalette.row("wall").single { SurveyPrepPalette.rowOn(it, "wall", "N") }.kind)
     }
 
     @Test fun `tools are sticky and the one on goes back to Select`() {
@@ -497,7 +484,7 @@ class PaletteTest {
         assertTrue(tools.contains("val columns = SurveyPrepPalette.moreColumns(SurveyPrepPalette.moreRows(tx, s), land)"))
         assertTrue(screen.contains("SpMoreSheet(tab, tool, land,\n                    if (land) Modifier.align(Alignment.BottomEnd).widthIn(max = 700.dp).fillMaxWidth() else Modifier.align(Alignment.BottomCenter).fillMaxWidth(),"))
         assertFalse(tools.contains("chunked(5)"), "v52's grid of five is gone")
-        assertTrue(tools.contains("val tight = slot.kind == SurveyPrepPalette.SlotKind.MORE && SurveyPrepPalette.moreLong(tx, kind, tool)"))
+        assertTrue(tools.contains("val tight = slot.kind == SurveyPrepPalette.RowKind.MORE && SurveyPrepPalette.moreLong(tx, kind, tool)"))
         // each of the ten new types has an icon by its name, as the twelve have
         for (n in MarkTypes.NEW) assertEquals(1, count6(tools, "        \"${n.name}\" -> {"), "the icon of ${n.name}")
         // the two new points have their own symbol in a spot, from ONE painter on the squared face and on the 360
@@ -539,11 +526,11 @@ class PaletteTest {
         assertEquals(1, count6(screen, "kindOpen.value = false; view = view.fit(); tick++ }")); assertEquals(1, count6(screen, ".clickable(role = Role.Button) { kindOpen.value = false; onGrid() }"))
         assertEquals(1, count6(p3, "kindOpen.value = false; act.look(Pano360.faceView(tab, 1.0, 1.0)) }")); assertEquals(1, count6(p3, ".clickable(role = Role.Button) { kindOpen.value = false; act.grid() }"))
         // More ▸ only opens and shuts its sheet: it touches neither the tool nor the list
-        assertEquals(1, count6(screen, "SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })"))
+        assertEquals(1, count6(screen, "onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen }, onNext = { nextFigure() })"))
         // what DOES end it from outside the photo: a face or a step pressed -- the open one too -- goes back to Select, and
         // a palette slot or a More tile changes the tool or lets it go (SurveyPrepPalette.next); each is a new state
-        assertTrue(screen.contains("tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "showTab: back to Select")
-        assertTrue(screen.contains("modeSet = m; sel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "setMode: back to Select")
+        assertTrue(screen.contains("tab = t; lineSel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "showTab: back to Select")
+        assertTrue(screen.contains("modeSet = m; lineSel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "setMode: back to Select")
         assertTrue(screen.contains("ref = refT, land = land, left = left) { showTab(t) }"), "a tab pressed is showTab, the open tab too (port 63 slice M2: the tab carries its count of what is left to measure)")
         assertEquals(SurveyPrepPalette.SEL, SurveyPrepPalette.next("CRP", "CRP"), "the same type picked again lets the tool go")
         assertEquals("CRP", SurveyPrepPalette.next("W", "CRP"))

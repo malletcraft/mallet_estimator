@@ -34,6 +34,25 @@ object Landing {
         LONG,
     }
 
+    /** One pulse of what the hand feels: when it starts, ms after the first ([atMs]), and whether it is the STRONG
+     *  buzz a long press gives ([strong]) or the light tick a handle gives. */
+    class Pulse(val atMs: Long, val strong: Boolean)
+
+    /** Between the two ticks of a [Haptic.DOUBLE], ms: far enough apart to be felt as two. */
+    const val DOUBLE_GAP_MS = 140L
+
+    /**
+     * WHAT EACH [Haptic] IS, PULSE BY PULSE (port 63 slice I1b): the screen plays these and decides nothing -- one light
+     * tick ([Haptic.TICK]: landed and passed, as the only haptic has always been); two light ticks [DOUBLE_GAP_MS] apart
+     * ([Haptic.DOUBLE]: landed and failed the check); one strong buzz ([Haptic.LONG]: thrown away). No two are alike,
+     * so the hand tells them apart with the eyes on the wall.
+     */
+    fun pulses(h: Haptic): List<Pulse> = when (h) {
+        Haptic.TICK -> listOf(Pulse(0L, false))
+        Haptic.DOUBLE -> listOf(Pulse(0L, false), Pulse(DOUBLE_GAP_MS, false))
+        Haptic.LONG -> listOf(Pulse(0L, true))
+    }
+
     /** The plate that has just taken a reading keeps a gold ring this long while the gold moves on, so the eye sees
      *  where the reading went (DESIGN-imagemeter §2.2). */
     const val RING_MS = 1000L

@@ -349,11 +349,9 @@ class MeasTest {
         assertEquals("Marked length", SurveyMeas.listName(Tx.EN, "front", m, false))
         assertEquals("Marked area · 0.93 m²", SurveyMeas.listName(Tx.EN, "front", a, false))
         assertEquals("Marked length · Front wall", SurveyMeas.listName(Tx.EN, "front", m, true))
-        assertEquals("Tape · 1234 mm", SurveyMeas.rowValue(Tx.EN, t, p.actual))
-        assertEquals("≈1000 mm", SurveyMeas.rowValue(Tx.EN, m, p.actual))
+        // the held item's row prints no value since port 63 slice I1b: its figure is on the photo, the number alone
         p.actual["F-M1.len"] = 1004.0
-        assertEquals("1004 mm", SurveyMeas.rowValue(Tx.EN, m, p.actual))
-        assertEquals("0.93 m²", SurveyMeas.rowValue(Tx.EN, a, p.actual))
+        assertEquals("1004", SurveyMeas.shownTag("F-M1", SurveyMeas.LINE, p.actual["F-M1.len"], ask = false))
         assertEquals("1234 mm", SurveyMeas.tapeTag(null, 1234.4)); assertEquals("F-T1 1234 mm", SurveyMeas.tapeTag("F-T1", 1234.4))
         assertEquals("F-M1 1000 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, m.pts))
         assertEquals("F-M2 0.93 m²", SurveyMeas.lineTag("F-M2", SurveyMeas.AREA, a.pts))

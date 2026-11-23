@@ -12,16 +12,13 @@ import kotlin.math.min
  * "imagemeter shows all dimensions on the annotation there itself which is easy to use." A busy wall -- a door, a
  * window, a switch plate and three electric points -- asks for 19 figures on a photo about 340 dp square, so where
  * the plates go, and which give way, is a rule of its own. It is here, pure and in canvas px, so it is tested in this
- * module; the painter (slice M2) only measures its texts, calls [place] and draws what comes back. Nothing is on
+ * module; the painter (slice M2) only measures its texts, calls [placeShown] and draws what comes back. Nothing is on
  * screen yet.
  *
- * WHICH FIGURES ([Scope], [shows]):
- *  - [Scope.PICKED] -- 2 · Mark: the picked mark, everything it asks; no other mark shows a figure, as today;
- *  - [Scope.FACE] -- 3 · Measure as it opens: every mark its SIZE (`w` on its top edge, `h` on its right edge), and
- *    only the picked mark its position (corner, floor or ceiling, drop, the `⊥` chip);
- *  - [Scope.ALL] -- 3 · Measure with the `all` toggle on: every figure of every mark.
+ * WHICH FIGURES are drawn is decided before this is asked ([markShown], [PhotoFigures]; since slice I1b there is no
+ * scope and no `all`: every mark shows every figure it has been READ, the picked mark everything it asks).
  *
- * THE PLACING RULE ([place]), in this order. Plates keep a constant size on screen.
+ * THE PLACING RULE ([placeShown]; [placeBy] its level-plate form), in this order. Plates keep a constant size on screen.
  *  1. Place in rank order ([Rank]): the active dimension, the picked mark's others, unmeasured, measured, then the
  *     figures of a mark not in the room.
  *  2. A plate sits mid-span on its line, which it breaks; the `h` plate turned to read bottom to top. A span too
@@ -72,8 +69,9 @@ import kotlin.math.min
  * measures hands [placeShown] only the figures the photo draws -- an unpicked mark what has been READ (since slice I1c
  * its position too), the picked mark everything it asks, with no photo estimate anywhere ([markShown], [PhotoFigures]),
  * every Tape, Line, area and chain figure with them ([item]), each plate TURNED ALONG ITS LINE -- and the HELD mark,
- * the one that shows its tabs, keeps them clear. [Scope], [shows], [mark] and [place] stay until the screen is switched
- * over; the placing rule itself is one function under both.
+ * the one that shows its tabs, keeps them clear. The scope of the four-step route (its Scope, shows and `place`) went in
+ * slice I1b; the placing rule itself is one function, [placeShown] and [placeBy] its two forms. [mark] and [placeBy]
+ * have no caller on the screen: they are the level-plate form the placing rule's own tests are written in.
  *
  * The same input gives the same output: no clock, no randomness, and ties keep the order they were given in.
  */
@@ -125,16 +123,6 @@ object DimLayout {
     fun textSize(picked: Boolean, dp: Double): Double = (if (picked) TEXT_PICKED_DP else TEXT_OTHER_DP) * dp
 
     // ------------------------------------------------------------------ which figures, in what order
-
-    /** Which marks show which figures: 2 · Mark, 3 · Measure, and 3 · Measure with `all` on. */
-    enum class Scope { PICKED, FACE, ALL }
-
-    /** Whether a figure of [role] is drawn in [scope], on the [picked] mark or on another. */
-    fun shows(scope: Scope, picked: Boolean, role: MarkDims.Role): Boolean = when (scope) {
-        Scope.PICKED -> picked
-        Scope.FACE -> picked || isSize(role)
-        Scope.ALL -> true
-    }
 
     /** A mark's SIZE: its `w` and `h` -- and a four-corner mark's four sides and its diagonal, which are its size (port
      *  63 slice Q1; DESIGN-quad §3.5), so every mark of the face shows them, picked or not. */
@@ -273,7 +261,7 @@ object DimLayout {
                val corners: List<DoubleArray>? = null)
 
     /**
-     * THE MARK [e] ON [s] AS [place] TAKES IT: one [Fig] per [MarkDims.of], its text [MarkDims.shown] (with the `!`
+     * THE MARK [e] ON [s] AS [placeBy] TAKES IT: one [Fig] per [MarkDims.of], its text [MarkDims.shown] (with the `!`
      * after it where the check fires), measured by [textW] (text, text size px, bold) and sized by [plateW]; its line
      * by [line]; its rank by [rank] -- [active] the reading key being measured now. The painter builds its input
      * here, so which figure, text and style a plate has is decided once, in this module. [u] the drawing's unit and
@@ -288,7 +276,7 @@ object DimLayout {
      *
      * [free] (port 63 slice Q1; DESIGN-quad §3.1, §3.5): the mark's corners are free ([Quad.free], the one rule the
      * painter, the press and this ask). Where it would show its tabs ([tabs]) it then shows its four CORNERS instead
-     * ([Mark.corners]), which [place] keeps clear in the tabs' place. The LAST parameter, false by default: every
+     * ([Mark.corners]), which [placeBy] keeps clear in the tabs' place. The LAST parameter, false by default: every
      * caller that passes the thirteen before it by position reads as it did. A four-corner mark's position lines are
      * not shifted off-centre, whether or not its corners are shown.
      */
@@ -601,9 +589,9 @@ object DimLayout {
 
     /**
      * WHERE A FIGURE WITH A LINE MAY GO WHEN EVERY LABEL RUNS ALONG ITS DIMENSION ([placeShown]), best first -- rule 2
-     * and 3 of [place]'s header with the plate TURNED TO ITS LINE ([turnOf]): mid-span on the line, which it breaks,
+     * and 3 of this object's header with the plate TURNED TO ITS LINE ([turnOf]): mid-span on the line, which it breaks,
      * then ¼ and ¾ along (the whole plate within the span, half of [SHORT_DP] clear of each end); then off the line,
-     * square to it, on a leader -- half a plate height clear, either side, the first side as [place] takes it (away
+     * square to it, on a leader -- half a plate height clear, either side, the first side as [placeBy] takes it (away
      * from the mark for its size, up or left for a position, out of the shape for a four-corner side) -- and one
      * plate further out again. The HELD mark's `w` and `h` are anchored by hand first, clear of its tabs, as built: the
      * width level where [SurveyPrepTouch.widthTag] puts it, the height TURNED UP from where [SurveyPrepTouch.heightTag]
@@ -632,7 +620,7 @@ object DimLayout {
             val c = ln.at(t)
             out += cand(turnedAt(c[0], c[1], pw, ph, deg, width, height, u), How.ON_LINE, null)
         }
-        // which way across the line is first: the side [place] steps off to, seen across this line
+        // which way across the line is first: the side [placeBy] steps off to, seen across this line
         val want = f.out ?: if (ln.vertical) doubleArrayOf(side(f.role), 0.0) else doubleArrayOf(0.0, side(f.role))
         val first = if (across[0] * want[0] + across[1] * want[1] >= 0) 1.0 else -1.0
         for (reach in doubleArrayOf(ph, 2 * ph + APART_U * u))
@@ -722,27 +710,23 @@ object DimLayout {
     }
 
     /**
-     * EVERY FIGURE PLACED. [marks] in drawing order, each with all its figures -- [scope] decides which are shown
-     * ([shows]); the canvas is [width] x [height] px; [keep] the boxes no plate may cover (the marks' codes, the fit /
-     * grid / all column, whatever else the screen passes); [u] the drawing's unit and [dp] px per dp; [times] the
-     * width of the " × " between a compact plate's two figures, px. A figure [scope] does not show is not in the
-     * answer at all -- nor is one whose dimension is wholly off the canvas ([onCanvas]), unless it is the active
-     * figure or the picked mark's ([Plate.off]).
+     * THE PLACING RULE IN ITS LEVEL-PLATE FORM -- every plate level or turned a quarter, kept apart by its box -- with
+     * [shows] deciding which of a mark's figures are placed at all and [handed] whether a mark shows handles its plates
+     * keep clear of. The four-step route's `place` (with its scope) was this; since slice I1b nothing on the screen asks
+     * it, and the placing rule's own tests do. [placeShown] is the screen's.
      */
-    fun place(marks: List<Mark>, scope: Scope, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double,
-              times: Double = 0.0): Out =
-        lay(marks, width, height, keep, u, dp, times, { mk, f -> shows(scope, mk.picked, f.role) },
-            // the picked mark's handles in 2 · Mark: its eight tabs, or -- its corners free -- its four corners
-            { mk -> scope == Scope.PICKED && mk.picked && (mk.tabs || mk.corners != null) }, slant = false)
+    internal fun placeBy(marks: List<Mark>, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double,
+                         times: Double, shows: (Mark, Fig) -> Boolean, handed: (Mark) -> Boolean): Out =
+        lay(marks, width, height, keep, u, dp, times, shows, handed, slant = false)
 
     /**
-     * EVERY FIGURE HANDED IN, PLACED (port 63 slice I1a; DESIGN-imagemeter §13 and §18 "In the models"): [place]'s
+     * EVERY FIGURE HANDED IN, PLACED (port 63 slice I1a; DESIGN-imagemeter §13 and §18 "In the models"): the placing
      * rule with NO SCOPE -- the one step that marks and measures has no `all` and no "which marks show which figures"
      * of its own. WHICH figures a mark shows is decided before this is called ([markShown]: an unpicked mark only what
      * has been read of its size, the picked mark everything it asks), so [marks] carry only those and an unpicked,
      * unmeasured mark costs the layout nothing.
      *
-     * THE HELD MARK KEEPS ITS TABS CLEAR, re-keyed from `Scope.PICKED` to the mark itself (the plan critic's finding
+     * THE HELD MARK KEEPS ITS TABS CLEAR, re-keyed from the four-step route's picked scope to the mark itself (the plan critic's finding
      * C5): a picked mark that shows its eight tabs ([Mark.tabs]: it is HELD, [Pick]) has its `w` and `h` plates
      * anchored by hand, clear of every tab, and its tab squares -- or its four free corners ([Mark.corners]) -- kept
      * clear by every plate. A mark the walk reached is picked and shows no tabs: its plates sit on their lines.
@@ -760,9 +744,9 @@ object DimLayout {
                    times: Double = 0.0): Out =
         lay(marks, width, height, keep, u, dp, times, { _, _ -> true }, { mk -> mk.picked && (mk.tabs || mk.corners != null) }, slant = true)
 
-    /** The placing rule itself ([place]'s header): [shows] which of a mark's figures are drawn at all, [handed]
+    /** The placing rule itself (this object's header): [shows] which of a mark's figures are drawn at all, [handed]
      *  whether the mark shows handles its plates must keep clear of; [slant] every plate turned to its line and kept
-     *  apart by its turned rectangle ([placeShown]) -- false: [place]'s rule exactly as built. */
+     *  apart by its turned rectangle ([placeShown]) -- false: the level-plate rule exactly as built ([placeBy]). */
     private fun lay(marks: List<Mark>, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double, times: Double,
                     shows: (Mark, Fig) -> Boolean, handed: (Mark) -> Boolean, slant: Boolean): Out {
         class Job(val mk: Mark, val figs: List<Fig>, val rank: Rank, val order: Int, val hand: Boolean)

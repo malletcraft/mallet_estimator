@@ -280,16 +280,6 @@ object SurveyMeas {
         else -> tx.sp_marked_area_x(m2txt(parea(m.pts)))
     } + if (room) " · " + Masters.surface(tx, SurveyPrep.NAME.getValue(s)) else "" // text:value the list separator
 
-    /**
-     * The selection row under the photo (sp.js 1507): a tape "Tape · 1234 mm"; a Line its reading "1234 mm" when it
-     * has one, else the photo's "≈1234 mm" -- composed figures the prototype draws unchanged; an area its "1.86 m²".
-     */
-    fun rowValue(tx: Tx, m: SurveyPrep.Meas, actual: Map<String, Double>): String = when (m.kind) {
-        TAPE -> tx.sp_tape_x_mm(plen(m.pts).roundToInt().toString())
-        LINE -> actual[m.code + ".len"]?.let { mmTxt(it) } ?: "≈${mmTxt(plen(m.pts))}" // text:value a figure, drawn as written
-        else -> m2txt(parea(m.pts))
-    }
-
     /** The tag drawn at a tape's far end: "1234 mm" while it is pulled, "F-T1 1234 mm" once plotted. A code and a
      *  figure: byte-equal in every language (port 61c slice M3b, SurveyDrawMarathiTest). */
     fun tapeTag(code: String?, len: Double) = (if (code != null) "$code " else "") + mmTxt(len) // text:value a code and a figure

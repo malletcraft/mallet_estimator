@@ -94,22 +94,9 @@ object SurveyPrepPalette {
 
     fun forSurface(s: String) = paletteFor(SurveyPrep.kind(s))
 
-    /** What a slot is: Select, a drawing tool, a type, or More ▸. */
-    enum class SlotKind { SELECT, TOOL, TYPE, MORE }
-
-    /** One slot: what it is, the tool it turns on ([SEL], a tool's key, a type's letter; "" for More), its type. */
-    class Slot(val kind: SlotKind, val key: String, val type: SurveyPrep.MarkType? = null)
-
-    /** The palette's slots, left to right: Select, the drawing [tools] it offers ([offered]: no Chain while
-     *  [Features.CHAINS] is off), the three types, More ▸. Every slot is drawn the same width, so a tool that is not
-     *  offered leaves no gap. */
-    fun slots(kind: String, tools: List<String> = offered()): List<Slot> {
-        val p = paletteFor(kind)
-        return listOf(Slot(SlotKind.SELECT, SEL)) + tools.map { Slot(SlotKind.TOOL, it) } +
-            p.main.map { Slot(SlotKind.TYPE, it.letter, it) } + (if (p.more.isEmpty()) emptyList() else listOf(Slot(SlotKind.MORE, "")))
-    }
-
-    /** The tool after a tap on [picked] with [current] on: sticky, and the tool already on goes back to Select. */
+    /** The tool after a tap on [picked] with [current] on: that tool armed -- or, tapped while it is already on, OFF
+     *  ([SEL]: no tool armed, a touch selects). Since slice I1 a tool is not sticky: it goes off once it has placed its
+     *  item ([afterPlaced]). */
     fun next(current: String, picked: String): String = if (picked != SEL && picked == current) SEL else picked
 
     /** The More type now on, or null: the More slot is then lit in that type's colour and names it. */
@@ -209,13 +196,6 @@ object SurveyPrepPalette {
         return KindList(tx.sp_x_kind(v = MarkTypes.typeName(tx, tool)), chipColour(s, tool), l.map { KindOption(it.id, MarkTypes.subLabel(tx, it), it.id == cur) })
     }
 
-    /** Is [slot] lit with [tool] on? */
-    fun isOn(slot: Slot, kind: String, tool: String): Boolean = when (slot.kind) {
-        SlotKind.SELECT -> tool == SEL
-        SlotKind.TOOL, SlotKind.TYPE -> slot.key == tool
-        SlotKind.MORE -> moreArmed(kind, tool) != null
-    }
-
     /** What the tool chip over the photo says with a type on (sp.js 1454); null with Select, which shows no chip.
      *  [where]: "photo" on 2 · Mark, "360" on 4 · 360 (v52 slice 17, ct52 G: "Placing Window · tap the 360"). */
     fun chipText(tx: Tx, s: String, tool: String, where: String = "photo"): String? =
@@ -307,8 +287,7 @@ object SurveyPrepPalette {
      * a type left on, a tap on empty photo -- which now only lets the pick go -- would place another Door; with Tape or
      * Line left on, nothing under the finger is picked, so a tap on a figure would add an area corner and no figure
      * could be measured until he found the lit slot. So A TOOL PLACES ONE ITEM AND GOES OFF, and with no tool armed a
-     * touch selects: Select is no longer a tool with a slot of its own. These stand BESIDE [slots] and [isOn], which
-     * the screen draws until slice I1b switches it over and deletes them with [SlotKind].
+     * touch selects: Select is no longer a tool with a slot of its own (the old slot list went in slice I1b).
      */
 
     /**

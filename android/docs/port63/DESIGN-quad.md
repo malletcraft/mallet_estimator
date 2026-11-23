@@ -971,9 +971,9 @@ it moved. **Three sections are new and held to `030a2f7f5`** — `gold`, `trash`
    | the menu's height before it is first measured, `(232 + DeleteGuard.CLEAR_DP).dp.toPx()` (`:2254`) | the height of six rows; and what note 1 settles may rewrite the `DeleteGuard.menuTop(` call pinned beside it at 378 | `DeleteGuardTest` 380 |
    | the trash's keep, `SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)` (`:3365`) | gains the corners (note 3) | `DeleteGuardTest` 383, with `else ` before it; `QuadMeetsF1Test` 352 |
    | the 360's trash, `Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { … }, dpx.toDouble())` (`SurveyPrep360.kt:703`) | gains `free` (note 3) | `DeleteGuardTest` 387; `QuadMeetsF1Test` 353 |
-   | `sayCheck`'s two lines, `MeasureFlow.checkEst(prep, c) { ab(it) }` and `say(MeasureText.photoSays(tx, est))` (`:534`) | become the one `checkText` (but see note 8) | `MeasureScreenTest` 336–338 (335 only finds the function, and stays) |
+   | ~~`sayCheck`'s two lines, `MeasureFlow.checkEst(prep, c) { ab(it) }` and `say(MeasureText.photoSays(tx, est))`~~ | **gone in port 63 slice I1b** (no photo estimate is said: `DESIGN-imagemeter` §18), so Q2 has nothing to rewrite here | — |
    | the dim's hole, `val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->` (`SurveyPrepDraw.kt:502`) | the hole is the shape's for a four-corner mark | `NotePinTest` 116 — it moves only if this opening line is rewritten; a branch added after the spot's leaves it |
-   | the plates, `DimLayout.mark(o.prep.actual, s, e, o.a, o.b, on, hand, o.active, toPx, du, dp, textW, o.live)` (`SurveyPrepDraw.kt:947`) | is passed `free` | `QuadMeetsF1Test` 357 |
+   | the plates, since port 63 slice I1b `PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)` in `SurveyPrepDraw.figures` (it replaced `DimLayout.mark(…)` there) | is passed `free` | `QuadMeetsF1Test` 357; `MeasureScreenTest` (I1b's painter pins) |
 
    **And the whole of `QuadMeetsF1Test`'s test "the screen's calls are batch-next's own …" (341–363) is rewritten or
    goes in Q2**: besides the lines above it holds `corners =` at 0 in the screen (349), `Pano360.tabsOf(e)` twice in

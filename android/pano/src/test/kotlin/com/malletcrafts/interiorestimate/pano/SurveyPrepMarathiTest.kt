@@ -72,7 +72,7 @@ class SurveyPrepMarathiTest {
         // the strip's face and every text that names a face use its FULL name (surface)
         assertEquals("समोरील भिंत ·", StepRoute.stripFace(Tx.MR, "front"))
         assertEquals("छत ·", StepRoute.stripFace(Tx.MR, "ceil"))
-        assertEquals("2 · मार्क", StepRoute.label(Tx.MR, 1)); assertEquals("4 · 360", StepRoute.label(Tx.MR, 3))
+        assertEquals("2 · मार्क", StepRoute.routeLabel(Tx.MR, 1)); assertEquals("3 · 360", StepRoute.routeLabel(Tx.MR, 2))
         val p = room()
         assertEquals(listOf("डाव्या कोपऱ्यापासून, मध्यापर्यंत", "जमिनीपासून, मध्यापर्यंत"),
             SurveyPrep.measures0("front", p.markById("e1")!!.second, W, H).map { it.what(Tx.MR) })
@@ -143,12 +143,12 @@ class SurveyPrepMarathiTest {
             doubleArrayOf(3310.0, 1200.0)), listOf(null, null, null), "k1")
         assertEquals("साखळी · आडवी · 2 भाग · समोरील भिंत", SurveyChain.listName(Tx.MR, "front", k, true))
         assertEquals("Chain · horizontal · 2 parts · Front wall", SurveyChain.listName(Tx.EN, "front", k, true))
-        assertEquals("बाजूंवर संदर्भ लपवला — तरीही तो समोरील भिंत सरळ करतो", SurveyRef.shownSaid(Tx.MR, "front", false))
-        // ENGLISH FIRST (Amit, 16 Nov 2026): the eye's "shown" sentence names the phone's own third step, 3 · Measure, since
-        // port 63 slice M2 -- a NEW key, sp.reference_shown_measure, whose Marathi is its English until Amit has verified
-        // the survey to quote journey (android/i18n/mr-pending.tsv; MrPendingTest holds the list). The prototype's own
-        // sentence (sp.reference_shown_2_mark, "… 3 · यादी …") keeps its Marathi in the table, with no phone reader.
-        assertEquals("Reference shown on 2 · Mark, 3 · Measure and 4 · 360", SurveyRef.shownSaid(Tx.MR, "front", true))
+        assertEquals("बाजूंवर संदर्भ लपवला — तरीही तो समोरील भिंत सरळ करतो", SurveyRef.shownOnRoute(Tx.MR, "front", false))
+        // ENGLISH FIRST (Amit, 16 Nov 2026): the eye's "shown" sentence names the phone's own steps, 2 · Mark and 3 · 360, since
+        // port 63 slice I1b -- sp.reference_shown_mark (I1a), whose Marathi is its English until Amit has verified the survey
+        // to quote journey (android/i18n/mr-pending.tsv). The prototype's own sentence (sp.reference_shown_2_mark,
+        // "… 3 · यादी …") keeps its Marathi in the table, with no phone reader.
+        assertEquals("Reference shown on 2 · Mark and 3 · 360", SurveyRef.shownOnRoute(Tx.MR, "front", true))
         // the card's own pairing: sp.aria.lock_x over sp.the_x_reference ("समोरील भिंत संदर्भ लॉक करा", vis())
         assertEquals("समोरील भिंत संदर्भ लॉक करा", SurveyRef.lockLabel(Tx.MR, "front", false))
         assertEquals("Lock the front wall reference", SurveyRef.lockLabel(Tx.EN, "front", false))

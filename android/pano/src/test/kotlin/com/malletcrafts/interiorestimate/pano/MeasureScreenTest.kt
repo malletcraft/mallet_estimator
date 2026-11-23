@@ -1,22 +1,31 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.Pick.State
 import com.malletcrafts.interiorestimate.pano.i18n.I18n
 import com.malletcrafts.interiorestimate.pano.i18n.LiteralScan
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
- * THE MEASURING SCREEN, READ AS SOURCE (port 63 slice M2, 16 Nov 2026; DESIGN-port63 §4 "M2 - the screen", its list of
- * source pins). Amit, 15 Nov 2026, after his first use of the app on a client site: "Having both measurements foto and
- * measured and both is very confusing" and "The laundry list of measurements shown below screen is also frustrating".
+ * THE ONE STEP THAT MARKS AND MEASURES, READ AS SOURCE (port 63 slice I1b, 23 Nov 2026; DESIGN-imagemeter §13 "Tests
+ * that are rewritten", §14 I1, §18, §21). Rewritten from slice M2's pins for 3 · Measure, which went in this slice.
+ * Amit, 16 Nov 2026: "do we really need two screen now? which is mark and measure? as we should be measure where marking
+ * is done." -- "i do not want explicit box below foto which show the measurements." -- "No foto estimation at all. It
+ * confuses user". And on 0.3.345 (23 Nov 2026): "every time i open a foto, it always start from 1 - lines", "Click on
+ * save always take me out to room foto", "i want to see all measurements in its units always visible", "Measurements on
+ * any mark type alwyas show FM1 , 2 etc.", "no way to set alignment of measurements to line direction".
  *
- * :app is compiled only by CI, so what the screen CALLS is read here. The rules themselves are :pano's and are tested
- * where they live (MarkDimsTest, DimLayoutTest, MeasureWalkTest, MeasurePadTest, MeasureTextTest, MeasureFlowTest,
- * StepRouteTest, PhaseToolsTest); these pins hold that the screen asks them, in ONE place each, and that what the
- * slice deleted is gone and what it promised to keep is there.
+ * :app is compiled only by CI, so what the screen CALLS is read here; the rules themselves are :pano's and are tested
+ * where they live (PickTest, LandingTest, LaserChipTest, PhotoFiguresTest, TurnedLabelsTest, OpenStepTest, SaveStayTest,
+ * OneStepTest). These pins hold that the screen asks them, in ONE place each, that what the slice deleted is gone, and
+ * -- with the pure half beside each -- the nine things the design names: no figure text under the photo in any state,
+ * no delete control in a row under the photo, the trash only for a held item, no estimate on the editing photo or the
+ * 360, every read figure on an unpicked mark, a Line's label without its code, a turned label on a slanted Line, the
+ * face opening on Mark once its lines are set, and Save not closing the screen.
  *
  * Test names are plain ASCII: this container's Kotlin daemon cannot write a class file for a local function or a
  * lambda of a method whose name carries a middle dot or a long dash.
@@ -27,8 +36,9 @@ class MeasureScreenTest {
     private val pano = "pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/"
     private val sps = app + "SurveyPrepScreen.kt"
     private val spd = app + "SurveyPrepDraw.kt"
-    private val bar = app + "SurveyMeasure.kt"
+    private val pad = app + "SurveyMeasure.kt"
     private val s360 = app + "SurveyPrep360.kt"
+    private val tools = app + "SurveyPrepTools.kt"
     private val main = app + "MainActivity.kt"
     private val writer = app + "FaceWriter.kt"
 
@@ -59,7 +69,7 @@ class MeasureScreenTest {
             .map { it.relativeTo(I18n.android).invariantSeparatorsPath }.sorted().toList()
     }
 
-    /** The body of the ONE function declared as [head] in [src], brace to brace. */
+    /** The body of the ONE function (or lambda) declared as [head] in [src], brace to brace. */
     private fun body(src: String, head: String): String {
         assertEquals(1, count(src, head), "one declaration of `$head`")
         val open = src.indexOf('{', src.indexOf(head) + head.length)
@@ -73,271 +83,264 @@ class MeasureScreenTest {
         throw AssertionError("`$head`: its body never closes")
     }
 
-    // ---- the list is gone -----------------------------------------------------------------------------------
+    // ---- a small wall, for the pure halves ---------------------------------------------------------------------
 
-    @Test fun `the list, its tab, its typed boxes and the Show row are gone from survey prep`() {
+    private val W = 2678.0; private val H = 2677.0; private val L = 3319.0
+    private fun ab(s: String) = SurveyPrep.size(s, L, W, H)
+    private fun wall(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(L, W, H)
+        p.surface("front").marks.add(SurveyPrep.Mark("d1", "D", "FD1", 300.0, 1200.0, 0.0, 2100.0))
+        p.surface("front").marks.add(SurveyPrep.Mark("w1", "W", "FW1", 1500.0, 2400.0, 900.0, 2100.0))
+        p.addMeas("front", SurveyMeas.LINE, listOf(doubleArrayOf(500.0, 1600.0), doubleArrayOf(1300.0, 2200.0)), "m1")
+        p.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(0.0, 1000.0), doubleArrayOf(1234.0, 1000.0)), "t1")
+        return p
+    }
+    private fun sc(p: SurveyPrep.Prep, stage: Int? = 0, step: String = StepRoute.MARK) = Pick.Scene(p, stage, step, ::ab)
+
+    // ---- 1 · Lines, 2 · Mark, 3 · 360 ------------------------------------------------------------------------
+
+    @Test fun `the steps are Lines Mark and 360 - 3 Measure, its panel, its bar, all and fire are gone from the screen`() {
+        assertEquals(listOf("lines", "mark", "360"), StepRoute.ROUTE)
         val c = code(sps)
-        for (gone in listOf("SpTable", "SpMmField", "listPane", "surfaceBlock", "showRow", "showAt", "listView", "SP_DER",
-            "common_show", "common_both", "common_measured", "common_list", "sp_x_its_list", "sp_site_only", "sp_derived"))
-            assertEquals(0, count(c, gone), "$gone is still in SurveyPrepScreen.kt: the list of measurements under the photo was deleted in M2")
-        val t = text(sps)
-        // the Show row's three values, and the step's old key
-        for (lit in listOf("\"both\"", "\"derived\"", "\"actual\"", "\"list\""))
-            assertEquals(0, count(t, lit), "$lit is still written in SurveyPrepScreen.kt")
-        // nothing scrolls (DESIGN-port63 §1.9): the photo takes every dp the controls leave
-        assertEquals(0, count(c, "verticalScroll"), "survey prep scrolls again")
-        assertEquals(0, count(c, "rememberScrollState"))
-        // and the step route has no list either
-        val route = code(pano + "StepRoute.kt")
-        assertEquals(0, count(route, "listView"))
-        assertEquals(listOf("lines", "mark", "measure", "360"), StepRoute.STEPS)
-        assertEquals(listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "plan")), StepRoute.TAB_ROWS)
-        for (rel in appSources()) assertEquals(0, count(code(rel), "StepRoute.listView"), "$rel asks for the list view")
+        for (gone in listOf("StepRoute.MEASURE", "measurePanel", "prepSteps", "prepMode", "MeasureFlow.move", "MeasureFlow.onFace",
+            "MeasureFlow.onItem", "SpMeasureBar", "allFigs", "sp_measure_all", "fun fire()", "fun barStep", "fun walkOn", "fun measureAt",
+            "fun sayCheck", "fun figureTap", "fun markTap", "fun selectMark", "fun selectMeas", "fun selectChain", "measureHit",
+            "photoSays", "checkEst", "DimLayout.Scope", "var active by", "var sel by"))
+            assertEquals(0, count(c, gone), "SurveyPrepScreen.kt still has $gone")
+        assertEquals(2, count(c, "if (mode == StepRoute.LINES) linesPanel() else markPanel()"), "portrait and landscape")
+        assertEquals(1, count(c, "val mode = PhaseTools.routeMode(modeSet, quoteStage) { StepRoute.isFace(tab) && frameOf(tab) != null }"))
+        assertEquals(2, count(c, "PhaseTools.routeSteps(quoteStage)"), "the strip and the press routed to a step")
+        assertEquals(1, count(c, "val ask = PhaseTools.routeAsk(m, quoteStage) { StepRoute.isFace(tab) && frameOf(tab) != null }"))
+        assertEquals(0, count(code(pad), "SpMeasureBar"), "the measure bar is deleted, not hidden")
+        for (rel in appSources()) assertEquals(0, count(code(rel), "StepRoute.MEASURE"), "$rel names the old third step")
+        // nothing scrolls, and there is no list
+        assertEquals(0, count(c, "verticalScroll")); assertEquals(0, count(c, "listView"))
     }
 
-    @Test fun `the third step is asked of StepRoute by name, and each orientation draws its panel`() {
+    // ---- picked, held, gold: ONE value, Pick's -----------------------------------------------------------------
+
+    @Test fun `what is picked held and gold is one value and every event that changes it asks Pick`() {
         val c = code(sps)
-        assertEquals(2, count(c, "if (mode == StepRoute.MEASURE) measurePanel() else markPanel()"), "portrait and landscape both draw the measure panel")
-        assertEquals(1, count(c, "val measurePanel: @Composable () -> Unit = {"))
-        assertEquals(1, count(c, "val measuring = mode == StepRoute.MEASURE"))
-        assertEquals(StepRoute.MEASURE, StepRoute.STEPS[2])
+        assertEquals(1, count(c, "var pick by remember { mutableStateOf(Pick.NONE) }"))
+        assertEquals(1, count(c, "fun scene() = Pick.Scene(prep, quoteStage, mode) { s -> ab(s) }"))
+        // the events of the design's table, each asked of Pick
+        for (call in listOf("Pick.tap(scene(), pick, hit, line)", "Pick.handle(pick, pt)", "Pick.longPress(scene(), pick, mid)",
+            "Pick.placed(scene(), ", "Pick.duplicated(scene(), c.id)", "Pick.locked(scene(), pick, mid)", "Pick.deleted(pick, mid)",
+            "Pick.undone(scene(), pick)", "Pick.tab(pick, tab, t)", "Pick.step(pick, mode, m, tab, ask)", "Pick.next(scene(), pick, tab)",
+            "Pick.settle(scene(), pick)", "Pick.row(scene(), pick)", "Pick.empty(pick)"))
+            assertTrue(count(c, call) >= 1, "the screen asks $call")
+        // the keypad is shut or opened as the answer says, AFTER Pick was asked
+        val took = body(c, "fun took(o: Pick.Out, face: String = tab)")
+        assertTrue(took.indexOf("if (o.stay) return") in 0 until took.indexOf("padDoes(o.pad)"))
+        assertTrue(took.indexOf("padDoes(o.pad)") < took.indexOf("pick = o.state"))
+        // only the HELD item moves: the gesture asks Pick.drag, and only the held item's handles are handed to the hit test
+        assertEquals(1, count(c, "when (Pick.drag(sceneS, pickS, e.id)) {"))
+        assertEquals(3, count(c, "Pick.handleId(pickS)"), "the hit test, the body grab and the ends")
+        // a press picks nothing until it lifts: the tap is the one place the press acts on 2 - Mark
+        assertEquals(2, count(c, "if (selecting) onTapS(pressHit, pressLine)\n"), "a tap, and a double tap until slice I4")
+        // the pure half: a mark the walk reached is not held, and a drag on it pans
+        val p = wall(); val walked = Pick.next(sc(p), Pick.NONE, "front").state
+        assertEquals(State("d1", false, "FD1.w"), walked)
+        assertEquals(Pick.Drag.PAN, Pick.drag(sc(p), walked, "d1"))
+        assertEquals(Pick.Drag.MOVE, Pick.drag(sc(p), Pick.body(sc(p), walked, "d1").state, "d1"), "one tap gives the handles back")
     }
 
-    // ---- the walk -------------------------------------------------------------------------------------------
+    // ---- nothing under the photo shows a measurement, deletes, or fires the laser -----------------------------
 
-    @Test fun `MeasureWalk next has one caller, walkOn - and the bar's arrows are previous and step`() {
+    @Test fun `no figure text under the photo in any state - the held row, the keypad and the tool row print no value`() {
         val c = code(sps)
-        assertEquals(1, count(c, "MeasureWalk.next("), "the walk is asked in one place")
-        assertEquals(1, count(body(c, "fun walkOn(after: String?)"), "measureAt(MeasureWalk.next(prep, s, z[0], z[1], after))"))
-        // not after Survey, and only on a face
-        assertEquals(1, count(body(c, "fun walkOn(after: String?)"), "if (!StepRoute.isFace(s) || !MeasureFlow.canRead(quoteStage)) return"))
-        for (rel in appSources()) if (rel != sps) assertEquals(0, count(code(rel), "MeasureWalk."), "$rel walks by itself")
-        val step = body(c, "fun barStep(forward: Boolean)")
-        assertEquals(1, count(c, "MeasureWalk.previous("))
-        assertEquals(1, count(step, "MeasureWalk.previous(prep, tab, z[0], z[1], active)"))
-        assertEquals(1, count(c, "MeasureWalk.step("))
-        assertEquals(1, count(step, "MeasureWalk.step(MeasureWalk.stopsOf(prep, o.id) { ab(it) }, a, forward)"))
-        assertEquals(1, count(step, "if (forward) walkOn(active)"))
-        // what was typed is written before the bar moves
-        assertTrue(step.indexOf("commitPad()") in 0 until step.indexOf("walkOn(active)"), "the pad is committed before the walk moves on")
-        // entering the step and changing face in it start the walk from the top: both come through walkOn(null), where
-        // MeasureFlow.move says WALK (the M2 review: never for the step and the face that are already open)
-        assertEquals(2, count(c, "walkOn(null)"))
-        assertEquals(1, count(body(c, "fun setMode(m: String)"), "if (mv == MeasureFlow.Move.WALK) walkOn(null)"))
-        assertEquals(1, count(body(c, "fun showTab(t: String)"), "if (mv == MeasureFlow.Move.WALK) walkOn(null)"))
-        // a reading that leaves its thing with nothing left walks on by itself, in 3 - Measure only
-        val reading = body(c, "fun reading(code: String, v: Double, moveOn: Boolean = true)")
-        assertEquals(1, count(reading, "val walking = mode == StepRoute.MEASURE && StepRoute.isFace(tab)"))
-        assertEquals(1, count(reading, "if (walking && active == null) walkOn(code)"))
-        assertEquals(1, count(reading, "else prep.nextAfter(code) { ab(it) }"), "2 - Mark and 4 - 360 keep v52's rule: the next one missing on the same thing")
+        val panel = body(c, "val markPanel: @Composable () -> Unit =")
+        // what stands there is StepRoute's answer: the keypad, the held item's row over the tool row, the tool row, or nothing
+        assertEquals(1, count(panel, "val under = StepRoute.underMark(toolRow, held = row != null, keypad = padOpen && pick.gold != null)"))
+        // none of it reads a reading, a figure, an estimate or the keypad's digits
+        for (figure in listOf("prep.actual", "rowValue", "MarkDims", "MeasurePad.live", "SurveyChain.vals", "SurveyMeas.plen", "MeasureText",
+            "PhotoFigures.ofMark", "padNow()"))
+            assertEquals(0, count(panel, figure), "the panel under the photo reads $figure")
+        // the held mark's row: its code over what its nudges move (a word, never a figure), its nudges, its padlock
+        assertEquals(1, count(panel, "if (lk) tx.sp_locked else if (row.nudges) what else"))
+        // the keypad has NO DISPLAY LINE -- its digits are on the gold plate -- and the tool row's `▸` carries no number
+        val k = code(pad)
+        assertEquals(0, count(k, "Text(live"), "a display line on the keypad"); assertEquals(0, count(k, "MeasurePad.live"))
+        val t = code(tools)
+        assertEquals(1, count(t, "Text(SurveyPrepPalette.NEXT_GLYPH,"), "`▸` is the glyph alone")
+        assertEquals(1, count(t, "contentDescription = next.label ?:"), "its count is in its description only")
+        // the pure half, in every state: nothing the row or the slot is given is a figure
+        val p = wall(); p.actual["FD1.w"] = 905.0
+        for (st in listOf(Pick.NONE, State("d1", true, "FD1.h"), State("d1", false, "FD1.h"), State("m1", true, "F-M1.len"))) {
+            val row = Pick.row(sc(p), st)
+            if (st.held) assertTrue(row != null, "$st: the held item has its row") else assertEquals(null, row, "$st: nothing held, no row")
+            val next = SurveyPrepPalette.nextSlot(Tx.EN, p, "front", st.gold, 0, StepRoute.MARK, ::ab)
+            assertFalse(next.label.orEmpty().isEmpty() && next.shown, "$st")
+        }
+        assertEquals(SurveyPrepPalette.NEXT_GLYPH, "▸")
     }
 
-    // ---- a reading is written in one place -------------------------------------------------------------------
+    @Test fun `no delete control in a row under the photo, and the trash drawn and pressed only for a held item`() {
+        val c = code(sps)
+        val panel = body(c, "val markPanel: @Composable () -> Unit =")
+        assertEquals(0, count(panel, "deleteMark("), "a row under the photo deletes"); assertEquals(0, count(panel, "SP_DELETE"))
+        assertEquals(0, count(code(pad), "elete")); assertEquals(0, count(body(code(tools), "internal fun SpPalette("), "elete"))
+        // the floating trash: pressed and drawn only where Pick.trash says -- the HELD item, no tool on, in 2 - Mark
+        assertEquals(1, count(c, "val tr = if (mode == StepRoute.MARK && Pick.trash(sceneS, pickS, SurveyPrepPalette.armed(toolS))) trashAt[0] else null"))
+        assertEquals(1, count(c, "val pickedId = if (mode == StepRoute.MARK && Pick.trash(scene, pick, SurveyPrepPalette.armed(tool))) pickedHere else null"))
+        assertEquals(2, count(c, "Pick.trash("))
+        // the pure half: picked by the walk -- no trash; held -- the trash; a tool on -- none
+        val p = wall()
+        assertFalse(Pick.trash(sc(p), State("d1", false, "FD1.w"), false), "a mark the walk reached has no delete near the laser's thumb")
+        assertTrue(Pick.trash(sc(p), State("d1", true, "FD1.w"), false))
+        assertFalse(Pick.trash(sc(p), State("d1", true, null), true), "with a tool on the disc is not there")
+        assertFalse(Pick.trash(sc(p, 0, StepRoute.PANO), State("d1", true, null), false), "the 360 keeps its own")
+    }
+
+    @Test fun `nothing on 2 Mark fires the laser - the meter's own button reads, and the chip in the top bar only connects`() {
+        val c = code(sps)
+        assertEquals(1, count(c, "disto.measure()"), "only 1 - Lines' reference D2 still fires, until slice I4")
+        assertEquals(1, count(body(c, "fun fireRef(k: String)"), "disto.measure()"))
+        assertEquals(1, count(c, "if (LaserChip.shown(quoteStage)) SpLaserChip(link(), land) {"))
+        assertEquals(0, count(body(c, "private fun SpLaserChip(link: LaserChip.Link, land: Boolean, onClick: () -> Unit)"), "measure("), "the chip never fires")
+        // the link starts when a figure turns gold and when survey prep opens, as LaserChip says
+        assertEquals(1, count(c, "LaserChip.gold(laserMem, link(), blePermitted(), quoteStage, System.currentTimeMillis())"))
+        assertEquals(1, count(c, "LaserChip.opened(laserMem, link(), blePermitted(), quoteStage, System.currentTimeMillis())"))
+        assertEquals(1, count(c, "chipDid(LaserChip.state(laserMem, LaserChip.Link.valueOf(st.name), n))"))
+        // a reading goes where Landing says, and nowhere else
+        assertEquals(1, count(c, "val route = Landing.route(refShot, scene(), pick, r.mm, System.currentTimeMillis())"))
+        assertEquals(1, count(c, "val after = Landing.after(scene(), pick, route.code, sheetOrFinger())"))
+    }
+
+    // ---- no photo estimate, anywhere -----------------------------------------------------------------------------
+
+    @Test fun `no estimate reaches the editing photo or the 360 - the painter asks PhotoFigures and placeShown alone`() {
+        val c = code(spd); val t = text(spd)
+        val figs = body(c, "private fun figures(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float,")
+        assertEquals(1, count(figs, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)"))
+        assertEquals(1, count(figs, "DimLayout.placeShown(laid, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)"))
+        assertEquals(0, count(c, "DimLayout.mark("), "the old builder printed estimates"); assertEquals(0, count(c, "OldPlace"))
+        assertEquals(1, count(c, "MarkDims.plate(f.state, f.active)"), "a plate's look is READ, ASK or GOLD")
+        // a Line's, area's, Tape's and chain's own tag is not drawn on the editing photo: their figures are placed with the rest
+        assertEquals(1, count(t, "val quiet = o.mode == \"main\""))
+        assertEquals(2, count(t, "quiet = o.mode == \"main\")"), "a plotted chain and one being drawn")
+        // the saved pictures are M3's: their old painter and their tags are untouched
+        assertEquals(2, count(t, "if (o.mode == \"sheet\" && (sel || o.all)) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)"))
+        val w = code(writer)
+        for (new in listOf("PhotoFigures", "Pick.", "ready =", "ring = ring")) assertEquals(0, count(w, new), "FaceWriter.kt names $new")
+        // THE 360: the number alone, no `≈`, no code -- PhotoFigures' 360 tags
+        val p3 = code(s360); val p3t = text(s360)
+        for (gone in listOf("SurveyMeas.lineTag(", "SurveyMeas.tapeTag(", "SurveyChain.segFigure(", "SurveyChain.totalTag(")) assertEquals(0, count(p3, gone), "the 360 still asks $gone")
+        assertEquals(0, count(p3t, "\"≈\""), "a ≈ written on the 360")
+        assertEquals(1, count(p3, "PhotoFigures.chainSeg360(it, i - 1)")); assertEquals(1, count(p3, "PhotoFigures.chainTotal360(vals)"))
+        assertEquals(1, count(p3, "SurveyMeas.shownTag(code, kind, reading, ask = false)"))
+        // the pure half: a wall nobody has measured is outlines and codes -- no figure on any unpicked mark, and none of
+        // what the photo draws for its Lines and Tapes carries an estimate's glyph
+        val p = wall()
+        for ((_, figs2) in PhotoFigures.onFace(Tx.EN, p, "front", W, H, Pick.NONE)) assertTrue(figs2.isEmpty())
+        for (f in PhotoFigures.ofMark(Tx.EN, p.actual, "front", p.markById("d1")!!.second, W, H, true, null)) assertFalse("≈" in f.text, f.text)
+        for (m in p.surface("front").meas) assertFalse("≈" in PhotoFigures.line(m, p.actual, Pick.NONE).text + PhotoFigures.tape(m) + PhotoFigures.line360(m, p.actual))
+    }
+
+    @Test fun `every read figure is drawn on an unpicked mark - its size and where it sits`() {
+        val p = wall(); p.actual["FD1.w"] = 905.0; p.actual["FD1.l"] = 300.0
+        val figs = PhotoFigures.ofMark(Tx.EN, p.actual, "front", p.markById("d1")!!.second, W, H, picked = false, gold = null)
+        assertEquals(listOf("FD1.w", "FD1.l"), figs.map { it.code }, "its width and its distance from the corner, read: both shown")
+        assertTrue(figs.all { it.look == PhotoFigures.Look.READ })
+        assertEquals(listOf("905", "300"), figs.map { it.text })
+        // picked, the unread ones are the quiet `?`; the screen hands the painter the pick as it is, never a scope
+        val picked = PhotoFigures.ofMark(Tx.EN, p.actual, "front", p.markById("d1")!!.second, W, H, picked = true, gold = null)
+        assertTrue(picked.any { it.look == PhotoFigures.Look.ASK && it.text == MarkDims.ASK_TEXT })
+        assertEquals(1, count(code(sps), "live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring), mm, u)"))
+    }
+
+    @Test fun `a Line's label is the number alone - its code only on its row - and runs along a slanted Line`() {
+        val p = wall(); p.actual["F-M1.len"] = 1240.0
+        val m = p.measById("m1")!!.second
+        assertEquals("1240", PhotoFigures.line(m, p.actual, Pick.NONE).text, "not F-M1 1240 mm")
+        assertEquals("F-M1", PhotoFigures.nameOf(p, State("m1", true, null)), "its code names it on its row")
+        assertEquals(1, count(code(sps), "val code = PhotoFigures.nameOf(prep, pick) ?: sq?.code ?: sk?.code"))
+        // TURNED TO ITS LINE: the Line runs from (500, 1600) to (1300, 2200) mm on the face -- up and to the right
+        val toPx: (Double, Double) -> DoubleArray = { x, y -> doubleArrayOf(x / 10, (H - y) / 10) }
+        val items = PhotoFigures.items(p, "front", W, H, Pick.NONE, toPx, 1.0, { s, fs, _ -> s.length * fs * 0.6 })
+        val out = DimLayout.placeShown(items, W / 10, H / 10, emptyList(), 1.0, 1.0)
+        val plate = out.of("F-M1.len")!!
+        val want = LabelAngle.of(50.0, (H - 1600) / 10, 130.0, (H - 2200) / 10)
+        assertEquals(want, plate.angle, 1e-9); assertNotEquals(0.0, plate.angle); assertTrue(LabelAngle.upright(plate.angle))
+        // the painter turns the plate by that angle, about its own middle
+        assertEquals(1, count(code(spd), "if (turned) { c.save(); c.rotate(p.angle.toFloat(), cx, cy) }"))
+    }
+
+    // ---- the face opens on Mark; Save saves and stays -------------------------------------------------------------
+
+    @Test fun `the face opens on Mark once its lines are set - on opening and on a face tab - and 1 Lines is one tap away`() {
+        val c = code(sps)
+        assertEquals(1, count(c, "mutableStateOf(PhaseTools.openedStep(tab, quoteStage, PhaseTools.linesSet(prep, tab, roomSize[0], roomSize[1], roomSize[2])))"))
+        assertEquals(1, count(body(c, "fun showTab(t: String)"), "modeSet = PhaseTools.openStep(t, mode, quoteStage, linesSetOf(t))"))
+        assertEquals(0, count(c, "mutableStateOf(\"lines\")"), "survey prep no longer opens on 1 - Lines by itself")
+        // the pure half
+        val p = SurveyPrep.fresh(L, W, H)
+        assertEquals(StepRoute.LINES, PhaseTools.openedStep("front", 0, PhaseTools.linesSet(p, "front", L, W, H)), "a fresh capture")
+        for (k in SurveyPrep.SLOTS) p.surface("front").set[k] = true
+        assertEquals(StepRoute.MARK, PhaseTools.openedStep("front", 0, PhaseTools.linesSet(p, "front", L, W, H)), "its lines set")
+        for (st in stages) assertEquals(PhaseTools.Ask.OPEN, PhaseTools.routeAsk(StepRoute.LINES, st) { true }, "1 - Lines at $st")
+    }
+
+    @Test fun `Save does not close the screen - it saves, uploads, keeps the size and rewrites the pictures once a press, and only back leaves`() {
+        val c = code(sps)
+        val save = body(c, "fun saveNow()")
+        assertEquals(0, count(save, "onCancel("), "Save leaves"); assertEquals(0, count(save, "onDone"))
+        assertEquals(1, count(save, "val fx = SaveStay.effects(done, ok, flow)"))
+        assertEquals(1, count(save, "if (SaveStay.Effect.UPLOAD in fx) { AsIsUpload.enqueue(context, id); webState = AsIsUpload.status(context, id) }"))
+        assertEquals(1, count(save, "onSaved?.invoke(prep.copy(), roomSize.copyOf()) { n, why ->"))
+        assertEquals(1, count(c, "onCancel(prep.copy(), roomSize.copyOf())"), "← is the one way out")
+        assertEquals(1, count(body(c, "fun back()"), "onCancel(prep.copy(), roomSize.copyOf())"))
+        assertEquals(1, count(body(c, "fun back()"), "if (SaveStay.Effect.UPLOAD in l.then) AsIsUpload.enqueue(context, id)"))
+        assertEquals(1, count(c, "Text(SaveStay.bar(tx, saveMem, dirty, savedMsg),"), "the bar says it was saved")
+        // MainActivity: the kept capture's save keeps survey prep open and serialises the picture rewrite
+        val m = code(main)
+        assertEquals(1, count(m, "onSaved = { p, size, report ->"))
+        val kept = m.substringAfter("onSaved = { p, size, report ->").substringBefore("onCancel = { _, size -> surveyKept = null;")
+        assertEquals(0, count(kept, "surveyKept = null"), "a save closes survey prep")
+        assertEquals(1, count(kept, "keepRoomSize(row.deviceId, size)")); assertEquals(1, count(kept, "FaceWriter.rewriteSurvey("))
+        assertEquals(1, count(kept, "surveyWrite.withLock {")); assertEquals(1, count(m, "val surveyWrite = remember { Mutex() }"))
+        assertEquals(1, count(m, "onSaved = null,"), "a new capture: the press is the read-back save, ← keeps it")
+        assertEquals(0, count(m, "onDone = { p, size ->"))
+        // the pure half: each effect once, in order, and leaving is none of them
+        assertEquals(listOf(SaveStay.Effect.SAVE, SaveStay.Effect.UPLOAD, SaveStay.Effect.KEEP_SIZE, SaveStay.Effect.PICTURES), SaveStay.effects(6, true))
+        assertEquals(listOf(SaveStay.Effect.SAVE), SaveStay.effects(6, true, SaveStay.Flow.NEW))
+        assertTrue(SaveStay.leave(SaveStay.saved(SaveStay.OPENED, 3, true), 3).repeats.isEmpty())
+    }
+
+    // ---- a reading is written in one place ----------------------------------------------------------------------
 
     @Test fun `a reading is assigned in one place and removed in one place, the removal where MmBox commit says so`() {
         val assign = Regex("""prep\.actual\[[^\]\n]*\]\s*=(?!=)""")
-        val both = code(sps) + "\n" + code(bar)
+        val both = code(sps) + "\n" + code(pad)
         assertEquals(1, assign.findAll(both).count(), "prep.actual is assigned in one place on the measuring screen")
         assertEquals(1, count(both, "prep.actual.remove("), "and a reading is removed in one place")
-        assertEquals(0, assign.findAll(code(bar)).count())
         val c = code(sps)
-        val reading = body(c, "fun reading(code: String, v: Double, moveOn: Boolean = true)")
-        assertEquals(1, count(reading, "prep.actual[code] = v"))
-        val commit = body(c, "fun commitPad()")
-        assertEquals(1, count(c, "MeasurePad.commit("), "the pad's text is committed in one place")
-        assertEquals(1, count(commit, "val c = MeasurePad.commit(prep.actual[code], typed) ?: return"))
-        assertEquals(1, count(commit, "if (v != null) reading(code, v, moveOn = false) else { prep.actual.remove(code); changed() }"))
-        // twice is once: the digits are forgotten before they are written
+        assertEquals(1, count(body(c, "fun reading(code: String, v: Double)"), "prep.actual[code] = v"))
+        val commit = body(c, "fun commitPad(): Boolean")
+        assertEquals(1, count(c, "MeasurePad.commit("), "the keypad's text is committed in one place")
+        assertEquals(1, count(commit, "val c = MeasurePad.commit(prep.actual[code], typed) ?: return false"))
         assertTrue(commit.indexOf("padKey = null") in 0 until commit.indexOf("MeasurePad.commit("))
-        // and the pad's commit IS MmBox.commit, unchanged: the rule that a derived or laser figure is never saved as a reading
         assertEquals(1, count(code(pano + "MeasurePad.kt"), "fun commit(stored: Double?, state: State): MmBox.Commit? = MmBox.commit(stored, state.text)"))
-        // whatever changes the active reading without one of the named exits commits too
-        assertEquals(1, count(c, "LaunchedEffect(active) { commitPad() }"))
-        for (head in listOf("fun showTab(t: String)", "fun setMode(m: String)", "fun back()"))
-            assertTrue(count(body(c, head), "commitPad()") >= 1, "`$head` leaves the dimension without committing what was typed")
-        // a laser reading that lands while digits are typed discards them and is the reading
-        assertEquals(2, count(c, "dropTyped("), "its declaration and the laser's branch")
-        assertTrue(c.indexOf("dropTyped(a)") in 0 until c.indexOf("reading(a, r.mm.toDouble())"), "the typed digits are dropped before the laser's reading is written")
-        // no other app source writes a reading: the undo's copy, ReadingsSync's merge and a delete's sweep are other names
+        // whatever changes the gold commits what was typed for the figure it was typed for
+        assertEquals(1, count(c, "LaunchedEffect(pick.gold) { commitPad() }"))
+        for (head in listOf("fun showTab(t: String)", "fun back()", "fun saveNow()"))
+            assertTrue(count(body(c, head), "commitPad()") + count(body(c, head), "took(o)") >= 1, "`$head` leaves the figure without committing what was typed")
         for (rel in appSources()) if (rel != sps) {
             assertEquals(0, assign.findAll(code(rel)).count(), "$rel assigns prep.actual")
             assertEquals(0, count(code(rel), "prep.actual.remove("), "$rel removes a reading")
         }
     }
 
-    // ---- readings follow the phase ---------------------------------------------------------------------------
+    // ---- what the hand feels ------------------------------------------------------------------------------------
 
-    @Test fun `after Survey nothing is measured - the laser and a tapped figure say the refusal, and nothing stays active`() {
+    @Test fun `what the hand feels is Landing's pattern, played through Compose's haptics - no Vibrator and no vibrate permission`() {
         val c = code(sps)
-        assertEquals(2, count(c, "PhaseTools.readingRefusal(tx, quoteStage)"), "the laser's branch and a tapped figure")
-        val laser = c.substring(c.indexOf("val no = PhaseTools.readingRefusal(tx, quoteStage)"))
-        val say = laser.indexOf("if (no != null) say(no)"); val read = laser.indexOf("reading(a, r.mm.toDouble())"); val tick = laser.indexOf("haptic.performHapticFeedback(")
-        assertTrue(say in 0 until read && read < tick, "the laser's branch refuses first, else writes, then ticks")
-        assertEquals(1, count(body(c, "fun figureTap(code: String)"), "MeasureFlow.Refused.READ_ONLY -> PhaseTools.readingRefusal(tx, quoteStage)?.let { no -> say(no) }"))
-        assertEquals(1, count(body(c, "fun figureTap(code: String)"), "MeasureFlow.Refused.NOT_IN_ROOM -> say(MeasureText.notInRoom(tx))"))
-        assertEquals(1, count(c, "if (active != null && !MeasureFlow.canRead(quoteStage)) { active = null; rev++ }"), "a stage that moves past Survey leaves nothing active")
-        // picking and placing never make a reading active by themselves: MeasureFlow answers, with the stage
-        assertEquals(0, count(c, "prep.nextOpen("), "what a pick makes active is MeasureFlow.firstOpen, which knows the phase")
-        assertTrue(count(c, "MeasureFlow.firstOpen(prep, ") >= 8)
-        // the rule itself, at every stage
-        assertEquals("1000001", stages.joinToString("") { if (MeasureFlow.canRead(it)) "1" else "0" })
-        assertTrue(PhaseTools.Tool.READINGS in PhaseTools.PREP_HONOURS)
-    }
-
-    // ---- the Measure pane ------------------------------------------------------------------------------------
-
-    @Test fun `the Measure pane's tap asks the hit test with no picked mark, and no drag starts there`() {
-        val c = code(sps)
-        assertEquals(2, count(c, "SurveyPrepTouch.hit("), "2 - Mark's hit and 3 - Measure's")
-        assertEquals(1, count(c, "return SurveyPrepTouch.hit(drawnMarks(), null, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble())"),
-            "selId = null and no chain nodes: nothing is dragged, resized or deleted in 3 - Measure")
-        assertEquals(1, count(c, "is GestureClassifier.Event.Down -> if (!measuring) {"), "a finger down starts no drag while measuring")
-        assertEquals(1, count(c, "is GestureClassifier.Event.LongPress -> if (measuring || measOn) { heldTap = true }"), "and a long press opens no menu there")
-        assertEquals(1, count(c, "is SurveyPrepTouch.Hit.Tag -> onFigureS(h.code)"))
-        assertEquals(1, count(c, "is SurveyPrepTouch.Hit.Mark -> onMarkTapS(h.id)"))
-        assertEquals(1, count(c, "onFigure = { code -> figureTap(code) },"))
-        assertEquals(1, count(c, "onMarkTap = { mid -> markTap(mid) },"))
-        // what a tap does is :pano's
-        assertEquals(1, count(body(c, "fun figureTap(code: String)"), "val t = MeasureFlow.figure(prep, code, active, quoteStage) { ab(it) }"))
-        assertEquals(1, count(body(c, "fun markTap(mid: String)"), "val t = MeasureFlow.body(prep, mid, sel?.id, active, quoteStage) { ab(it) }"))
-        // 2 - Mark's own figure tap is the same rule (a Line's, an area's and a chain's figures are tags now)
-        assertEquals(2, count(c, "onFigureS(h.code)"))
-        // the photo turns to a dimension that is off the screen: the rule is :pano's
-        assertEquals(1, count(c, "MeasureFlow.span(prep, code)"))
-        assertEquals(1, count(c, "MeasureFlow.panTo(view, box(), "))
-    }
-
-    // ---- the bar and the pad ---------------------------------------------------------------------------------
-
-    @Test fun `the bar and the pad are drawn from MeasureFlow in both steps, and SurveyMeasure reads no rule`() {
-        val c = code(sps)
-        assertEquals(2, count(c, "SpMeasureBar(mbar, land,"), "2 - Mark / 4 - 360 and 3 - Measure")
-        assertEquals(2, count(c, "SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { barStep(true) }, onHide = { commitPad(); padOpen = false; rev++ })"))
-        assertEquals(1, count(c, "MeasureFlow.onFace(tx, prep, tab, pid, active, quoteStage) { ab(it) }"))
-        // ... in 2 - Mark and 4 - 360 for the PICKED item on the open face alone (the M2 review): nothing picked, no bar
-        assertEquals(1, count(c, "MeasureFlow.onItem(tx, prep, sel?.takeIf { it.s == tab }?.id, active, quoteStage, withCell = padOpen) { ab(it) }"))
-        assertEquals(1, count(c, "MeasureFlow.onItem("))
-        assertEquals(2, count(c, "onPrev = { barStep(false) }, onNext = { barStep(true) },"))
-        assertEquals(2, count(c, "onD2 = { fire() }"), "D2 on the bar is the laser's own trigger")
-        // while the pad is up in 2 - Mark the palette is not drawn (PhaseToolsTest holds the gate's text)
-        assertEquals(1, count(c, "val padUp = padOpen && mbar != null"))
-        val b = code(bar)
-        assertEquals(1, count(b, "internal fun SpMeasureBar("))
-        assertEquals(1, count(b, "internal fun SpMeasurePad("))
-        for (rule in listOf("MeasureWalk", "PhaseTools", "MmBox", "SurveyPrep.", "prep.", "MeasurePad.press", "MeasurePad.commit", "MeasurePad.start", "QuoteStage"))
-            assertEquals(0, count(b, rule), "SurveyMeasure.kt only draws; it reads $rule")
-        // its heights are the route's own arithmetic
-        assertEquals(1, count(b, "height(StepRoute.measureBarDp(land).dp)"))
-        assertEquals(1, count(b, "height((StepRoute.PAD_ROWS * StepRoute.padRowDp(land)).dp)"))
-        // every word on it is a key: the label cell's sheet opener, the two arrows, the box, Clear and Next
-        for (key in listOf("tx.life_aria_open_mark_sheet_x(cell.code)", "tx.sp_measure_aria_previous", "tx.sp_measure_aria_skip", "tx.sp_measure_aria_type", "tx.fp_clear", "tx.common_next"))
-            assertEquals(1, count(b, key), "$key on the bar or the pad")
-        // the pad's keys are handed over, never interpreted there
-        assertEquals(2, count(b, "onKey(MeasurePad.Key.Digit("))
-        assertEquals(1, count(b, "onKey(MeasurePad.Key.Back)"))
-        assertEquals(1, count(b, "onKey(MeasurePad.Key.Clear)"))
-    }
-
-    @Test fun `a face tab draws its count, and the all toggle lives in 3 Measure alone and is off on entering a step`() {
-        val c = code(sps)
-        assertEquals(1, count(c, "MeasureFlow.tabLeft(prep, t, quoteStage, z[0], z[1])"))
-        assertEquals(1, count(c, "ref = refT, land = land, left = left) { showTab(t) }"))
-        assertEquals(1, count(c, "left: Int = 0, onClick: () -> Unit) {"))
-        assertEquals(1, count(c, "if (left > 0) stateDescription = tx.sp_measure_x_to_measure(left.toString())"))
-        assertEquals(1, count(c, "var allFigs by remember { mutableStateOf(false) }"))
-        assertEquals(1, count(body(c, "fun setMode(m: String)"), "allFigs = false"))
-        assertEquals(1, count(c, "allFigs = false"))
-        assertEquals(1, count(c, "all = allFigs,"))
-        assertEquals(1, count(c, "onAll = { allFigs = !allFigs; rev++ },"))
-        assertEquals(1, count(c, "if (mode == StepRoute.MEASURE) Text(tx.sp_measure_all,"))
-        assertEquals(1, count(c, "contentDescription = tx.sp_measure_aria_all; selected = all"))
-    }
-
-    // ---- the M2 review: nothing picked is nothing being measured ---------------------------------------------
-
-    @Test fun `a step or a face pressed lets the reading go with the selection, and the open one in 3 Measure restarts nothing`() {
-        val c = code(sps)
-        val mode = body(c, "fun setMode(m: String)")
-        val tab = body(c, "fun showTab(t: String)")
-        // what the press does is :pano's, asked once in each, BEFORE anything is committed, cleared or walked
-        assertEquals(2, count(c, "MeasureFlow.move("))
-        assertEquals(1, count(mode, "val mv = MeasureFlow.move(mode, m, tab, tab)"))
-        assertEquals(1, count(tab, "val mv = MeasureFlow.move(mode, mode, tab, t)"))
-        for (b in listOf(mode, tab)) {
-            val stay = b.indexOf("if (mv == MeasureFlow.Move.STAY) return")
-            assertTrue(stay > 0, "the open step / the open face's tab in 3 - Measure returns")
-            for (later in listOf("commitPad()", "sel = null", "active = null", "walkOn(null)", "rev++"))
-                assertTrue(b.indexOf(later) > stay, "`$later` comes after the STAY return")
-            // the selection goes, and the reading being taken with it -- in EVERY step, not only into 3 - Measure
-            val clear = b.indexOf("active = null")
-            assertTrue(b.indexOf("sel = null") in 0 until clear && clear < b.indexOf("if (mv == MeasureFlow.Move.WALK) walkOn(null)"))
-            assertEquals(1, count(b, "active = null"))
-            assertEquals(0, count(b, "if (m == StepRoute.MEASURE)") + count(b, "if (mode == StepRoute.MEASURE)"), "the clear is not Measure's alone")
-        }
-        // a step entered shuts the pad: asked for in the step he left, it would take the palette's place unasked
-        assertEquals(1, count(mode, "active = null; padOpen = false"))
-        // the phase's and the frame's refusals still come first in setMode
-        assertTrue(mode.indexOf("if (m !in PhaseTools.prepSteps(quoteStage)) return") in 0 until mode.indexOf("MeasureFlow.move("))
-        // the pad is opened in three places only, each a tap that asks for it; nothing opens it by itself
-        assertEquals(3, count(c, "padOpen = true"))
-        assertEquals(2, count(c, "onBox = { padOpen = true; rev++ }"))
-        assertEquals(1, count(c, "if (t.pad) padOpen = true"))
-    }
-
-    @Test fun `whatever clears or changes the selection outside 3 Measure never leaves another item's reading being taken`() {
-        val c = code(sps)
-        // a tap on empty 360: what was typed is written, then the picked item and its reading go together
-        assertEquals(1, count(c, "deselect = { if (sel != null || active != null) { commitPad(); sel = null; active = null; rev++ } },"))
-        // undo: outside 3 - Measure the reading goes with the selection; in it the walk's dimension stays while its
-        // owner is still there, and the picked item follows it
-        val undo = body(c, "fun undo()")
-        assertEquals(1, count(undo, "prep = back; sel = null"))
-        assertEquals(1, count(undo, "active = active?.takeIf { a -> mode == StepRoute.MEASURE && back.ownerOf(a) != null }"))
-        assertEquals(1, count(undo, "active?.let { a -> back.ownerOf(a) }?.let { o -> sel = SpSel(o.s, id = o.id) }"))
-        assertTrue(undo.indexOf("sel = null") < undo.indexOf("active = active?.takeIf"))
-        // a Tape's or a Line's end, or the reference, grabbed: nothing of another item's stays active
-        val grab = body(c, "fun grabbed(g: SpSel)")
-        assertEquals(1, count(grab, "else MeasureFlow.own(prep, active, gid)"))
-        assertEquals(1, count(c, "MeasureFlow.own("))
-        // every other place that clears the selection clears the reading in the same statement
-        for (both in listOf("if (sel?.id == st.id) { sel = null; active = null }", "sel = null; active = null; menuOpen = false; ctx = null; dropDrafts()",
-            "hist.clear(); sel = null; active = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false"))
-            assertEquals(1, count(c, both), both)
-        // ... but a delete, which lets go of the deleted item's own reading on the next line, and the reference's
-        // Edges switch, which holds no reading: nine `sel = null` in all -- undo, the 360's tap, a face, a step, the
-        // three above and these two -- each accounted for
-        assertEquals(1, count(c, "if (sel?.id == mid) sel = null"))
-        assertEquals(1, count(c, "if (active?.startsWith("))
-        assertEquals(1, count(c, "if (!on && SurveyRef.isId(sel?.id)) sel = null"))
-        assertEquals(9, count(c, "sel = null"), "a new place that clears the selection says here what it does with the reading being taken")
-    }
-
-    // ---- the tick --------------------------------------------------------------------------------------------
-
-    @Test fun `a laser reading ticks through Compose's haptics - no Vibrator and no vibrate permission`() {
-        val t = text(sps)
-        assertEquals(1, count(t, "import androidx.compose.ui.hapticfeedback.HapticFeedbackType\n"))
-        assertEquals(1, count(t, "import androidx.compose.ui.platform.LocalHapticFeedback\n"))
-        val c = code(sps)
-        assertEquals(1, count(c, "val haptic = LocalHapticFeedback.current"))
-        assertEquals(1, count(c, "haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)"))
-        assertEquals(1, count(c, "performHapticFeedback("), "one tick: a typed figure makes none")
+        assertEquals(1, count(c, "for (p in Landing.pulses(h)) {"))
+        assertEquals(1, count(c, "performHapticFeedback("), "one place plays every pulse")
         for (rel in appSources()) assertEquals(0, count(code(rel), "Vibrator"), "$rel reaches for the Vibrator")
-        val manifest = I18n.android.resolve("app/src/main/AndroidManifest.xml")
-        assertTrue(manifest.isFile)
-        assertFalse(manifest.readText().contains("VIBRATE"), "the app asks for no vibrate permission")
-    }
-
-    // ---- the check's sentence --------------------------------------------------------------------------------
-
-    @Test fun `the check's sentence is said when a reading lands and when a flagged figure becomes active`() {
-        val c = code(sps)
-        val say = body(c, "fun sayCheck(code: String?)")
-        assertEquals(1, count(say, "MeasureFlow.checkEst(prep, c) { ab(it) }"))
-        assertEquals(1, count(say, "say(MeasureText.photoSays(tx, est))"))
-        assertEquals(1, count(c, "MeasureText.photoSays("))
-        assertEquals(1, count(body(c, "fun reading(code: String, v: Double, moveOn: Boolean = true)"), "sayCheck(code)"))
-        assertEquals(1, count(body(c, "fun measureAt(code: String?)"), "sayCheck(code)"))
+        assertFalse(I18n.android.resolve("app/src/main/AndroidManifest.xml").readText().contains("VIBRATE"))
+        assertEquals(1, Landing.pulses(Landing.Haptic.TICK).size); assertEquals(2, Landing.pulses(Landing.Haptic.DOUBLE).size)
+        assertTrue(Landing.pulses(Landing.Haptic.LONG).single().strong)
     }
 
     // ---- Capture 360 follows the phase -----------------------------------------------------------------------
@@ -346,50 +349,10 @@ class MeasureScreenTest {
         val m = code(main)
         assertEquals(1, count(m, "PhaseTools.Tool.CAPTURE"))
         assertEquals(1, count(m, "val captureShown = PhaseTools.can(PhaseTools.Tool.CAPTURE,"))
-        assertEquals(1, count(m, "remember(fileKey, dataTick, quoteTick) { QuoteStageSync.prepStage(context, fileKey) })"),
-            "the stage is the one a new capture's survey prep is handed")
         assertEquals(1, count(m, "ExtendedFloatingActionButton("), "the one opener of the capture sheet")
         assertEquals(1, count(m, "if (captureShown) ExtendedFloatingActionButton("))
         for (rel in appSources()) if (rel != main) assertEquals(0, count(code(rel), "PhaseTools.Tool.CAPTURE"), "$rel reads the capture rule too")
-        // the row itself: Survey and Client approved, and a project not read yet or only on the phone
         assertEquals("1000011", stages.joinToString("") { if (PhaseTools.can(PhaseTools.Tool.CAPTURE, it)) "1" else "0" })
-    }
-
-    // ---- the painter -----------------------------------------------------------------------------------------
-
-    @Test fun `the screen's figures come from MarkDims and DimLayout, and the saved pictures keep the old path`() {
-        val t = text(spd)
-        val c = code(spd)
-        assertEquals(1, count(c, "DimLayout.mark("), "one figure per dimension is laid out in one place")
-        assertEquals(1, count(c, "DimLayout.place("))
-        assertEquals(1, count(t, "if (o.mode == \"main\") figures(c, s, els, o, m, u, codes, dim)"), "the screen")
-        assertEquals(2, count(t, "if (o.mode == \"sheet\" && (sel || o.all)) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)"),
-            "the saved pictures: a box and a point, by the painter they always had (M3 moves them)")
-        // a Line's, an area's and a chain's figures are taps under their reading keys, on the screen only
-        assertEquals(1, count(t, "figure = if (o.mode == \"main\") SurveyMeas.key(q) else null, o = o, u = u)"))
-        assertEquals(1, count(t, "keys = if (o.mode == \"main\") o.prep.keysOf(k) else null, u = u)"))
-        assertEquals(1, count(c, "SurveyChain.totalReadOnly("), "a total the laser gives is not a tap")
-        assertEquals(1, count(c, "DimLayout.tapOf("), "every such tap is 32 dp at least each way")
-        // lineTag: the screen passes the reading; FaceWriter's pictures pass neither (figure is null there, so read is null)
-        assertEquals(1, count(c, "SurveyMeas.lineTag("))
-        assertEquals(1, count(t, "val read: Double? = if (figure != null && o != null) o.prep.actual[figure] else null"))
-        assertEquals(1, count(c, "SurveyMeas.lineTag(code, if (kind == "))
-        assertTrue(Regex("""SurveyMeas\.lineTag\(code, if \(kind == "open"\) SurveyMeas\.AREA else kind, pts, reading = read, approx = shown\)""").containsMatchIn(t))
-        val pano360 = text(s360)
-        assertEquals(1, count(code(s360), "SurveyMeas.lineTag("))
-        assertTrue(Regex("""SurveyMeas\.lineTag\(code, if \(kind == "open"\) SurveyMeas\.AREA else kind, pts, reading = reading, approx = code != null\)""").containsMatchIn(pano360))
-        assertEquals(1, count(code(s360), "meas(c, v, s, f, sf, prep.actual, st, ink, w, h)"))
-        // the Show row's value survives only as the saved pictures' default
-        assertEquals(1, count(t, "val show: String = \"both\","))
-        // FaceWriter is as it was: positional through `all`, no scope, no live digits, none of the new models
-        val w = text(writer)
-        assertEquals(1, count(w, "SurveyPrepDraw.Marks(prep, size[0], size[1], sq, \"sheet\", true,"))
-        for (new in listOf("DimLayout", "MarkDims", "MeasureFlow", "MeasurePad", "scope =", "live =", "keep ="))
-            assertEquals(0, count(code(writer), new), "FaceWriter.kt names $new: the saved pictures are not M2's to change")
-        // the screen names what it draws: no Show value is passed any more
-        val screen = code(sps)
-        assertEquals(1, count(screen, "scope = figScope, live = live, keep = figKeep)"))
-        assertEquals(0, count(screen, "show = "))
     }
 
     // ---- the tour: off, and all of it kept -------------------------------------------------------------------
@@ -401,7 +364,6 @@ class MeasureScreenTest {
         assertEquals(1, count(c, "TourBindSurvey(tab, mode,"))
         assertEquals(1, count(code(app + "TourOverlay.kt"), "object TourSeed"), "the Demo Client's seeding is kept")
         assertTrue(I18n.android.resolve(pano + "Tour.kt").isFile)
-        // the flow itself still stands, for whoever rewrites it after the journey is approved
         assertTrue(TourFlows.shipped(Tx.EN).isEmpty())
         assertTrue(TourFlows.shipped(Tx.EN, tours = true).any { it.id == "survey" })
     }

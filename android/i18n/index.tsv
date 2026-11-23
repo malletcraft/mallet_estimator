@@ -588,7 +588,6 @@ common.save	common_save	static	-
 common.save_downloads	common_save_downloads	static	-
 common.saving	common_saving	static	-
 common.scale	common_scale	static	-
-common.select	common_select	static	-
 common.share	common_share	static	-
 common.show	common_show	static	-
 common.show_all	common_show_all	static	-
@@ -1178,7 +1177,6 @@ refuse.sp.finish_chain_x_first	refuse_sp_finish_chain_x_first	template	v: String
 refuse.sp.off_surface_nothing_will	refuse_sp_off_surface_nothing_will	static	-
 refuse.sp.only_things_surface_measure	refuse_sp_only_things_surface_measure	static	-
 refuse.sp.phone_saves_x_x	-	skipped	prototype-only
-refuse.sp.tap_measurement_first	refuse_sp_tap_measurement_first	static	-
 refuse.sp.these_four_lines_do	refuse_sp_these_four_lines_do	static	-
 refuse.sp.these_four_lines_do_2	refuse_sp_these_four_lines_do_2	static	-
 refuse.sp.these_four_lines_do_3	refuse_sp_these_four_lines_do_3	static	-
@@ -1365,21 +1363,12 @@ sp.lwh.title	sp_lwh_title	static	-
 sp.marked_area	sp_marked_area	static	-
 sp.marked_area_x	sp_marked_area_x	template	v: String
 sp.marked_length	sp_marked_length	static	-
-sp.measure.all	sp_measure_all	static	-
-sp.measure.aria.all	sp_measure_aria_all	static	-
 sp.measure.aria.keep	sp_measure_aria_keep	static	-
 sp.measure.aria.next_x	sp_measure_aria_next_x	template	n: String
-sp.measure.aria.previous	sp_measure_aria_previous	static	-
-sp.measure.aria.skip	sp_measure_aria_skip	static	-
-sp.measure.aria.type	sp_measure_aria_type	static	-
 sp.measure.check_reading	sp_measure_check_reading	static	-
 sp.measure.face_done_x	sp_measure_face_done_x	template	face: String · total: String
-sp.measure.next_face_x	sp_measure_next_face_x	template	face: String · n: String
 sp.measure.not_in_room	sp_measure_not_in_room	static	-
-sp.measure.photo_says_x	sp_measure_photo_says_x	template	est: String
 sp.measure.room_done_x	sp_measure_room_done_x	template	total: String
-sp.measure.sides_say_x	sp_measure_sides_say_x	template	side: String · est: String
-sp.measure.x_of_x	sp_measure_x_of_x	template	read: String · total: String
 sp.measure.x_to_measure	sp_measure_x_to_measure	template	n: String
 sp.measured_x_x_x	sp_measured_x_x_x	template	ta: String · A: String · tb: String · B: String · LS0: String · LS1: String
 sp.mi_a3_360_780	-	skipped	prototype-only
@@ -1440,7 +1429,6 @@ sp.reference_2	sp_reference_2	static	-
 sp.reference_hidden_faces_still	sp_reference_hidden_faces_still	template	v: String
 sp.reference_shown_2_mark	sp_reference_shown_2_mark	static	-
 sp.reference_shown_mark	sp_reference_shown_mark	static	-
-sp.reference_shown_measure	sp_reference_shown_measure	static	-
 sp.right	sp_right	static	-
 sp.room_size_l_x	sp_room_size_l_x	template	L: String · W: String · H: String
 sp.room_size_l_x_2	sp_room_size_l_x_2	template	z0: String · z1: String · z2: String
@@ -1468,7 +1456,6 @@ sp.tap_again_discard_360	sp_tap_again_discard_360	static	-
 sp.tap_photo_frag	sp_tap_photo_frag	static	-
 sp.tape_drag_along_face	sp_tape_drag_along_face	static	-
 sp.tape_suffix	sp_tape_suffix	static	-
-sp.tape_x_mm	sp_tape_x_mm	template	v: String
 sp.tape_x_mm_photo	sp_tape_x_mm_photo	template	v: String
 sp.the	sp_the	static	-
 sp.the_x_reference	sp_the_x_reference	template	s: String
@@ -1516,7 +1503,6 @@ sp.x_survey_prep	sp_x_survey_prep	template	title: String
 sp.x_survey_prep_laser	sp_x_survey_prep_laser	template	V: String
 sp.x_unlocked_x	sp_x_unlocked_x	template	v: String · v2: String
 sp.x_x_corner	-	refused	{v} is the English 'left' / 'right', chosen in code; split into two whole keys in the table
-sp.x_x_mark_x	sp_x_x_mark_x	template	T: String · length: Int · v: String
 sp.x_x_x_x	sp_x_x_x_x	template	v: String · A: String · B: String · n: Int
 stage.built_site_measure	stage_built_site_measure	static	-
 stage.cove_profile_light	stage_cove_profile_light	static	-

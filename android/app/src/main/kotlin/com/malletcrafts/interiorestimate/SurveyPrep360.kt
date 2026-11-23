@@ -57,6 +57,7 @@ import com.malletcrafts.interiorestimate.pano.NotePin
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.PhaseTools
+import com.malletcrafts.interiorestimate.pano.PhotoFigures
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
 import com.malletcrafts.interiorestimate.pano.SurveyMeas
@@ -1077,9 +1078,10 @@ private object P3Draw {
         }
         if (drawn.isNotEmpty()) {
             val cx = drawn.map { it[0] }.average().toFloat(); val cy = drawn.map { it[1] }.average().toFloat()
-            // ONE FIGURE (port 63 slice M2): a plotted Line its reading, else ≈ and the photo's length; an area its perimeter
-            // after its m² once read. One being pulled or tapped ([code] null) is the photo's figure alone, as before.
-            val t = SurveyMeas.lineTag(code, if (kind == "open") SurveyMeas.AREA else kind, pts, reading = reading, approx = code != null)
+            // NO PHOTO ESTIMATE ON THE 360 EITHER, AND THE NUMBER ALONE (port 63 slice I1b; DESIGN-imagemeter §18 rule 3, §21
+            // P4): a plotted Line its reading once read, `1240`, and nothing until then; an area its read perimeter, never its
+            // m² (the photo's); one being pulled or tapped ([code] null) shows nothing. Nothing is measured here: no `?`.
+            val t = if (code == null) PhotoFigures.DRAFT_TAG else SurveyMeas.shownTag(code, kind, reading, ask = false)
             if (t.isNotEmpty()) label(c, t, cx + (if (locked) 30f else 6f) * u, cy - 6f * u, 0xe0f7ff, 12f * u, ink)
             if (locked && !draft) padPill(c, cx + 26f * u, cy - 21f * u, LINE_C, ink)
         }
@@ -1122,7 +1124,8 @@ private object P3Draw {
             c.drawCircle(p[0].toFloat(), p[1].toFloat(), SurveyGuide.END_R_DP.toFloat() * u, ink.stroke(0x3b2f00, 2f * u))
         }
         if (pb != null) {
-            val txt = SurveyMeas.tapeTag(if (draft) null else code, len)
+            // the Tape's length on the photo, the number alone (P4): the one figure that IS the photo's (§18 rule 4)
+            val txt = SurveyMeas.tapeShown(len)
             val tw = textW(txt, 12f * u, ink)
             val pw = if (locked && !draft) 26f * u else 0f
             val k = SurveyMeas.tapeTagAt(pa ?: doubleArrayOf(pb[0] - 1, pb[1]), pb, tw.toDouble(), pw.toDouble(), u.toDouble(), w.toDouble(), h.toDouble())
@@ -1177,13 +1180,15 @@ private object P3Draw {
             val q = Pano360.toS(v, s, f, mid[0] + perp[0] * 100, mid[1] + perp[1] * 100)
             var dx = 0.0; var dy = -1.0
             if (q != null) { val l = hypot(q[0] - p[0], q[1] - p[1]); if (l > 0) { dx = (q[0] - p[0]) / l; dy = (q[1] - p[1]) / l } }
-            val (t, tc) = if (vals != null) SurveyChain.segFigure(vals, i - 1)
-                          else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR // text:value the ≈ glyph, a figure
+            // a read segment, the number alone; no derived and no photo figure, and nothing on one being drawn (port 63 I1b)
+            val (t, tc) = vals?.let { PhotoFigures.chainSeg360(it, i - 1) } ?: continue
             label(c, t, (p[0] + dx * off).toFloat() - textW(t, fs, ink) / 2, (p[1] + dy * off).toFloat() + 4f * u, tc, fs, ink)
         }
         if (vals != null && code != null) {
             val p = scr.last() ?: return
-            val t = SurveyChain.totalTag(tx, code, vals); val ts = 11f * u
+            // a read total or the laser's, `Σ 3310`; else nothing (port 63 slice I1b)
+            val t = PhotoFigures.chainTotal360(vals); val ts = 11f * u
+            if (t.isEmpty()) return
             val x = max(4f * u, min(w - textW(t, ts, ink) - 6f * u, p[0].toFloat() + 8f * u))
             label(c, t, x, p[1].toFloat() + 20f * u, SurveyChain.totalColour(vals), ts, ink)
         }

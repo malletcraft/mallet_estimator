@@ -647,7 +647,7 @@ class MarkSheetTest {
         assertTrue(prep.contains("val done = MarkSheet.apply(prep, st, quoteStage, java.time.Instant.now()) { snapshot() }"), "Done: apply, with the screen's snapshot as its one undo step")
         val body = prep.substringAfter("fun sheetDone() {").substringBefore("fun deleteMark(")
         assertEquals(1, Regex("""snapshot\(\)""").findAll(body).count(), "no snapshot of the screen's own beside apply's")
-        assertTrue(body.contains("MarkSheet.Outcome.DONE -> { changed(); if (done.amber) say(MarkLife.afterEstimate(tx)) }"), "written: saved, and the office told of an amber move")
+        assertTrue(body.contains("MarkSheet.Outcome.DONE -> { changed(); settled(); if (done.amber) say(MarkLife.afterEstimate(tx)) }"), "written: saved, settled (port 63 slice I1b), and the office told of an amber move")
         // Delete on a mark past Existing: the sheet, on Dropped, and nothing else
         assertTrue(prep.contains("MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }"))
         assertTrue(prep.contains("fun openSheet(mid: String, focusMove: String? = null, fresh: Boolean = false) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove, fresh, hist.size) }"), "opening takes no undo step")
@@ -655,12 +655,12 @@ class MarkSheetTest {
         assertTrue(prep.contains("val drawn = MarkSheet.view(tx, prep, st, quoteStage)"))
         for (f in listOf("pickSub(prep, cur, sub)", "pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, typed)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, typed)",
             "pickOffice(cur, office)", "togglePicker(prep, cur)", "pickCat(cur, cat)", "closePicker(cur)")) assertTrue(prep.contains("MarkSheet.$f"), f)
-        // a code is a button exactly where a sheet opens for it: the picked mark's label and a picked Line's or area's code
-        // in 2 · Mark and 4 · 360, and -- since port 63 slice M2, which removed the list and its rows' codes -- the measure
-        // bar's label cell (SurveyMeasure.kt), which is how the sheet opens in 3 · Measure, at every stage
+        // a code is a button exactly where a sheet opens for it: the HELD mark's label and a held Line's or area's code (port 63
+        // slice I1b: Pick.row's `sheet`, which asks MarkSheet.opens). The measure bar and its label cell are gone with 3 · Measure
         assertEquals(2, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(""").findAll(prep).count())
-        assertEquals(1, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(cell\.code\)""").findAll(code("SurveyMeasure.kt")).count())
-        assertEquals(1, Regex("""if \(!MarkSheet\.opens\(prep, (?:sq\.)?id\)\) Modifier else""").findAll(prep).count(), "a Tape's code is no button (the list's own rows are gone)")
+        assertEquals(0, Regex("""life_aria_open_mark_sheet_x""").findAll(code("SurveyMeasure.kt")).count())
+        assertEquals(1, Regex("""if \(!row\.sheet\) Modifier else""").findAll(prep).count(), "a Tape's code is no button")
+        assertEquals(1, Regex("""\.clickable\(enabled = row\.sheet, role = Role\.Button\) \{ openSheet\(sm\.id\) \}""").findAll(prep).count(), "the mark's label")
         // EVERY WRITE GOES THROUGH MarkSheet: no file of the app moves a mark, sets its act, its note or its trade, or touches `extra`
         val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
         val writers = Regex("""MarkLife\s*\.\s*(move|setAct|setNote|withNote|placeAs)\(|Trades\s*\.\s*(setCat|withCat)\(|\.extra\s*=[^=]""")
@@ -886,7 +886,7 @@ class MarkSheetTest {
         assertTrue(prep.contains("onKind = { sub -> markSheet = markSheet?.let { cur -> MarkSheet.pickSub(prep, cur, sub) } },"))
         // removed: the placement's undo step taken back while it is the last, the pick let go, saved, and said with no UNDO
         assertTrue(prep.contains("fun noteRemoved(st: MarkSheet.State) {\n        if (MarkSheet.takesBackUndo(st, hist.size)) hist.removeAt(hist.size - 1)\n" +
-            "        if (sel?.id == st.id) { sel = null; active = null }\n        changed()\n        snack(MarkSheet.emptyRemoved(tx), undo = false)\n    }"))
+            "        took(Pick.deleted(pick, st.id))\n        changed()\n        snack(MarkSheet.emptyRemoved(tx), undo = false)\n    }"))
         // the sheet draws KIND first, in both orientations, and a new Note's field takes the keyboard
         val sheet = code("MarkSheet.kt")
         assertEquals(2, Regex("""val kind = v\.kind\n\s+if \(kind != null\) MsKind\(kind, a\.onKind\)""").findAll(sheet).count())

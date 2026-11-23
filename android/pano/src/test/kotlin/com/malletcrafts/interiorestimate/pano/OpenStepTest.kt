@@ -44,8 +44,8 @@ class OpenStepTest {
         // ... and from 1 Lines on a face he was fixing to a face whose lines are set: Mark -- Lines is not where a
         // face opens once its lines are set, whatever step he left
         assertEquals(MARK, PhaseTools.openStep("left", LINES, PhaseTools.SURVEY, set(p, "left")))
-        // the old third step's key, should a caller still hold it, is Mark's
-        assertEquals(MARK, PhaseTools.openStep("left", StepRoute.MEASURE, PhaseTools.SURVEY, true))
+        // a step key nobody's route has (the old third step's), should a caller still hold it: the face's own rule
+        assertEquals(MARK, PhaseTools.openStep("left", "measure", PhaseTools.SURVEY, true))
     }
 
     @Test fun `1 Lines stays one tap away on the strip whatever a face opened on - a line can always be changed`() {

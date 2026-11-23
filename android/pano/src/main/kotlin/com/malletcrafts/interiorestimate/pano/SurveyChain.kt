@@ -248,10 +248,6 @@ object SurveyChain {
         }
     }
 
-    /** The selection row under the photo (sp.js 1503, ct52 K): "≈905 · ≈2405 · Σ 3310 laser". */
-    fun rowValue(tx: Tx, v: Vals): String =
-        v.est.indices.joinToString(" · ") { segFigure(v, it).first } + " · Σ " + totalText(tx, v) // text:value separators and Σ round the figures
-
     // ------------------------------------------------------------ drawing one (sp.js kPlace, kDown, kFinish)
 
     /** A chain being drawn on [s]: its points so far, what each snapped onto, and its axis once two points fix it. */

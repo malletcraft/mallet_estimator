@@ -72,8 +72,8 @@ class DimLayoutTest {
         val column = Box(size - 50 * dp, 6.0 * dp, size - 6 * dp, 84.0 * dp)
         fun keep(els: List<SurveyPrep.Mark> = wall) = codes(els) + column
 
-        fun place(ms: List<DimLayout.Mark>, scope: DimLayout.Scope, keep: List<Box> = keep()) =
-            DimLayout.place(ms, scope, size, size, keep, u, dp, times)
+        fun place(ms: List<DimLayout.Mark>, scope: OldPlace.Scope, keep: List<Box> = keep()) =
+            OldPlace.place(ms, scope, size, size, keep, u, dp, times)
 
         /**
          * What must hold of every layout: every plate inside the photo, no plate on another, none on a kept box, taps
@@ -116,7 +116,7 @@ class DimLayoutTest {
     private fun marks(picked: String? = null, active: String? = null, actual: Map<String, Double> = emptyMap(),
                       tabs: Boolean = false, els: List<SurveyPrep.Mark> = wall) = fit.marks(picked, active, actual, tabs, els)
     private fun keep(els: List<SurveyPrep.Mark> = wall) = fit.keep(els)
-    private fun place(ms: List<DimLayout.Mark>, scope: DimLayout.Scope, keep: List<Box> = keep()) = fit.place(ms, scope, keep)
+    private fun place(ms: List<DimLayout.Mark>, scope: OldPlace.Scope, keep: List<Box> = keep()) = fit.place(ms, scope, keep)
     private fun sound(out: DimLayout.Out, keep: List<Box>, forced: Set<String> = emptySet(), what: String) = fit.sound(out, keep, forced, what)
 
     // ------------------------------------------------------------------ the constants, the lines, the scopes
@@ -164,12 +164,12 @@ class DimLayoutTest {
         assertEquals(setOf(MarkDims.Role.WIDTH, MarkDims.Role.HEIGHT, MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DROP, MarkDims.Role.DEPTH) + quad + MarkDims.Role.ITEM, all.toSet())
         for (r in all) {
             // 2 · Mark: the picked mark, everything; nobody else
-            assertTrue(DimLayout.shows(DimLayout.Scope.PICKED, true, r)); assertFalse(DimLayout.shows(DimLayout.Scope.PICKED, false, r))
+            assertTrue(OldPlace.shows(OldPlace.Scope.PICKED, true, r)); assertFalse(OldPlace.shows(OldPlace.Scope.PICKED, false, r))
             // 3 · Measure: every mark its size, the picked mark its position too
-            assertTrue(DimLayout.shows(DimLayout.Scope.FACE, true, r)); assertEquals(r in size || r in quad, DimLayout.shows(DimLayout.Scope.FACE, false, r))
+            assertTrue(OldPlace.shows(OldPlace.Scope.FACE, true, r)); assertEquals(r in size || r in quad, OldPlace.shows(OldPlace.Scope.FACE, false, r))
             assertEquals(r in size || r in quad, DimLayout.isSize(r))
             // all: every figure of every mark
-            assertTrue(DimLayout.shows(DimLayout.Scope.ALL, true, r)); assertTrue(DimLayout.shows(DimLayout.Scope.ALL, false, r))
+            assertTrue(OldPlace.shows(OldPlace.Scope.ALL, true, r)); assertTrue(OldPlace.shows(OldPlace.Scope.ALL, false, r))
         }
         assertEquals(listOf("ACTIVE", "PICKED", "UNMEASURED", "MEASURED", "AWAY"), DimLayout.Rank.values().map { it.name })
         assertEquals(DimLayout.Rank.ACTIVE, DimLayout.rank(active = true, picked = true, away = true, measured = true))
@@ -195,7 +195,7 @@ class DimLayoutTest {
         assertEquals(listOf("1400", "2104", "▶≈150", "⊥ ?"), m.figs.map { it.text })
         assertEquals(listOf(MarkDims.State.MEASURED, MarkDims.State.MEASURED, MarkDims.State.ESTIMATE, MarkDims.State.UNKNOWN), m.figs.map { it.state })
         assertEquals(listOf(true, false, false, false), m.figs.map { it.check }); assertEquals(listOf(false, false, true, false), m.figs.map { it.active })
-        val placed = DimLayout.place(listOf(m), DimLayout.Scope.FACE, SIZE, SIZE, emptyList(), U, DP, TIMES)
+        val placed = OldPlace.place(listOf(m), OldPlace.Scope.FACE, SIZE, SIZE, emptyList(), U, DP, TIMES)
         assertEquals(m.figs.map { it.text }, placed.plates.map { it.fig.text }); assertEquals("id-D1", placed.plates[0].markId)
         // an upright plate's text starts 5 inside its box and sits 5 above its bottom, as the painter's tag did
         val wp = placed.of("FD1.w")!!
@@ -222,7 +222,7 @@ class DimLayoutTest {
     private fun one(vararg figs: DimLayout.Fig) = listOf(DimLayout.Mark("m", Box(0.0, 0.0, 10.0, 10.0), figs.toList()))
 
     @Test fun `a plate sits mid-span on its line, and the h plate is turned to read bottom to top`() {
-        val out = place(marks(), DimLayout.Scope.FACE)
+        val out = place(marks(), OldPlace.Scope.FACE)
         val w = assertNotNull(out.of("FW1.w")); val h = assertNotNull(out.of("FW1.h"))
         val wl = assertNotNull(w.line); val hl = assertNotNull(h.line)
         // the window's w: on its line, centred on its middle, upright, 17 high
@@ -235,7 +235,7 @@ class DimLayoutTest {
         assertEquals(hl.at(0.5)[1], (h.box.t + h.box.b) / 2, 1e-9)
         assertTrue(abs((h.box.l + h.box.r) / 2 - hl.x1) <= 8.5)
         // the door's h, alone on the wall with room either side: exactly on the middle of its line
-        val dh = assertNotNull(place(marks(els = listOf(door)), DimLayout.Scope.FACE, keep(listOf(door))).of("FD1.h"))
+        val dh = assertNotNull(place(marks(els = listOf(door)), OldPlace.Scope.FACE, keep(listOf(door))).of("FD1.h"))
         assertEquals(assertNotNull(dh.line).at(0.5).toList(), listOf((dh.box.l + dh.box.r) / 2, (dh.box.t + dh.box.b) / 2))
         // ... and on the example wall, where the switch plate's code stands on that middle, a quarter along it instead
         val moved = assertNotNull(out.of("FD1.h"))
@@ -245,7 +245,7 @@ class DimLayoutTest {
 
     @Test fun `a span too short for its plate -- the plate steps off by one plate height on a leader, arrowheads pointing in`() {
         // a 30 px span and a 40 px plate: it cannot sit on the line
-        val out = place(one(fig("A.l", 100.0, 200.0, 130.0, 200.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, emptyList())
+        val out = place(one(fig("A.l", 100.0, 200.0, 130.0, 200.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, emptyList())
         val a = assertNotNull(out.of("A.l"))
         assertEquals(DimLayout.How.OFF_LINE, a.how); assertTrue(a.arrowsIn)
         // above the line by one plate height, centre to line: the plate's bottom edge half a plate height over it
@@ -253,12 +253,12 @@ class DimLayoutTest {
         val ld = assertNotNull(a.leader)
         assertEquals(listOf(115.0, 200.0, 115.0, 200.0 - 8.5), listOf(ld.x1, ld.y1, ld.x2, ld.y2))
         // 8 dp of room more than the plate is exactly enough to sit on the line
-        val fits = place(one(fig("A.l", 100.0, 200.0, 148.0, 200.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, emptyList()).of("A.l")!!
+        val fits = place(one(fig("A.l", 100.0, 200.0, 148.0, 200.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, emptyList()).of("A.l")!!
         assertEquals(DimLayout.How.ON_LINE, fits.how); assertFalse(fits.arrowsIn)
-        val short = place(one(fig("A.l", 100.0, 200.0, 147.9, 200.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, emptyList()).of("A.l")!!
+        val short = place(one(fig("A.l", 100.0, 200.0, 147.9, 200.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, emptyList()).of("A.l")!!
         assertEquals(DimLayout.How.OFF_LINE, short.how); assertTrue(short.arrowsIn)
         // an upright plate on a vertical line needs only its HEIGHT of span: a 30 px floor line holds it
-        val v = place(one(fig("A.s", 200.0, 300.0, 200.0, 270.0, DimLayout.Rank.UNMEASURED, role = MarkDims.Role.OFF_V)), DimLayout.Scope.ALL, emptyList()).of("A.s")!!
+        val v = place(one(fig("A.s", 200.0, 300.0, 200.0, 270.0, DimLayout.Rank.UNMEASURED, role = MarkDims.Role.OFF_V)), OldPlace.Scope.ALL, emptyList()).of("A.s")!!
         assertEquals(DimLayout.How.ON_LINE, v.how); assertFalse(v.turned)
         assertEquals(listOf(180.0, 285.0 - 8.5, 220.0, 285.0 + 8.5), l(v.box))
     }
@@ -266,7 +266,7 @@ class DimLayoutTest {
     @Test fun `a place taken -- a quarter and three quarters along the line, then off it on a leader, then a dot`() {
         // five figures on lines 3 px apart, each wanting the same middle
         val figs = (0 until 5).map { i -> fig("A.$i", 20.0, 150.0 + 3 * i, 320.0, 150.0 + 3 * i, DimLayout.Rank.UNMEASURED, measured = i == 4) }
-        val out = place(one(*figs.toTypedArray()), DimLayout.Scope.ALL, emptyList())
+        val out = place(one(*figs.toTypedArray()), OldPlace.Scope.ALL, emptyList())
         sound(out, emptyList(), what = "the queue")
         val p = figs.indices.map { out.of("A.$it")!! }
         fun cx(b: Box) = (b.l + b.r) / 2
@@ -281,12 +281,12 @@ class DimLayoutTest {
         assertEquals(DimLayout.How.OFF_LINE, p[4].how)
         assertEquals(listOf(75.0, 162.0 + 8.5, 115.0, 162.0 + 8.5 + 17), l(p[4].box))
         // a sixth and a seventh still find room, one plate further out: nobody is a dot while there is room on the photo
-        val more = place(one(*(0 until 7).map { i -> fig("A.$i", 20.0, 150.0 + 3 * i, 320.0, 150.0 + 3 * i, DimLayout.Rank.UNMEASURED) }.toTypedArray()), DimLayout.Scope.ALL, emptyList())
+        val more = place(one(*(0 until 7).map { i -> fig("A.$i", 20.0, 150.0 + 3 * i, 320.0, 150.0 + 3 * i, DimLayout.Rank.UNMEASURED) }.toTypedArray()), OldPlace.Scope.ALL, emptyList())
         sound(more, emptyList(), what = "seven on one place"); assertEquals(0, more.dots)
         // with everything round the line taken there is no room: a 6 dp dot on its line, with a 32 dp tap box
         val wallOff = listOf(Box(0.0, 0.0, SIZE, 149.0), Box(0.0, 151.0, SIZE, SIZE))
         val none = place(one(fig("A.0", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.UNMEASURED), fig("A.1", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.MEASURED, measured = true)),
-            DimLayout.Scope.ALL, wallOff)
+            OldPlace.Scope.ALL, wallOff)
         // the first on its line at its middle; the second BESIDE it on the same line, the first spot clear of it (a
         // quarter dot at a time, towards the line's start), never on it: each dot is seen and takes its own tap
         for ((k, x) in listOf("A.0" to 170.0, "A.1" to 162.5)) {
@@ -306,35 +306,35 @@ class DimLayoutTest {
         // listed LAST, and wanting the very place the picked mark's own figure wants: the active one gets it
         val figs = listOf(fig("A.w", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.MEASURED), fig("A.h", 20.0, 152.0, 320.0, 152.0, DimLayout.Rank.PICKED),
             fig("A.l", 20.0, 154.0, 320.0, 154.0, DimLayout.Rank.ACTIVE))
-        val out = place(one(*figs.toTypedArray()), DimLayout.Scope.ALL, emptyList())
+        val out = place(one(*figs.toTypedArray()), OldPlace.Scope.ALL, emptyList())
         fun cx(k: String) = out.of(k)!!.box.let { (it.l + it.r) / 2 }
         assertEquals(170.0, cx("A.l")); assertEquals(95.0, cx("A.h")); assertEquals(245.0, cx("A.w"))
         // the order in the answer is the order given, whatever order they were placed in
         assertEquals(listOf("A.w", "A.h", "A.l"), out.plates.map { it.code })
         // with no room at all the active figure is still a plate, at its first place; the other shrinks
         val full = listOf(Box(0.0, 0.0, SIZE, SIZE))
-        val forced = place(one(fig("A.w", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.UNMEASURED), fig("A.l", 20.0, 154.0, 320.0, 154.0, DimLayout.Rank.ACTIVE)), DimLayout.Scope.ALL, full)
+        val forced = place(one(fig("A.w", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.UNMEASURED), fig("A.l", 20.0, 154.0, 320.0, 154.0, DimLayout.Rank.ACTIVE)), OldPlace.Scope.ALL, full)
         assertEquals(DimLayout.How.ON_LINE, forced.of("A.l")!!.how); assertFalse(forced.of("A.l")!!.dot)
         assertEquals(listOf(150.0, 154.0 - 8.5, 190.0, 154.0 + 8.5), l(forced.of("A.l")!!.box))
         assertTrue(forced.of("A.w")!!.dot)
         // ... and an active p, and the active half of a compact plate, likewise
         val chip = DimLayout.Fig("A.p", MarkDims.Role.DEPTH, null, doubleArrayOf(200.0, 200.0), 30.0, 12.0, DimLayout.Rank.ACTIVE, false)
-        assertEquals(DimLayout.How.CHIP, place(one(chip), DimLayout.Scope.ALL, full).of("A.p")!!.how)
+        assertEquals(DimLayout.How.CHIP, place(one(chip), OldPlace.Scope.ALL, full).of("A.p")!!.how)
         val small = DimLayout.Mark("s", Box(100.0, 100.0, 125.0, 111.0), listOf(
             DimLayout.Fig("S.w", MarkDims.Role.WIDTH, DimLayout.Seg(100.0, 94.0, 125.0, 94.0), null, 40.0, 10.0, DimLayout.Rank.UNMEASURED, false),
             DimLayout.Fig("S.h", MarkDims.Role.HEIGHT, DimLayout.Seg(131.0, 111.0, 131.0, 100.0), null, 34.0, 10.0, DimLayout.Rank.ACTIVE, false)))
-        val sc = DimLayout.place(listOf(small), DimLayout.Scope.ALL, SIZE, SIZE, full, U, DP, TIMES)
+        val sc = OldPlace.place(listOf(small), OldPlace.Scope.ALL, SIZE, SIZE, full, U, DP, TIMES)
         assertEquals(listOf(DimLayout.How.COMPACT, DimLayout.How.COMPACT), sc.plates.map { it.how })
         // not active, it gives way: both of its figures become dots on their own lines
-        val gave = DimLayout.place(listOf(DimLayout.Mark("s", small.box, small.figs.map { DimLayout.Fig(it.code, it.role, it.line, null, it.w, it.fs, DimLayout.Rank.UNMEASURED, false) })),
-            DimLayout.Scope.ALL, SIZE, SIZE, full, U, DP, TIMES)
+        val gave = OldPlace.place(listOf(DimLayout.Mark("s", small.box, small.figs.map { DimLayout.Fig(it.code, it.role, it.line, null, it.w, it.fs, DimLayout.Rank.UNMEASURED, false) })),
+            OldPlace.Scope.ALL, SIZE, SIZE, full, U, DP, TIMES)
         assertEquals(listOf(true, true), gave.plates.map { it.dot })
         assertEquals(listOf(112.5 - 3, 94.0 - 3, 112.5 + 3, 94.0 + 3), l(gave.of("S.w")!!.box))
         assertEquals(listOf(131.0 - 3, 105.5 - 3, 131.0 + 3, 105.5 + 3), l(gave.of("S.h")!!.box))
     }
 
     @Test fun `a small box gets one compact plate beside it, each figure its own tap half`() {
-        val out = place(marks(), DimLayout.Scope.FACE)
+        val out = place(marks(), OldPlace.Scope.FACE)
         val w = assertNotNull(out.of("FS1.w")); val h = assertNotNull(out.of("FS1.h"))
         assertEquals(DimLayout.How.COMPACT, w.how); assertEquals(DimLayout.How.COMPACT, h.how)
         assertFalse(w.turned); assertFalse(h.turned)                // "≈200 × ≈90", upright
@@ -356,12 +356,12 @@ class DimLayoutTest {
         assertEquals(DimLayout.How.ON_LINE, out.of("FD1.w")!!.how); assertNull(out.of("FD1.w")!!.whole)
         // one of the two spans long enough: no compact plate
         val wide = mk("S", 2, 400.0, 1100.0, 1500.0, 1590.0)
-        val o2 = place(marks(els = listOf(wide)), DimLayout.Scope.FACE, keep(listOf(wide)))
+        val o2 = place(marks(els = listOf(wide)), OldPlace.Scope.FACE, keep(listOf(wide)))
         assertEquals(DimLayout.How.ON_LINE, o2.of("FS2.w")!!.how); assertEquals(DimLayout.How.OFF_LINE, o2.of("FS2.h")!!.how)
         assertTrue(o2.of("FS2.h")!!.turned); assertTrue(o2.of("FS2.h")!!.arrowsIn)
         // ... the other way round too -- narrow and tall: its w steps off its line, its h sits on its own
         val tall = mk("X", 1, 600.0, 750.0, 300.0, 1800.0)
-        val o3 = place(marks(els = listOf(tall)), DimLayout.Scope.FACE, keep(listOf(tall)))
+        val o3 = place(marks(els = listOf(tall)), OldPlace.Scope.FACE, keep(listOf(tall)))
         assertEquals(DimLayout.How.OFF_LINE, o3.of("FX1.w")!!.how); assertTrue(o3.of("FX1.w")!!.arrowsIn); assertNull(o3.of("FX1.w")!!.whole)
         assertEquals(DimLayout.How.ON_LINE, o3.of("FX1.h")!!.how); assertTrue(o3.of("FX1.h")!!.turned); assertFalse(o3.of("FX1.h")!!.arrowsIn)
     }
@@ -370,7 +370,7 @@ class DimLayoutTest {
         // a niche alone in the middle of the wall, picked: w h l s and its depth into the wall
         val niche = mk("N", 1, 800.0, 1700.0, 600.0, 1800.0)
         val ms = marks(picked = niche.id, els = listOf(niche))
-        val out = place(ms, DimLayout.Scope.FACE, keep(listOf(niche)))
+        val out = place(ms, OldPlace.Scope.FACE, keep(listOf(niche)))
         sound(out, keep(listOf(niche)), what = "a niche")
         assertEquals(listOf("FN1.w", "FN1.h", "FN1.l", "FN1.s", "FN1.p"), out.plates.map { it.code })
         val c = assertNotNull(out.of("FN1.p"))
@@ -380,7 +380,7 @@ class DimLayoutTest {
         assertEquals(listOf(q[0] + 4, q[1] + 4), listOf(c.box.l, c.box.t))
         assertEquals(DimLayout.plateW(textW("⊥ ?", 12.0, false), DP), c.box.w, 1e-9); assertEquals(19.0, c.box.h, 1e-9)
         // with the corner's outside taken it goes inside the corner; with that taken too, below it; then right of it
-        fun chip(vararg taken: Box) = place(ms, DimLayout.Scope.FACE, keep(listOf(niche)) + taken).of("FN1.p")!!
+        fun chip(vararg taken: Box) = place(ms, OldPlace.Scope.FACE, keep(listOf(niche)) + taken).of("FN1.p")!!
         val below = Box(q[0] + 1, q[1] + 1, q[0] + 60, q[1] + 40); val inside = Box(q[0] - 30, q[1] - 20, q[0] - 1, q[1] - 1)
         val under = Box(q[0] - 30, q[1] + 1, q[0] - 1, q[1] + 40)
         assertEquals(listOf(q[0] - 4, q[1] - 4), chip(below).box.let { listOf(it.r, it.b) })
@@ -395,7 +395,7 @@ class DimLayoutTest {
         val d0 = chip(Box(0.0, 0.0, SIZE, SIZE))
         assertTrue(d0.dot); assertEquals(listOf(q[0] - 3, q[1] - 3, q[0] + 3, q[1] + 3), l(d0.box))
         // the door stands on the floor at the photo's bottom edge: its chip stays inside the photo
-        val dc = place(marks(picked = door.id), DimLayout.Scope.FACE).of("FD1.p")!!
+        val dc = place(marks(picked = door.id), OldPlace.Scope.FACE).of("FD1.p")!!
         assertEquals(DimLayout.How.CHIP, dc.how); assertEquals(SIZE - 2, dc.box.b, 1e-9)
     }
 
@@ -403,31 +403,31 @@ class DimLayoutTest {
 
     @Test fun `as step 3 Measure opens the example wall shows 8 figures, none a dot`() {
         // the door picked: its four; the window's and the switch plate's size; the three points their spot alone
-        val out = place(marks(picked = door.id, active = "FD1.w"), DimLayout.Scope.FACE)
+        val out = place(marks(picked = door.id, active = "FD1.w"), OldPlace.Scope.FACE)
         sound(out, keep(), what = "FACE, door picked")
         assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FW1.w", "FW1.h", "FS1.w", "FS1.h"), out.plates.map { it.code })
         assertEquals(0, out.dots)
         assertEquals(listOf(DimLayout.How.ON_LINE, DimLayout.How.ON_LINE, DimLayout.How.OFF_LINE, DimLayout.How.CHIP, DimLayout.How.ON_LINE, DimLayout.How.ON_LINE,
             DimLayout.How.COMPACT, DimLayout.How.COMPACT), out.plates.map { it.how })
         // nothing picked: 6 -- every box mark its size, no position, no point
-        val none = place(marks(), DimLayout.Scope.FACE)
+        val none = place(marks(), OldPlace.Scope.FACE)
         sound(none, keep(), what = "FACE, nothing picked")
         assertEquals(listOf("FD1.w", "FD1.h", "FW1.w", "FW1.h", "FS1.w", "FS1.h"), none.plates.map { it.code }); assertEquals(0, none.dots)
         // a point picked: its two lines to its centre join the six
-        val pt = place(marks(picked = points[1].id), DimLayout.Scope.FACE)
+        val pt = place(marks(picked = points[1].id), OldPlace.Scope.FACE)
         sound(pt, keep(), what = "FACE, a point picked")
         assertEquals(8, pt.plates.size); assertEquals(0, pt.dots)
         assertEquals(setOf("FE2.cr", "FE2.cs"), pt.plates.map { it.code }.filter { it.startsWith("FE") }.toSet())
         // whichever mark is picked, and whichever of its dimensions is active: 6 to 9 plates, sound, and no dot
         for (e in wall) for (d in listOf<String?>(null) + MarkDims.of("front", e, W, H).map { it.code }) {
-            val o = place(marks(picked = e.id, active = d), DimLayout.Scope.FACE)
+            val o = place(marks(picked = e.id, active = d), OldPlace.Scope.FACE)
             sound(o, keep(), what = "FACE, ${e.code} picked, $d active")
             assertTrue(o.plates.size in 6..9, "${e.code}: ${o.plates.size} plates"); assertEquals(0, o.dots, "${e.code} picked, $d active")
         }
     }
 
     @Test fun `with all on the example wall places all 19, none on another`() {
-        val out = place(marks(), DimLayout.Scope.ALL)
+        val out = place(marks(), OldPlace.Scope.ALL)
         sound(out, keep(), what = "ALL")
         assertEquals(19, out.plates.size)
         assertEquals(wall.flatMap { e -> MarkDims.of("front", e, W, H).map { it.code } }, out.plates.map { it.code })
@@ -436,18 +436,18 @@ class DimLayoutTest {
         assertEquals(ALL_DOTS, out.dots, out.plates.filter { it.dot }.joinToString { it.code })
         // with a mark picked and a dimension active, still all 19 and still sound -- and the active one is never the dot
         for (e in wall) for (d in MarkDims.of("front", e, W, H).map { it.code }) {
-            val o = place(marks(picked = e.id, active = d), DimLayout.Scope.ALL)
+            val o = place(marks(picked = e.id, active = d), OldPlace.Scope.ALL)
             sound(o, keep(), setOf(d), "ALL, ${e.code} picked, $d active")
             assertEquals(19, o.plates.size); assertFalse(o.of(d)!!.dot, d)
         }
         // readings change the texts and the ranks, never the soundness
         val some = mapOf("FD1.w" to 905.0, "FW1.h" to 1198.0, "FE2.cs" to 300.0, "FS1.w" to 200.0, "FW1.p" to 230.0)
-        sound(place(marks(actual = some), DimLayout.Scope.ALL), keep(), what = "ALL, some measured")
+        sound(place(marks(actual = some), OldPlace.Scope.ALL), keep(), what = "ALL, some measured")
     }
 
     @Test fun `the same input gives the same output`() {
         fun dump(o: DimLayout.Out) = o.plates.map { listOf(it.code, it.how, it.turned, it.arrowsIn, l(it.box), l(it.tap), it.whole?.let(::l), it.leader?.toString()) }
-        for (scope in DimLayout.Scope.values()) {
+        for (scope in OldPlace.Scope.values()) {
             val a = dump(place(marks(picked = window.id, active = "FW1.s"), scope))
             repeat(3) { assertEquals(a, dump(place(marks(picked = window.id, active = "FW1.s"), scope)), scope.name) }
         }
@@ -459,7 +459,7 @@ class DimLayoutTest {
         // the wall without its switch plate, whose code stands just where the door's h tag goes (the last lines here)
         val els = listOf(door, window) + points
         val ms = marks(picked = door.id, active = "FD1.w", tabs = true, els = els)
-        val out = place(ms, DimLayout.Scope.PICKED, keep(els))
+        val out = place(ms, OldPlace.Scope.PICKED, keep(els))
         // only the picked mark shows figures in 2 · Mark, as today
         assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p"), out.plates.map { it.code })
         val b = ms[0].box; val fs = 12.0
@@ -483,14 +483,14 @@ class DimLayoutTest {
         val chip = out.of("FD1.p")!!
         assertEquals(DimLayout.How.CHIP, chip.how); assertEquals(b.r + SurveyPrepTouch.clearance(U, DP), chip.box.l, 1e-9)
         // the same door in 3 · Measure shows no tabs: its plates are on its lines, mid-span
-        val face = place(marks(picked = door.id, active = "FD1.w", els = els), DimLayout.Scope.FACE, keep(els))
+        val face = place(marks(picked = door.id, active = "FD1.w", els = els), OldPlace.Scope.FACE, keep(els))
         assertEquals(DimLayout.How.ON_LINE, face.of("FD1.w")!!.how); assertTrue(face.of("FD1.h")!!.turned)
         // ... and tabs asked for outside 2 · Mark move nothing: only PICKED anchors by hand
-        assertEquals(DimLayout.How.ON_LINE, place(ms, DimLayout.Scope.FACE, keep(els)).of("FD1.w")!!.how)
+        assertEquals(DimLayout.How.ON_LINE, place(ms, OldPlace.Scope.FACE, keep(els)).of("FD1.w")!!.how)
         // on the whole example wall the switch plate's code stands where the h tag goes: the tag gives way as any
         // plate does -- upright, a quarter along its line -- and still covers no tab and no code
         val full = marks(picked = door.id, active = "FD1.w", tabs = true)
-        val fo = place(full, DimLayout.Scope.PICKED)
+        val fo = place(full, OldPlace.Scope.PICKED)
         assertEquals(DimLayout.How.HAND, fo.of("FD1.w")!!.how)
         assertEquals(DimLayout.How.ON_LINE, fo.of("FD1.h")!!.how); assertFalse(fo.of("FD1.h")!!.turned)
         for (p in fo.plates) for (t in tabs) assertFalse(hit(p.box, t), "${p.code} ${p.box} covers a tab $t")
@@ -503,9 +503,9 @@ class DimLayoutTest {
         val els = listOf(locked, window, switch) + points
         val ms = marks(picked = locked.id, tabs = true, els = els)
         assertFalse(ms[0].tabs)
-        val out = place(ms, DimLayout.Scope.PICKED)
+        val out = place(ms, OldPlace.Scope.PICKED)
         sound(out, keep(), what = "PICKED, locked door")
-        val face = place(marks(picked = locked.id, els = els), DimLayout.Scope.FACE)
+        val face = place(marks(picked = locked.id, els = els), OldPlace.Scope.FACE)
         for (k in listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p")) {
             assertEquals(l(face.of(k)!!.box), l(out.of(k)!!.box), k); assertEquals(face.of(k)!!.how, out.of(k)!!.how, k)
         }
@@ -513,9 +513,9 @@ class DimLayoutTest {
         // a picked point: its two figures on its two lines, in either step
         val pm = marks(picked = points[0].id, tabs = true)
         assertFalse(pm[3].tabs)
-        val po = place(pm, DimLayout.Scope.PICKED)
+        val po = place(pm, OldPlace.Scope.PICKED)
         assertEquals(listOf("FE1.cr", "FE1.cs"), po.plates.map { it.code })
-        val pf = place(marks(picked = points[0].id), DimLayout.Scope.FACE)
+        val pf = place(marks(picked = points[0].id), OldPlace.Scope.FACE)
         for (k in listOf("FE1.cr", "FE1.cs")) { assertEquals(l(pf.of(k)!!.box), l(po.of(k)!!.box), k); assertFalse(po.of(k)!!.how == DimLayout.How.HAND) }
         sound(po, keep(), what = "PICKED, a point")
     }
@@ -537,7 +537,7 @@ class DimLayoutTest {
         // 680 px at 2 px a dp, the unit 680 / 480 px: a figure is 12 dp on the picked mark and 10 dp on every other --
         // 24 and 20 px -- whatever the unit is; its plate 7 dp higher and 10 dp wider than its text
         assertEquals(2.0, phone.dp); assertEquals(680.0 / 480, phone.u); assertEquals(0.71, phone.u / phone.dp, 0.005)
-        val out = phone.place(phone.marks(picked = door.id, active = "FD1.w"), DimLayout.Scope.FACE)
+        val out = phone.place(phone.marks(picked = door.id, active = "FD1.w"), OldPlace.Scope.FACE)
         phone.sound(out, phone.keep(), what = "phone FACE, door picked")
         assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FW1.w", "FW1.h", "FS1.w", "FS1.h"), out.plates.map { it.code }); assertEquals(0, out.dots)
         assertEquals(listOf(24.0, 24.0, 24.0, 24.0, 20.0, 20.0, 20.0, 20.0), out.plates.map { it.fig.fs })
@@ -546,9 +546,9 @@ class DimLayoutTest {
         assertEquals(34.0, ww.box.h, 1e-9); assertEquals(phone.textW("≈1200", 20.0, false) + 20, ww.box.w, 1e-9)
         // A PLATE KEEPS ITS SIZE ON SCREEN: the same dp on the round canvas, and on a canvas half as large at the same
         // density (landscape: the unit shrinks with the canvas, a plate does not)
-        val round = place(marks(picked = door.id, active = "FD1.w"), DimLayout.Scope.FACE)
+        val round = place(marks(picked = door.id, active = "FD1.w"), OldPlace.Scope.FACE)
         val small = Rig(340.0, 340.0 / 480, 2.0)
-        val land = small.place(small.marks(picked = door.id, active = "FD1.w", els = listOf(door)), DimLayout.Scope.FACE, emptyList())
+        val land = small.place(small.marks(picked = door.id, active = "FD1.w", els = listOf(door)), OldPlace.Scope.FACE, emptyList())
         for (k in listOf("FD1.w", "FD1.l", "FD1.p")) {
             assertEquals(round.of(k)!!.box.w, out.of(k)!!.box.w / phone.dp, 1e-9, k); assertEquals(round.of(k)!!.box.h, out.of(k)!!.box.h / phone.dp, 1e-9, k)
             assertEquals(out.of(k)!!.box.w, land.of(k)!!.box.w, 1e-9, k); assertEquals(out.of(k)!!.box.h, land.of(k)!!.box.h, 1e-9, k)
@@ -566,26 +566,26 @@ class DimLayoutTest {
         }
         // as 3 · Measure opens: whichever mark is picked, and whichever of its dimensions is active, 6 to 9 plates,
         // sound, and no dot -- at the phone's own numbers
-        assertEquals(6, phone.place(phone.marks(), DimLayout.Scope.FACE).plates.size)
+        assertEquals(6, phone.place(phone.marks(), OldPlace.Scope.FACE).plates.size)
         for (e in wall) for (d in listOf<String?>(null) + MarkDims.of("front", e, W, H).map { it.code }) {
-            val o = phone.place(phone.marks(picked = e.id, active = d), DimLayout.Scope.FACE)
+            val o = phone.place(phone.marks(picked = e.id, active = d), OldPlace.Scope.FACE)
             phone.sound(o, phone.keep(), what = "phone FACE, ${e.code} picked, $d active")
             assertTrue(o.plates.size in 6..9, "${e.code}: ${o.plates.size} plates"); assertEquals(0, o.dots, "${e.code} picked, $d active")
         }
         // with all on: all 19, the dots pinned, and with a mark picked and a dimension active still sound -- no dot
         // under a plate -- and the active one never the dot
-        val all = phone.place(phone.marks(), DimLayout.Scope.ALL)
+        val all = phone.place(phone.marks(), OldPlace.Scope.ALL)
         phone.sound(all, phone.keep(), what = "phone ALL")
         assertEquals(19, all.plates.size); assertEquals(PHONE_ALL_DOTS, all.dots, all.plates.filter { it.dot }.joinToString { it.code })
         for (e in wall) for (d in MarkDims.of("front", e, W, H).map { it.code }) {
-            val o = phone.place(phone.marks(picked = e.id, active = d), DimLayout.Scope.ALL)
+            val o = phone.place(phone.marks(picked = e.id, active = d), OldPlace.Scope.ALL)
             phone.sound(o, phone.keep(), setOf(d), "phone ALL, ${e.code} picked, $d active")
             assertEquals(19, o.plates.size); assertFalse(o.of(d)!!.dot, d)
         }
         // 2 · Mark at the phone's numbers: the picked door's w and h tags clear of its eight tabs, by the tags' own clearance
         val els = listOf(door, window) + points
         val ms = phone.marks(picked = door.id, active = "FD1.w", tabs = true, els = els)
-        val hand = phone.place(ms, DimLayout.Scope.PICKED, phone.keep(els))
+        val hand = phone.place(ms, OldPlace.Scope.PICKED, phone.keep(els))
         val b = ms[0].box; val tabs = DimLayout.tabBoxes(b, phone.u)
         assertEquals(DimLayout.How.HAND, hand.of("FD1.w")!!.how); assertEquals(DimLayout.How.HAND, hand.of("FD1.h")!!.how)
         // the w tag's text sits 0.8 of its size and the clearance over the top edge; the h tag starts the clearance right of its line
@@ -601,7 +601,7 @@ class DimLayoutTest {
             // zoomed 2.8 times onto the door's upper half: the canvas shows the face's x 122 to 1078 and y 1172 to 2128 mm
             // -- the door's top, left and right edges, and nothing of the window, the switch plate or the three points
             val z = r.at(2.8, 600.0, 1650.0)
-            for (scope in listOf(DimLayout.Scope.FACE, DimLayout.Scope.ALL)) {
+            for (scope in listOf(OldPlace.Scope.FACE, OldPlace.Scope.ALL)) {
                 val out = z.place(z.marks(), scope)
                 z.sound(out, z.keep(), what = "zoomed, $scope")
                 // the door's size alone: its l runs under the canvas and its p's corner is on the floor, off it too
@@ -610,18 +610,18 @@ class DimLayoutTest {
                 assertTrue(out.plates.none { it.off }); assertFalse(out.activeOff); assertNull(out.active)
             }
             // THE PICKED MARK'S FIGURES STAY, slid into view as its tags are today, and say that they were
-            val picked = z.place(z.marks(picked = door.id, active = "FD1.w"), DimLayout.Scope.FACE)
+            val picked = z.place(z.marks(picked = door.id, active = "FD1.w"), OldPlace.Scope.FACE)
             z.sound(picked, z.keep(), what = "zoomed, door picked")
             assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p"), picked.plates.map { it.code })
             assertEquals(listOf(false, false, true, true), picked.plates.map { it.off })
             // the active figure is on the canvas: nothing to pan to
             assertEquals("FD1.w", picked.active!!.code); assertFalse(picked.activeOff)
             // ... the active one off the canvas: still a plate, inside the canvas, and the screen is told to pan
-            val under = z.place(z.marks(picked = door.id, active = "FD1.l"), DimLayout.Scope.FACE)
+            val under = z.place(z.marks(picked = door.id, active = "FD1.l"), OldPlace.Scope.FACE)
             assertEquals("FD1.l", under.active!!.code); assertTrue(under.activeOff); assertFalse(under.active!!.dot)
             z.sound(under, z.keep(), what = "zoomed, the active figure off the canvas")
             // a picked mark that is wholly off the canvas keeps its own figures; no OTHER off-canvas mark gains one
-            for (scope in listOf(DimLayout.Scope.FACE, DimLayout.Scope.ALL)) {
+            for (scope in listOf(OldPlace.Scope.FACE, OldPlace.Scope.ALL)) {
                 val far = z.place(z.marks(picked = window.id, active = "FW1.s"), scope)
                 z.sound(far, z.keep(), setOf("FW1.s"), "zoomed, the window picked, $scope")
                 assertEquals(listOf("FD1.w", "FD1.h", "FW1.w", "FW1.h", "FW1.r", "FW1.s", "FW1.p"), far.plates.map { it.code }, "$scope")
@@ -629,23 +629,23 @@ class DimLayoutTest {
                 assertTrue(far.activeOff)
             }
             // at fit nothing is off the canvas, and nothing is left out
-            val whole = r.place(r.marks(picked = door.id, active = "FD1.l"), DimLayout.Scope.ALL)
+            val whole = r.place(r.marks(picked = door.id, active = "FD1.l"), OldPlace.Scope.ALL)
             assertEquals(19, whole.plates.size); assertTrue(whole.plates.none { it.off }); assertFalse(whole.activeOff)
             // the review's own view -- 3 times, on the middle of the door, whose four edges are then off the canvas too:
             // with all on the one figure left is the switch plate's line from the left corner, which crosses the canvas
             val in3 = r.at(3.0, 600.0, 1050.0)
-            val o3 = in3.place(in3.marks(), DimLayout.Scope.ALL)
+            val o3 = in3.place(in3.marks(), OldPlace.Scope.ALL)
             assertEquals(listOf("FS1.l"), o3.plates.map { it.code }); assertEquals(0, o3.dots)
-            assertEquals(0, in3.place(in3.marks(), DimLayout.Scope.FACE).plates.size)
+            assertEquals(0, in3.place(in3.marks(), OldPlace.Scope.FACE).plates.size)
         }
     }
 
     @Test fun `zoom spreads the plates -- with all on there are no more dots zoomed than at fit`() {
         for (r in listOf(fit, phone)) {
-            val atFit = r.place(r.marks(), DimLayout.Scope.ALL).dots
+            val atFit = r.place(r.marks(), OldPlace.Scope.ALL).dots
             for (zoom in listOf(1.5, 2.0, 3.0)) for (cx in listOf(450.0, 900.0, 1340.0, 1800.0, 2230.0)) for (cy in listOf(450.0, 900.0, 1340.0, 1800.0, 2230.0)) {
                 val z = r.at(zoom, cx, cy)
-                val out = z.place(z.marks(), DimLayout.Scope.ALL)
+                val out = z.place(z.marks(), OldPlace.Scope.ALL)
                 z.sound(out, z.keep(), what = "ALL at $zoom on $cx, $cy")
                 assertTrue(out.dots <= atFit, "ALL at $zoom on $cx, $cy: ${out.dots} dots, $atFit at fit")
                 // nothing placed is off the canvas: every figure's own span crosses it
@@ -655,7 +655,7 @@ class DimLayoutTest {
             }
             // zoomed twice onto the three points, where the two dots are at fit: every figure there is a plate
             val z = r.at(2.0, 2008.0, 669.0)
-            assertEquals(0, z.place(z.marks(), DimLayout.Scope.ALL).dots)
+            assertEquals(0, z.place(z.marks(), OldPlace.Scope.ALL).dots)
         }
     }
 
@@ -664,7 +664,7 @@ class DimLayoutTest {
         // the window picked, wholly off the canvas, and no room anywhere: its active figure is still a plate inside the
         // canvas; the others are dots where their lines are -- off the canvas, unseen -- not stacked in its corner
         val z = fit.at(2.8, 600.0, 1650.0)
-        val out = z.place(z.marks(picked = window.id, active = "FW1.s"), DimLayout.Scope.FACE, full)
+        val out = z.place(z.marks(picked = window.id, active = "FW1.s"), OldPlace.Scope.FACE, full)
         val view = Box(0.0, 0.0, SIZE, SIZE)
         assertFalse(out.of("FW1.s")!!.dot); assertTrue(out.of("FW1.s")!!.off); assertTrue(out.activeOff)
         for (k in listOf("FW1.w", "FW1.h", "FW1.r")) {
@@ -677,10 +677,10 @@ class DimLayoutTest {
         assertTrue(c.dot && c.off); assertEquals(listOf(q[0] - 3, q[1] - 3, q[0] + 3, q[1] + 3), l(c.box))
         // a line that runs off the canvas's left edge: its dot is at the middle of the 100 px the canvas shows, not at
         // the line's own middle slid in to the edge
-        val part = place(one(fig("A.l", -200.0, 150.0, 100.0, 150.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, full).of("A.l")!!
+        val part = place(one(fig("A.l", -200.0, 150.0, 100.0, 150.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, full).of("A.l")!!
         assertTrue(part.dot); assertFalse(part.off); assertEquals(listOf(50.0 - 3, 150.0 - 3, 50.0 + 3, 150.0 + 3), l(part.box))
         // a line along the canvas's very edge: half a dot inside it, no further
-        val edge = place(one(fig("A.l", 20.0, 0.0, 320.0, 0.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, full).of("A.l")!!
+        val edge = place(one(fig("A.l", 20.0, 0.0, 320.0, 0.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, full).of("A.l")!!
         assertEquals(listOf(170.0 - 3, 0.0, 170.0 + 3, 6.0), l(edge.box))
         // the canvas's own edges count as the canvas; a hair outside does not
         assertNotNull(DimLayout.clip(DimLayout.Seg(SIZE, 10.0, SIZE + 50, 10.0), SIZE, SIZE)); assertNull(DimLayout.clip(DimLayout.Seg(SIZE + 0.01, 10.0, SIZE + 50, 10.0), SIZE, SIZE))
@@ -693,24 +693,24 @@ class DimLayoutTest {
     @Test fun `a dot takes a clear spot on its line and keeps it -- under no plate, on no other dot`() {
         // the review's case: with all on at fit the corner point's floor line runs under another point's plate. Its dot
         // is on its own line (x), clear of every plate, and a plate placed AFTER a dot keeps off it
-        val out = place(marks(), DimLayout.Scope.ALL)
+        val out = place(marks(), OldPlace.Scope.ALL)
         val d = out.of("FE3.cs")!!; val ln = d.line!!
         assertTrue(d.dot); assertEquals(ln.x1, (d.box.l + d.box.r) / 2, 1e-9)
         assertTrue(d.box.b <= maxOf(ln.y1, ln.y2) + 1e-9 && d.box.t >= minOf(ln.y1, ln.y2) - 3 - 1e-9)
         for (b in solid(out)) assertFalse(hit(d.box, b), "FE3.cs's dot ${d.box} lies under $b")
         // the middle of the line taken by a plate: the dot steps along the line to the first spot clear of it by a unit
         val taken = listOf(Box(0.0, 0.0, SIZE, 149.0), Box(0.0, 151.0, SIZE, SIZE))
-        val two = place(one(fig("A.0", 100.0, 150.0, 240.0, 150.0, DimLayout.Rank.ACTIVE), fig("A.1", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, taken)
+        val two = place(one(fig("A.0", 100.0, 150.0, 240.0, 150.0, DimLayout.Rank.ACTIVE), fig("A.1", 20.0, 150.0, 320.0, 150.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, taken)
         assertFalse(two.of("A.0")!!.dot); assertEquals(listOf(150.0, 141.5, 190.0, 158.5), l(two.of("A.0")!!.box))
         val beside = two.of("A.1")!!
         assertTrue(beside.dot); assertEquals(listOf(143.0, 147.0, 149.0, 153.0), l(beside.box))      // a unit clear of the plate's left edge at 150
         // TWO POINTS AT ONE HEIGHT share their corner line: the first one's plate lies along ALL the second's line shows.
         // Its dot stands beside the line, just clear of that plate -- not under it
-        val along = place(one(fig("A.0", 250.0, 150.0, 340.0, 150.0, DimLayout.Rank.ACTIVE), fig("A.1", 300.0, 150.0, 340.0, 150.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, taken)
+        val along = place(one(fig("A.0", 250.0, 150.0, 340.0, 150.0, DimLayout.Rank.ACTIVE), fig("A.1", 300.0, 150.0, 340.0, 150.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, taken)
         assertEquals(listOf(275.0, 141.5, 315.0, 158.5), l(along.of("A.0")!!.box))
         val off = along.of("A.1")!!
         assertTrue(off.dot); assertEquals(listOf(317.0, 147.0, 323.0, 153.0), l(off.box))             // on its line after all: right of the plate
-        val under = place(one(fig("A.0", 250.0, 150.0, 340.0, 150.0, DimLayout.Rank.ACTIVE), fig("A.1", 280.0, 150.0, 310.0, 150.0, DimLayout.Rank.UNMEASURED)), DimLayout.Scope.ALL, taken)
+        val under = place(one(fig("A.0", 250.0, 150.0, 340.0, 150.0, DimLayout.Rank.ACTIVE), fig("A.1", 280.0, 150.0, 310.0, 150.0, DimLayout.Rank.UNMEASURED)), OldPlace.Scope.ALL, taken)
         val by = under.of("A.1")!!
         assertTrue(by.dot); assertEquals(listOf(292.0, 133.5, 298.0, 139.5), l(by.box))               // above the plate, a unit clear of its top at 141.5
         assertFalse(hit(by.box, under.of("A.0")!!.box))
@@ -719,7 +719,7 @@ class DimLayoutTest {
         val later = DimLayout.Mark("b", Box(0.0, 0.0, 10.0, 10.0), listOf(fig("B.l", 0.0, 100.0, 200.0, 100.0, DimLayout.Rank.MEASURED, w = 20.0, measured = true)))
         // the chip's four places, each taken: 4 off the corner, 30 wide and 17 high
         val round = listOf(Box(104.0, 104.0, 134.0, 121.0), Box(66.0, 79.0, 96.0, 96.0), Box(66.0, 104.0, 96.0, 121.0), Box(104.0, 79.0, 134.0, 96.0))
-        val o = place(listOf(first, later), DimLayout.Scope.ALL, round)
+        val o = place(listOf(first, later), OldPlace.Scope.ALL, round)
         assertTrue(o.of("P.p")!!.dot); assertEquals(listOf(97.0, 97.0, 103.0, 103.0), l(o.of("P.p")!!.box))
         // B.l's own middle is x 100, on the dot: it sits a quarter along its line instead
         assertEquals(DimLayout.How.ON_LINE, o.of("B.l")!!.how); assertEquals(listOf(40.0, 91.5, 60.0, 108.5), l(o.of("B.l")!!.box))
@@ -735,13 +735,13 @@ class DimLayoutTest {
         assertNull(DimLayout.clip(w.line!!, SIZE, SIZE)); assertNull(DimLayout.clip(h.line!!, SIZE, SIZE))
         assertTrue(DimLayout.onCanvas(w, SIZE, SIZE)); assertTrue(DimLayout.onCanvas(h, SIZE, SIZE))
         // (placed with nothing to keep clear of: the fit / grid / all column stands in this very corner)
-        val out = place(ms, DimLayout.Scope.FACE, emptyList())
+        val out = place(ms, OldPlace.Scope.FACE, emptyList())
         sound(out, emptyList(), what = "a unit in the corner")
         assertEquals(listOf("FX1.w", "FX1.h"), out.plates.map { it.code }); assertTrue(out.plates.none { it.off || it.dot })
         // each plate slid the few units back inside the photo, still over its own edge
         assertEquals(2.0, out.of("FX1.w")!!.box.t, 1e-9); assertEquals(SIZE - 2, out.of("FX1.h")!!.box.r, 1e-9)
         // with no room its dots are on the canvas, on the unit's own edges
-        val none = place(ms, DimLayout.Scope.FACE, listOf(Box(0.0, 0.0, SIZE, SIZE)))
+        val none = place(ms, OldPlace.Scope.FACE, listOf(Box(0.0, 0.0, SIZE, SIZE)))
         val mid = toPx(W - 450, H - 400)
         assertTrue(same(Box(mid[0] - 3, 0.0, mid[0] + 3, 6.0), none.of("FX1.w")!!.box), "${none.of("FX1.w")!!.box}"); assertFalse(none.of("FX1.w")!!.off)
         assertTrue(same(Box(SIZE - 6, mid[1] - 3, SIZE, mid[1] + 3), none.of("FX1.h")!!.box), "${none.of("FX1.h")!!.box}")
@@ -774,7 +774,7 @@ class DimLayoutTest {
         // more digits, a wider plate; placed, the plate is as wide as its text asks
         val more = door("FD1.w", "905")
         assertEquals("▶905", more.figs[0].text); assertEquals(wide("▶905"), more.figs[0].w)
-        val placed = DimLayout.place(listOf(more), DimLayout.Scope.FACE, SIZE, SIZE, emptyList(), U, DP, TIMES)
+        val placed = OldPlace.place(listOf(more), OldPlace.Scope.FACE, SIZE, SIZE, emptyList(), U, DP, TIMES)
         assertEquals(wide("▶905"), placed.active!!.box.w, 1e-9); assertEquals("▶905", placed.active!!.fig.text)
         // over an ESTIMATE the digits are drawn as a reading too -- but the dimension is not measured until the commit
         val est = door("FD1.l", "64").figs[2]
@@ -814,7 +814,7 @@ class DimLayoutTest {
         /** Where its code is drawn: inside the bounding box's top-left corner, which a four-corner mark's code keeps. */
         fun code(e: SurveyPrep.Mark): Box { val p = toPx(e.x0, e.y1); return Box(p[0] + 6 * u, p[1] + 3 * u, p[0] + 6 * u + textW(e.code, 13.0 * u, true), p[1] + 19 * u) }
         val column = Box(width - 50 * dp, 6.0 * dp, width - 6 * dp, 84.0 * dp)
-        fun place(ms: List<DimLayout.Mark>, scope: DimLayout.Scope, keep: List<Box>) = DimLayout.place(ms, scope, width, height, keep, u, dp, times)
+        fun place(ms: List<DimLayout.Mark>, scope: OldPlace.Scope, keep: List<Box>) = OldPlace.place(ms, scope, width, height, keep, u, dp, times)
         /** The shape on the canvas, q0 … q3. */
         fun corners(e: SurveyPrep.Mark) = Quad.corners(e).map { toPx(it[0], it[1]) }
         /** Which side of the shape on the canvas is nearest ([x], [y]), and how far. */
@@ -869,11 +869,11 @@ class DimLayoutTest {
         assertEquals(listOf(q[0], r.height, q[0], q[1]), listOf(sf.x1, sf.y1, sf.x2, sf.y2))
         assertEquals(listOf(q[0], q[1]), m.figs[6].at!!.toList()); assertNull(m.figs[6].line); assertNull(m.figs[4].out)
         // AS 3 · MEASURE OPENS, nothing picked: its four sides -- they are its size -- and nothing of its position
-        val open = r.place(listOf(r.mark(e)), DimLayout.Scope.FACE, keep)
+        val open = r.place(listOf(r.mark(e)), OldPlace.Scope.FACE, keep)
         r.sound(open, keep, emptySet(), "FACE, nothing picked")
         assertEquals(SEVEN.take(4), open.plates.map { it.code }); assertEquals(QUAD_FACE_DOTS, open.dots)
         // PICKED, the bottom being measured: all seven placed
-        val out = r.place(listOf(m), DimLayout.Scope.FACE, keep)
+        val out = r.place(listOf(m), OldPlace.Scope.FACE, keep)
         r.sound(out, keep, setOf("FW1.bottom"), "FACE, picked")
         assertEquals(SEVEN, out.plates.map { it.code }); assertEquals(QUAD_PICKED_DOTS, out.dots, out.plates.filter { it.dot }.joinToString { it.code })
         // each side's plate on ITS OWN side: outside the shape, nearer its own side than any other
@@ -896,12 +896,12 @@ class DimLayoutTest {
         assertTrue(out.plates.none { it.how == DimLayout.How.COMPACT || it.how == DimLayout.How.HAND }); assertEquals(DimLayout.How.CHIP, out.of("FW1.p")!!.how)
         // WITH all ON: the same seven, whether or not it is picked
         for (pk in listOf(false, true)) {
-            val all = r.place(listOf(r.mark(e, picked = pk)), DimLayout.Scope.ALL, keep)
+            val all = r.place(listOf(r.mark(e, picked = pk)), OldPlace.Scope.ALL, keep)
             r.sound(all, keep, emptySet(), "ALL, picked $pk"); assertEquals(SEVEN, all.plates.map { it.code }); assertEquals(QUAD_ALL_DOTS, all.dots, "picked $pk")
         }
         // whichever of its seven is being measured, it is a plate and the layout is sound
         for (k in SEVEN) {
-            val o = r.place(listOf(r.mark(e, picked = true, active = k)), DimLayout.Scope.FACE, keep)
+            val o = r.place(listOf(r.mark(e, picked = true, active = k)), OldPlace.Scope.FACE, keep)
             r.sound(o, keep, setOf(k), "FACE, $k active"); assertEquals(SEVEN, o.plates.map { it.code }); assertFalse(o.of(k)!!.dot, k)
         }
         // readings change the texts, never the soundness: the closing check's ! rides on the sloping side's plate alone
@@ -909,10 +909,10 @@ class DimLayoutTest {
         val rd = r.mark(e, picked = true, active = "FW1.l", actual = read)
         assertEquals(listOf(true, false, false, false, false, false, false), rd.figs.map { it.check })
         assertEquals(listOf("2495", "1550", "2370", "870", "▶≈600", "≈900", "⊥ ?"), rd.figs.map { it.text })
-        r.sound(r.place(listOf(rd), DimLayout.Scope.FACE, keep), keep, setOf("FW1.l"), "FACE, read")
+        r.sound(r.place(listOf(rd), OldPlace.Scope.FACE, keep), keep, setOf("FW1.l"), "FACE, read")
         // the same input gives the same output
         fun dump(o: DimLayout.Out) = o.plates.map { listOf(it.code, it.how, it.turned, it.arrowsIn, l(it.box), l(it.tap), it.leader?.toString()) }
-        assertEquals(dump(out), dump(r.place(listOf(r.mark(e, picked = true, active = "FW1.bottom")), DimLayout.Scope.FACE, keep)))
+        assertEquals(dump(out), dump(r.place(listOf(r.mark(e, picked = true, active = "FW1.bottom")), OldPlace.Scope.FACE, keep)))
     }
 
     @Test fun `a picked mark whose corners are free keeps its four corner handles clear, not eight tabs`() {
@@ -925,7 +925,7 @@ class DimLayoutTest {
         val handles = DimLayout.cornerBoxes(cs, r.u, r.dp)
         assertEquals(4, handles.size); assertEquals(listOf(cs[0][0] - 11, cs[0][1] - 11, cs[0][0] + 11, cs[0][1] + 11), l(handles[0]))
         assertEquals(5.5, SurveyGuide.END_R_DP)
-        val out = r.place(listOf(m), DimLayout.Scope.PICKED, keep)
+        val out = r.place(listOf(m), OldPlace.Scope.PICKED, keep)
         r.sound(out, keep + handles, setOf("FW1.bottom"), "PICKED, corners free")
         assertEquals(7, out.plates.size)
         for (p in out.plates) if (!p.dot) for (h in handles) assertFalse(hit(p.box, h), "${p.code} ${p.box} covers a corner handle $h")
@@ -938,15 +938,15 @@ class DimLayoutTest {
         assertNull(r.mark(e, picked = true, tabs = false, free = true).corners); assertFalse(r.mark(e, picked = true, tabs = false, free = true).tabs)
         r.mark(e, picked = true, tabs = true, free = false).let { assertTrue(it.tabs); assertNull(it.corners) }
         // corners asked for outside 2 · Mark keep nothing clear: only PICKED shows handles
-        val face = r.place(listOf(m), DimLayout.Scope.FACE, keep)
-        assertEquals(l(r.place(listOf(r.mark(e, picked = true, active = "FW1.bottom")), DimLayout.Scope.FACE, keep).of("FW1.top")!!.box), l(face.of("FW1.top")!!.box))
+        val face = r.place(listOf(m), OldPlace.Scope.FACE, keep)
+        assertEquals(l(r.place(listOf(r.mark(e, picked = true, active = "FW1.bottom")), OldPlace.Scope.FACE, keep).of("FW1.top")!!.box), l(face.of("FW1.top")!!.box))
         // A RECTANGLE WHOSE CORNERS WERE FREED (the menu's Four corners, before any corner is dragged) shows its box's
         // four corners in the tabs' place -- and its w and h, which it still has
         val rect = SurveyPrep.Mark("id-D1", "D", "FD1", 600.0, 1500.0, 0.0, 2100.0)
         val fr = r.mark(rect, picked = true, tabs = true, free = true)
         assertFalse(fr.tabs); assertEquals(listOf(r.toPx(600.0, 0.0), r.toPx(1500.0, 0.0), r.toPx(1500.0, 2100.0), r.toPx(600.0, 2100.0)).map { it.toList() }, fr.corners!!.map { it.toList() })
         assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p"), fr.figs.map { it.code })
-        val fo = r.place(listOf(fr), DimLayout.Scope.PICKED, listOf(r.code(rect), r.column))
+        val fo = r.place(listOf(fr), OldPlace.Scope.PICKED, listOf(r.code(rect), r.column))
         for (p in fo.plates) if (!p.dot) for (h in DimLayout.cornerBoxes(fr.corners!!, r.u, r.dp)) assertFalse(hit(p.box, h), "${p.code} covers a corner handle")
         // ... and the same rectangle, its corners not free, is the mark it always was: eight tabs, the default
         val plain = DimLayout.mark(emptyMap(), "front", rect, r.a, r.b, true, true, null, r::toPx, r.u, r.dp, r::textW)
@@ -962,7 +962,7 @@ class DimLayoutTest {
         val e = SurveyPrep.Mark("id-S1", "S", "FS1", 1100.0, 1300.0, 1100.0, 1190.0)
         assertTrue(Quad.set(e, listOf(doubleArrayOf(1100.0, 1100.0), doubleArrayOf(1300.0, 1100.0), doubleArrayOf(1300.0, 1160.0), doubleArrayOf(1100.0, 1190.0))))
         val keep = listOf(r.code(e), r.column)
-        for (scope in listOf(DimLayout.Scope.FACE, DimLayout.Scope.ALL)) {
+        for (scope in listOf(OldPlace.Scope.FACE, OldPlace.Scope.ALL)) {
             val out = r.place(listOf(r.mark(e)), scope, keep)
             r.sound(out, keep, emptySet(), "small, $scope")
             assertEquals(listOf("FS1.bottom", "FS1.right", "FS1.top", "FS1.left"), out.plates.take(4).map { it.code })
@@ -983,7 +983,7 @@ class DimLayoutTest {
     private fun Rig.placeShown(ms: List<DimLayout.Mark>, keep: List<Box> = keep()) = DimLayout.placeShown(ms, size, size, keep, u, dp, times)
 
     @Test fun `no DRAWN plate of the held mark overlaps one of its tab squares - re-keyed from the scope to the mark that shows its tabs`() {
-        // DESIGN-imagemeter §13 (the plan critic's finding C5): with DimLayout.Scope gone, what keeps the held mark's w
+        // DESIGN-imagemeter §13 (the plan critic's finding C5): with OldPlace.Scope gone, what keeps the held mark's w
         // and h plates off its own tabs is the mark itself -- Mark.tabs, the HELD box mark
         val els = listOf(door, window) + points
         val read = MarkDims.of("front", door, W, H).associate { it.code to (it.est ?: 120.0) }
@@ -1002,7 +1002,7 @@ class DimLayoutTest {
             // exactly where Scope.PICKED put them: the old path and the new one agree on the hand anchor -- the width level
             // as built; the height, since slice I1c (P5), TURNED UP from the same left edge and the same middle height,
             // so it runs along its line too
-            val old = r.place(r.marks(picked = door.id, active = gold, actual = actual, tabs = true, els = els), DimLayout.Scope.PICKED, r.keep(els))
+            val old = r.place(r.marks(picked = door.id, active = gold, actual = actual, tabs = true, els = els), OldPlace.Scope.PICKED, r.keep(els))
             old.of("FD1.w")!!.box.let { o -> val n = out.of("FD1.w")!!; assertEquals(o.t, n.box.t, 1e-9, what); assertEquals(o.b, n.box.b, 1e-9, what); assertEquals(0.0, n.angle) }
             old.of("FD1.h")!!.box.let { o -> val n = out.of("FD1.h")!!
                 assertEquals(DimLayout.How.HAND, n.how); assertEquals(LabelAngle.UP, n.angle); assertTrue(n.turned, what)

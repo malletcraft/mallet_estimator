@@ -10,6 +10,8 @@ import com.malletcrafts.interiorestimate.pano.DimLayout
 import com.malletcrafts.interiorestimate.pano.MarkDims
 import com.malletcrafts.interiorestimate.pano.MarkLife
 import com.malletcrafts.interiorestimate.pano.NotePin
+import com.malletcrafts.interiorestimate.pano.PhotoFigures
+import com.malletcrafts.interiorestimate.pano.Pick
 import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
@@ -226,18 +228,22 @@ internal object SurveyPrepDraw {
         /** v52 slice 12: the face's ONE frame (SurveyPrep.frameOf), through which its reference rectangle is drawn; null
          *  draws none. */
         val frame: SurveyPrep.Frame? = null,
-        /** Port 62 slice L4: the picked mark's eight resize tabs are drawn (the editing photo only). False where the
-         *  phase holds that mark read-only -- a control that would change it is HIDDEN, never greyed (the prototype's
-         *  `!P54.spEdit(e)`, index61c2.html 5097); the caller asks PhaseTools.editable. */
+        /** Port 62 slice L4: the picked mark's eight resize tabs are drawn (the editing photo only). Since port 63 slice
+         *  I1b ONLY WHILE IT IS HELD (Pick.handles) -- a mark the walk reached, a locked one and one the phase holds
+         *  read-only (Pick.mayHold) show none; a control that would change it is HIDDEN, never greyed. */
         val tabs: Boolean = true,
-        /** Port 63 slice M2: which marks show which figures on the editing photo -- 2 · Mark the picked mark's alone
-         *  (PICKED), 3 · Measure every mark's size and the picked mark's position (FACE), and with `all` on every
-         *  figure of every mark (ALL), when nothing dims. */
-        val scope: DimLayout.Scope = DimLayout.Scope.PICKED,
-        /** The pad's uncommitted digits (MeasurePad.live) for the plate of the figure being measured; null: none. */
+        /** The keypad's uncommitted digits (MeasurePad.live) for the gold plate; null: none. */
         val live: String? = null,
-        /** Boxes no plate may cover, canvas px, besides the marks' own codes: the fit / grid / all column. */
+        /** Boxes no plate may cover, canvas px, besides the marks' own codes: the fit / grid column. */
         val keep: List<SurveyPrepTouch.Box> = emptyList(),
+        /** Port 63 slice I1b, the editing photo: what is picked, held and gold (Pick.State), from which PhotoFigures decides
+         *  which figures are drawn -- every READ figure of every mark, the picked one's unread ones as `?`, no photo
+         *  estimate anywhere. Null: [selId] picked, [active] gold, nothing held. */
+        val pick: Pick.State? = null,
+        /** The laser chip is gold: the gold plate's `▶` is solid; hollow while it is not (LaserChip.ready). */
+        val ready: Boolean = true,
+        /** The reading key whose plate has just taken a reading: it rings gold for a second (Landing.RING_MS). */
+        val ring: String? = null,
     )
 
     /**
@@ -486,9 +492,7 @@ internal object SurveyPrepDraw {
         // DIM THE REST while one mark is being measured (Amit, 2026-10-10: "dim out rest of the foto when a
         // particular mark type is under selection for measurment") -- 20%, "so that rest foto can be seen".
         val sm = if (o.mode == "main" && o.selId != null) els.firstOrNull { it.id == o.selId } else null
-        // ... but not with EVERY FIGURE AT ONCE (3 · Measure's `all`, port 63 slice M2): nothing dims then, and no mark
-        // is drawn fainter than another -- the picked one is still drawn last
-        val dim = sm != null && o.scope != DimLayout.Scope.ALL
+        val dim = sm != null
         // where each mark's code is drawn on the editing photo: no figure's plate may cover one (DimLayout's `keep`)
         val codes = ArrayList<SurveyPrepTouch.Box>()
         val codePen = Paint().apply { isFakeBoldText = true }
@@ -598,14 +602,19 @@ internal object SurveyPrepDraw {
         // v52 slice 10: the plane grid over the marks and under the Lines and tapes, then the guide over everything --
         // as sp.js overlay draws them: drawGrid, drawMeas, drawTapes, drawGuide; none of it in the loupe
         fun face(x: Double, y: Double) = m(sq.x(x), sq.y(y))
-        // ONE FIGURE ON EVERY DIMENSION (port 63 slice M2): the editing photo's plates and their lines, over every mark
-        // and under the Lines, tapes and chains -- placed together, so no plate covers another, a code or the buttons
-        if (o.mode == "main") figures(c, s, els, o, m, u, codes, dim)
+        // EVERY FIGURE ON ITS ANNOTATION AND NOWHERE ELSE (port 63 slices I1a-I1c; DESIGN-imagemeter §18, §21): the editing
+        // photo's plates -- every READ figure of every mark, the picked one's unread ones as `?`, no photo estimate, and
+        // every Line's, area's, Tape's and chain's figure, the number alone -- PLACED TOGETHER, each turned along its own
+        // line (P5), so no label lies on another, a code or the buttons. The marks' plates over every mark and under the
+        // Lines, tapes and chains; theirs over those, which their plates break.
+        val laid = if (o.mode == "main") figures(c, tx, s, o, m, u, codes) else null
+        laid?.let { out -> drawPlates(c, out.plates.filter { it.role != MarkDims.Role.ITEM }, o, u, dim) }
         if (o.mode == "main" && o.gridAlpha > 0f) drawGrid(c, o.a, o.b, ::face, o.gridAlpha, o.dp)
         if (o.mode != "loupe") drawMeas(c, s, o, m, u)
         // v52 slice 11: the chains after the Lines and tapes, as sp.js overlay draws them (drawMeas, drawTapes, drawChains)
         // -- not in the loupe either
         if (o.mode != "loupe") drawChains(c, tx, s, o, m, u)
+        laid?.let { out -> drawPlates(c, out.plates.filter { it.role == MarkDims.Role.ITEM }, o, u, false) }
         // v52 slice 12: the reference rectangle after the chains, as sp.js overlay draws it (drawRefSq) -- not in the loupe
         if (o.mode != "loupe") drawRefSq(c, tx, s, o, m, u)
         if (o.mode == "main") o.guide?.takeIf { it.s == s && o.guideAlpha > 0f }?.let { g -> drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp) }
@@ -684,21 +693,23 @@ internal object SurveyPrepDraw {
         val z0 = m(sq.x(0.0), sq.y(0.0)); val z1 = m(sq.x(100.0), sq.y(0.0))
         val ppm = hypot(z1[0] - z0[0], z1[1] - z0[1]) / 100f
         val sf = o.prep.surface(s)
-        // the picked item's ends are handles on the editing photo with Select on (v52 slice 10)
+        // the HELD item's ends are handles on the editing photo with no tool on (v52 slice 10; port 63 slice I1b)
         val hd = o.ends && o.mode == "main"
-        // ON THE EDITING PHOTO a plotted Line's tag is its ONE figure -- its reading, else ≈ and the photo's length -- an
-        // area's carries its perimeter once read, and each is a tap target under its reading key (port 63 slice M2); a
-        // saved picture's tag is what it always was
+        // ON THE EDITING PHOTO NO TAG IS DRAWN HERE (port 63 slice I1b): a plotted Line's, area's and Tape's figure is the
+        // number alone, placed along its line with every other figure (PhotoFigures.items, drawn by drawPlates); a Line
+        // being pulled and an area being tapped show no figure (their length and m² are the photo's), a Tape being pulled
+        // its length alone. A saved picture's tag is what it always was.
+        val quiet = o.mode == "main"
         for (q in sf.meas) if (q.kind == SurveyMeas.LINE || q.kind == SurveyMeas.AREA)
             line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ::toS, hd,
-                figure = if (o.mode == "main") SurveyMeas.key(q) else null, o = o, u = u)
-        o.area?.takeIf { it.isNotEmpty() }?.let { line(c, "open", it, null, false, true, false, false, dp, ::toS) }
+                figure = if (o.mode == "main") SurveyMeas.key(q) else null, o = o, u = u, quiet = quiet)
+        o.area?.takeIf { it.isNotEmpty() }?.let { line(c, "open", it, null, false, true, false, false, dp, ::toS, quiet = quiet) }
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.LINE }?.let { d ->
-            line(c, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, dp, ::toS) }
+            line(c, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, dp, ::toS, quiet = quiet) }
         for (q in sf.meas) if (q.kind == SurveyMeas.TAPE && q.pts.size == 2)
-            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS, hd)
+            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS, hd, quiet = quiet)
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.TAPE }?.let { d ->
-            tape(c, d.from, d.to, null, false, true, d.off, false, dp, ppm, o, ::toS) }
+            tape(c, d.from, d.to, null, false, true, d.off, false, dp, ppm, o, ::toS, quiet = quiet) }
     }
 
     /**
@@ -710,7 +721,9 @@ internal object SurveyPrepDraw {
                      locked: Boolean, dp: Float, toS: (DoubleArray) -> FloatArray, handles: Boolean = false,
                      /** Port 63 slice M2, the editing photo only: the reading key of a plotted Line or area (F-M1.len,
                       *  F-M2.per) -- its tag then shows its ONE figure and takes a tap; null: the tag as it always was. */
-                     figure: String? = null, o: Marks? = null, u: Float = dp) {
+                     figure: String? = null, o: Marks? = null, u: Float = dp,
+                     /** Port 63 slice I1b, the editing photo: no tag -- the figure is placed with the others (drawPlates). */
+                     quiet: Boolean = false) {
         if (pts.isEmpty()) return
         val closed = kind == SurveyMeas.AREA; val isLine = kind == SurveyMeas.LINE
         val col = if (draft && off) OUT_COLOUR else LINE_C
@@ -744,32 +757,12 @@ internal object SurveyPrepDraw {
         }
         val segs = if (n > 0) (0 until n).flatMap { listOf(scr[it], scr[(it + 1) % scr.size]) } else scr
         val cx = segs.map { it[0] }.average().toFloat(); val cy = segs.map { it[1] }.average().toFloat()
-        // a plotted Line: its reading once read, else ≈ before the photo's length; an area: its perimeter after its m² once
-        // read. A Line being pulled, an area being tapped and a saved picture pass neither: their tag is what it was
-        val shown = figure != null && o != null
-        val read: Double? = if (figure != null && o != null) o.prep.actual[figure] else null
-        val tag = SurveyMeas.lineTag(code, if (kind == "open") SurveyMeas.AREA else kind, pts, reading = read, approx = shown)
-        // the one being measured now carries the active glyph, as a mark's plate does
-        val on = figure != null && o != null && figure == o.active
-        val t = if (on && tag.isNotEmpty()) MarkDims.ACTIVE_GLYPH + tag else tag
-        val lx = cx + (if (locked) 30f else 6f) * dp; val ly = cy - 6f * dp; val fs = 12f * dp
-        if (t.isNotEmpty()) label(c, t, lx, ly, 0xe0f7ff, fs, dp)
-        if (figure != null && o != null && t.isNotEmpty()) figureTag(o, figure, t, lx, ly, fs, u)
+        // a saved picture's tag is what it always was: "F-M1 1234 mm", an area's m² and its perimeter once read
+        if (!quiet) {
+            val tag = SurveyMeas.lineTag(code, if (kind == "open") SurveyMeas.AREA else kind, pts)
+            if (tag.isNotEmpty()) label(c, tag, cx + (if (locked) 30f else 6f) * dp, cy - 6f * dp, 0xe0f7ff, 12f * dp, dp)
+        }
         if (locked && !draft) padPill(c, cx + 26f * dp, cy - 21f * dp, LINE_C, dp)
-    }
-
-    /**
-     * A FIGURE THAT IS NOT A PLATE TAKES A TAP TOO (port 63 slice M2; DESIGN-port63 §1.5: "Every reading can be
-     * re-opened from the photo"): a Line's and an area's tag, a chain's segment figure and its total, each added to the
-     * photo's tap targets under its READING KEY [key] -- its label [text] as drawn at ([x], [y], the baseline) in bold
-     * [fs] px, grown to DimLayout's tap box (32 dp at least each way). Only where the caller collects targets: the
-     * editing photo.
-     */
-    private fun figureTag(o: Marks, key: String, text: String, x: Float, y: Float, fs: Float, u: Float) {
-        val tags = o.tags ?: return
-        val w = Paint().apply { textSize = fs; isFakeBoldText = true }.measureText(text)
-        val drawn = SurveyPrepTouch.Box(x.toDouble(), (y - fs).toDouble(), (x + w).toDouble(), (y + fs * .3f).toDouble())
-        tags.add(SurveyPrepTouch.Tag(key, DimLayout.tapOf(drawn, u.toDouble(), o.dp.toDouble())))
     }
 
     /**
@@ -779,7 +772,10 @@ internal object SurveyPrepDraw {
      * pulled, "F-T1 1234 mm" once plotted, kept on the canvas -- moved to the side of the band when the end is at an edge.
      */
     private fun tape(c: Canvas, a: DoubleArray, b: DoubleArray, code: String?, sel: Boolean, draft: Boolean, off: Boolean,
-                     locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray, handles: Boolean = false) {
+                     locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray, handles: Boolean = false,
+                     /** Port 63 slice I1b, the editing photo: a plotted Tape's figure is placed with the others (drawPlates),
+                      *  the number alone along its band; one being pulled shows its length alone, `1234` (P4). */
+                     quiet: Boolean = false) {
         val len = hypot(b[0] - a[0], b[1] - a[1])
         val pa = toS(a); val pb = toS(b)
         val col = if (off) OUT_COLOUR else TAPE_C
@@ -810,7 +806,12 @@ internal object SurveyPrepDraw {
             c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
             c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, stroke(argb(0x3b2f00), 2f * dp))
         }
-        val txt = SurveyMeas.tapeTag(if (draft) null else code, len)
+        if (quiet && !draft) {
+            // its figure is drawn by drawPlates; its padlock stays beside its far end, where the tag stood
+            if (locked) padPill(c, pb[0] + 8f * dp, pb[1] - 13f * dp, TAPE_C, dp)
+            return
+        }
+        val txt = if (quiet) SurveyMeas.tapeShown(len) else SurveyMeas.tapeTag(if (draft) null else code, len)
         val tw = Paint().apply { textSize = 12f * dp; isFakeBoldText = true }.measureText(txt)
         val pw = if (locked && !draft) 26f * dp else 0f
         // past the far end, kept on the canvas -- or beside it, above the band, when there is no room (SurveyMeas.tapeTagAt)
@@ -831,11 +832,9 @@ internal object SurveyPrepDraw {
         fun toS(p: DoubleArray) = m(sq.x(p[0]), sq.y(p[1]))
         for (k in o.prep.surface(s).chains) if (k.nodes.isNotEmpty())
             chain(c, tx, k.nodes, k.axis, k.code, SurveyChain.vals(k, o.prep.actual, o.a, o.b), o.selId == k.id, false,
-                SurveyPrep.isLocked(k), o, ::toS,
-                // on the editing photo each segment's figure and the total take a tap, under the chain's own reading keys
-                keys = if (o.mode == "main") o.prep.keysOf(k) else null, u = u)
+                SurveyPrep.isLocked(k), o, ::toS, quiet = o.mode == "main")
         o.chain?.takeIf { it.s == s && it.nodes.isNotEmpty() }?.let { d ->
-            chain(c, tx, d.nodes, d.axis ?: "x", null, null, false, true, false, o, ::toS) }
+            chain(c, tx, d.nodes, d.axis ?: "x", null, null, false, true, false, o, ::toS, quiet = o.mode == "main") }
     }
 
     /**
@@ -848,10 +847,9 @@ internal object SurveyPrepDraw {
      */
     private fun chain(c: Canvas, tx: Tx, nodes: List<DoubleArray>, axis: String, code: String?, v: SurveyChain.Vals?, sel: Boolean,
                       draft: Boolean, locked: Boolean, o: Marks, toS: (DoubleArray) -> FloatArray,
-                      /** Port 63 slice M2, the editing photo only: a plotted chain's reading keys, its segments in order
-                       *  then its total (Prep.keysOf) -- each figure then takes a tap, and the one being measured carries
-                       *  the active glyph; null: drawn as it always was. */
-                      keys: List<String>? = null, u: Float = o.dp) {
+                      /** Port 63 slice I1b, the editing photo: no figure here -- a chain's read segments and total are placed
+                       *  with every other figure, the number alone (drawPlates), and one being drawn shows none. */
+                      quiet: Boolean = false) {
         val dp = o.dp; val col = SurveyChain.COLOUR
         val ai = SurveyChain.axisIndex(axis)
         // across the chain, in the face's mm: up for a chain along it, right for one up it
@@ -877,6 +875,7 @@ internal object SurveyPrepDraw {
             c.drawLine(p[0] - dx * kk, p[1] - dy * kk, p[0] + dx * kk, p[1] + dy * kk, tick)
             c.drawCircle(p[0], p[1], r, dot); c.drawCircle(p[0], p[1], r, ring)
         }
+        if (quiet) return
         val fs = 12f * dp
         val fp = Paint().apply { textSize = fs; isFakeBoldText = true }
         val off = (SurveyChain.FIGURE_OFF_DP * dp).toFloat()
@@ -887,23 +886,17 @@ internal object SurveyPrepDraw {
             if (l > 0f) { dx /= l; dy /= l } else { dx = 0f; dy = -1f }
             val (t0, tc) = if (v != null) SurveyChain.segFigure(v, i - 1)
                           else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR // text:value the ≈ glyph, a figure
-            val key = keys?.getOrNull(i - 1)
-            val t = if (key != null && key == o.active) MarkDims.ACTIVE_GLYPH + t0 else t0
-            val w = fp.measureText(t)
-            label(c, t, p[0] + dx * off - w / 2, p[1] + dy * off + 4f * dp, tc, fs, dp)
-            if (key != null) figureTag(o, key, t, p[0] + dx * off - w / 2, p[1] + dy * off + 4f * dp, fs, u)
+            val w = fp.measureText(t0)
+            label(c, t0, p[0] + dx * off - w / 2, p[1] + dy * off + 4f * dp, tc, fs, dp)
         }
         if (v != null && code != null) {
             val p = scr[scr.size - 1]
-            // the total takes a reading -- and so a tap -- unless the laser gives it (SurveyChain.totalReadOnly)
-            val key = keys?.lastOrNull()?.takeIf { !SurveyChain.totalReadOnly(v) }
-            val t = (if (key != null && key == o.active) MarkDims.ACTIVE_GLYPH else "") + SurveyChain.totalTag(tx, code, v)
+            val t = SurveyChain.totalTag(tx, code, v)
             val ts = 11f * dp
             val tw = Paint().apply { textSize = ts; isFakeBoldText = true }.measureText(t)
             // kept inside the picture (sp.js: "kept inside the picture")
             val x = max(4f * dp, minOf(o.width - tw - 6f * dp, p[0] + 8f * dp))
             label(c, t, x, p[1] + 20f * dp, SurveyChain.totalColour(v), ts, dp)
-            if (key != null) figureTag(o, key, t, x, p[1] + 20f * dp, ts, u)
         }
     }
 
@@ -919,50 +912,58 @@ internal object SurveyPrepDraw {
     private const val QUIET_INK = 0xcfd3cb
 
     /**
-     * EVERY DIMENSION OF EVERY MARK ON THE EDITING PHOTO, EACH WITH ONE FIGURE (DESIGN-port63 §1.1, §1.2, §1.6). What a
-     * mark's dimensions are, in what order, and what each one's figure says -- the reading, else ≈ and the photo's
-     * estimate, else ? -- is MarkDims (one Dim per SurveyPrep.measures, by its key: no table of drawings per type, so
-     * no mark type, kind or later addition can be left out). Which figures are shown ([Marks.scope]) and WHERE EACH
-     * PLATE GOES is DimLayout.place: in rank order, mid-span on its line, a quarter along, off the line on a leader, a
-     * dot when there is no room -- clear of the marks' [codes], the picked mark's tabs and [Marks.keep]. This only
-     * measures the texts with the paints it draws them with, asks, and draws what comes back: the lines first, then
-     * the plates over them. Every plate, compact half and dot is a tap target under its reading key ([Marks.tags]),
-     * so the hit order -- tabs, then figures, then marks -- holds. [fade]: one mark is picked and the rest are drawn at
-     * 75 %, their figures with them.
+     * EVERY FIGURE ON THE EDITING PHOTO, PLACED (port 63 slices I1a-I1c; DESIGN-imagemeter §2.2, §18, §21). WHICH figures
+     * are drawn and what each says is PhotoFigures.layout -- every READ figure of every mark, its size AND where it sits,
+     * always (P3); the picked mark's unread ones as a quiet `?`; the gold one H1's plate, `▶?` until the reading lands
+     * (`▷` while the laser is not ready); NO PHOTO ESTIMATE ANYWHERE (§18); and every Line's, area's, Tape's and chain's
+     * figure, the number alone (P4). WHERE each plate goes is DimLayout.placeShown -- along its own line, turned to it
+     * (P5), kept apart from every other by its turned rectangle, clear of the marks' [codes], the held mark's tabs and
+     * [Marks.keep]. This only measures the texts with the paints it draws them with, asks, collects the tap targets
+     * ([Marks.tags]) and hands the plates back to [drawPlates]. Nothing here decides a figure.
      */
-    private fun figures(c: Canvas, s: String, els: List<SurveyPrep.Mark>, o: Marks, m: (Double, Double) -> FloatArray, u: Float,
-                        codes: List<SurveyPrepTouch.Box>, fade: Boolean) {
+    private fun figures(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float,
+                        codes: List<SurveyPrepTouch.Box>): DimLayout.Out {
         val sq = o.sq; val dp = o.dp.toDouble(); val du = u.toDouble()
-        val regular = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = MONO }
-        val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = MONO_BOLD }
-        fun pen(fs: Double, heavy: Boolean): Paint = (if (heavy) bold else regular).apply { textSize = fs.toFloat() }
         val toPx: (Double, Double) -> DoubleArray = { x, y -> m(sq.x(x), sq.y(y)).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } }
         val textW: (String, Double, Boolean) -> Double = { t, fs, heavy -> pen(fs, heavy).measureText(t).toDouble() }
-        // a Note asks nothing and is its pin; every other mark hands over all its figures, and the scope decides
-        val laid = els.filter { !MarkLife.isNote(it) }.map { e ->
-            val on = o.selId == e.id
-            // in 2 · Mark the picked box mark that shows its eight tabs keeps them clear (v52 item 14): DimLayout anchors
-            // its w and h by SurveyPrepTouch.widthTag / heightTag and keeps the tab squares free
-            val hand = on && o.scope == DimLayout.Scope.PICKED && o.tabs && !SurveyPrep.isPoint(e.t) && !SurveyPrep.isLocked(e)
-            DimLayout.mark(o.prep.actual, s, e, o.a, o.b, on, hand, o.active, toPx, du, dp, textW, o.live)
-        }
+        val pk = o.pick ?: Pick.State(o.selId, false, o.active)
+        val laid = PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready)
         val times = textW(TIMES, DimLayout.textSize(false, dp), false)
-        val out = DimLayout.place(laid, o.scope, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)
+        val out = DimLayout.placeShown(laid, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)
         o.tags?.addAll(out.tags)
+        return out
+    }
+
+    /** The two paints a plate's text is drawn and measured with: monospace, bold for a reading and the gold one. */
+    private val PEN_REGULAR = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = MONO }
+    private val PEN_BOLD = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = MONO_BOLD }
+    private fun pen(fs: Double, heavy: Boolean): Paint = Paint(if (heavy) PEN_BOLD else PEN_REGULAR).apply { textSize = fs.toFloat() }
+
+    /**
+     * [plates] DRAWN: each mark figure's line and arrowheads first -- the gold one's over a dark casing, three times as
+     * heavy (MarkDims.ACTIVE_COLOUR, H1), so which side the laser is asked for is seen at a glance -- then the plates over
+     * them. A Line's, area's, Tape's or chain's figure (Role.ITEM) draws no dimension line -- the Line IS its line -- only
+     * its leader when it stepped off. [fade]: one mark is picked and the others' figures are drawn at 75 % with them.
+     */
+    private fun drawPlates(c: Canvas, plates: List<DimLayout.Plate>, o: Marks, u: Float, fade: Boolean) {
+        if (plates.isEmpty()) return
+        val dp = o.dp.toDouble(); val du = u.toDouble()
+        val times = pen(DimLayout.textSize(false, dp), false).measureText(TIMES).toDouble()
         val ln = stroke(argb(MarkDims.LINE_COLOUR, MarkDims.LINE_ALPHA), (DimLayout.LINE_U * du).toFloat())
         val tip = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(MarkDims.LINE_COLOUR, MarkDims.LINE_ALPHA) }
-        // THE DIMENSION BEING MEASURED: its line and arrowheads in gold over a dark casing, three times as heavy as any
-        // other (MarkDims.ACTIVE_COLOUR) -- so which side of the mark the laser is asked for is seen at a glance
         val lnCase = stroke(argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA), (DimLayout.LINE_U * du * MarkDims.ACTIVE_LINE_CASE_X).toFloat())
         val tipCase = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(MarkDims.ACTIVE_CASE, MarkDims.ACTIVE_CASE_ALPHA) }
         val lnOn = stroke(argb(MarkDims.ACTIVE_COLOUR), (DimLayout.LINE_U * du * MarkDims.ACTIVE_LINE_X).toFloat())
         val tipOn = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(MarkDims.ACTIVE_COLOUR) }
         fun pass(ps: List<DimLayout.Plate>) {
-            for (p in ps) if (p.fig.active) { dimLine(c, p, lnCase, tipCase, du); dimLine(c, p, lnOn, tipOn, du) } else dimLine(c, p, ln, tip, du)
-            for (p in ps) if (p.dot) dot(c, p, dp) else plate(c, p, ::pen, dp, times)
+            for (p in ps) {
+                if (p.role == MarkDims.Role.ITEM) { p.leader?.let { g -> c.drawLine(g.x1.toFloat(), g.y1.toFloat(), g.x2.toFloat(), g.y2.toFloat(), ln) }; continue }
+                if (p.fig.active) { dimLine(c, p, lnCase, tipCase, du); dimLine(c, p, lnOn, tipOn, du) } else dimLine(c, p, ln, tip, du)
+            }
+            for (p in ps) if (p.dot) dot(c, p, dp) else plate(c, p, dp, times, p.code == o.ring)
         }
         // the picked mark's figures last and at full strength; the others' with their marks, at 75 % while one is picked
-        val (near, far) = out.plates.partition { it.markId == o.selId }
+        val (near, far) = plates.partition { it.markId == o.selId }
         if (far.isNotEmpty()) {
             if (fade) c.saveLayerAlpha(null, FADE)
             pass(far)
@@ -972,24 +973,23 @@ internal object SurveyPrepDraw {
     }
 
     /**
-     * A DIMENSION'S LINE: white at alpha 0xcc, 1 unit wide, an arrowhead at each end -- where 0.3.332 drew it (the line
-     * itself is DimLayout's). The plate that sits on it BREAKS it; one that stepped off it hangs on its short leader;
-     * where the span is too short for its plate the arrowheads stand outside, pointing in. A small box's two figures
-     * share one compact plate beside it and draw no line; a `p` has none.
+     * A DIMENSION'S LINE: white at alpha 0xcc, 1 unit wide, an arrowhead at each end (the line itself is DimLayout's). The
+     * plate that sits on it BREAKS it -- along the line, by the plate's own length, whatever the line's slope (P5: the
+     * plate is turned along it); one that stepped off it hangs on its short leader; where the span is too short for its
+     * plate the arrowheads stand outside, pointing in. A small box's two figures share one compact plate beside it and
+     * draw no line; a `p` has none.
      */
     private fun dimLine(c: Canvas, p: DimLayout.Plate, ln: Paint, tip: Paint, u: Double) {
         val l = p.line ?: return
         if (p.how == DimLayout.How.COMPACT) return
         val x1 = l.x1.toFloat(); val y1 = l.y1.toFloat(); val x2 = l.x2.toFloat(); val y2 = l.y2.toFloat()
-        val b = p.box
-        if (p.how == DimLayout.How.ON_LINE && l.vertical) {
-            val top = min(y1, y2); val foot = max(y1, y2)
-            if (b.t > top) c.drawLine(x1, top, x1, b.t.toFloat(), ln)
-            if (b.b < foot) c.drawLine(x1, b.b.toFloat(), x1, foot, ln)
-        } else if (p.how == DimLayout.How.ON_LINE) {
-            val left = min(x1, x2); val right = max(x1, x2)
-            if (b.l > left) c.drawLine(left, y1, b.l.toFloat(), y1, ln)
-            if (b.r < right) c.drawLine(b.r.toFloat(), y1, right, y1, ln)
+        val len = hypot(x2 - x1, y2 - y1)
+        if (p.how == DimLayout.How.ON_LINE && len > 0f) {
+            val ux = (x2 - x1) / len; val uy = (y2 - y1) / len
+            val b = p.box; val cx = ((b.l + b.r) / 2).toFloat(); val cy = ((b.t + b.b) / 2).toFloat()
+            val t = (cx - x1) * ux + (cy - y1) * uy; val half = (p.pw / 2).toFloat()
+            if (t - half > 0f) c.drawLine(x1, y1, x1 + ux * (t - half), y1 + uy * (t - half), ln)
+            if (t + half < len) c.drawLine(x1 + ux * (t + half), y1 + uy * (t + half), x2, y2, ln)
         } else c.drawLine(x1, y1, x2, y2, ln)
         p.leader?.let { g -> c.drawLine(g.x1.toFloat(), g.y1.toFloat(), g.x2.toFloat(), g.y2.toFloat(), ln) }
         val a = (DimLayout.ARROW_U * u).toFloat()
@@ -1012,26 +1012,33 @@ internal object SurveyPrepDraw {
     }
 
     /**
-     * ONE FIGURE'S PLATE, in its state's style (MarkDims.style; DESIGN-port63 §1.1): a reading white and bold on solid
-     * black; an estimate grey on half-black inside a dashed grey outline; a `?` amber inside a dashed amber outline; the
-     * one being measured now on the gold plate with the gold ring. Its text is the figure as MarkDims.shown prints it --
-     * `▶` before the active one, `⊥ ` before a `p`'s -- and after a reading that fails the check an amber `!`. A turned
-     * plate (an `h`'s) reads bottom to top. A small box's compact plate is its two halves, each in its own style, with
-     * " × " between them.
+     * ONE FIGURE'S PLATE, in its look's style (MarkDims.plate; DESIGN-imagemeter §18): a reading white and bold on solid
+     * black; not read, on the picked item, a quiet `?` grey inside a dashed grey outline; the one being measured the gold
+     * plate. Its text is the figure as PhotoFigures prints it -- `▶` (or `▷`) before the gold one, `⊥ ` before a depth --
+     * and after a reading that fails the check an amber `!`. THE PLATE IS TURNED TO ITS LINE (P5): drawn level, [pw] along
+     * its text by [ph] across, about its own middle, then turned by [DimLayout.Plate.angle] -- never upside down
+     * (LabelAngle). A small box's compact plate is its two halves, level, with " × " between them. [ringed]: it has just
+     * taken a reading, and keeps a gold ring for a second.
      */
-    private fun plate(c: Canvas, p: DimLayout.Plate, pen: (Double, Boolean) -> Paint, dp: Double, times: Double) {
-        val f = p.fig; val st = MarkDims.style(f.state, f.active); val b = p.box
+    private fun plate(c: Canvas, p: DimLayout.Plate, dp: Double, times: Double, ringed: Boolean) {
+        val f = p.fig; val st = MarkDims.plate(f.state, f.active); val b = p.box
         val cx = ((b.l + b.r) / 2).toFloat(); val cy = ((b.t + b.b) / 2).toFloat()
-        // a turned plate is drawn upright about its own middle, a quarter turn back
-        val w = if (p.turned) b.h else b.w; val h = if (p.turned) b.w else b.h
+        val turned = p.how != DimLayout.How.COMPACT && p.angle != 0.0
+        val w = if (p.how == DimLayout.How.COMPACT) b.w else p.pw; val h = if (p.how == DimLayout.How.COMPACT) b.h else p.ph
         val up = SurveyPrepTouch.Box(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
-        if (p.turned) { c.save(); c.rotate(-90f, cx, cy) }
+        if (turned) { c.save(); c.rotate(p.angle.toFloat(), cx, cy) }
         val box = RectF(up.l.toFloat(), up.t.toFloat(), up.r.toFloat(), up.b.toFloat())
         val r = (DimLayout.RADIUS_DP * dp).toFloat()
         c.drawRoundRect(box, r, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(st.fill, st.fillAlpha) })
         st.outline?.let { ring ->
             c.drawRoundRect(box, r, r, stroke(argb(ring), ((if (f.active) 1.5 else 1.0) * dp).toFloat()).apply {
                 if (st.dashed) pathEffect = DashPathEffect(floatArrayOf((3 * dp).toFloat(), (2 * dp).toFloat()), 0f) })
+        }
+        // THE PLATE THAT HAS JUST TAKEN A READING rings gold for a second (Landing.RING_MS), so the eye sees where it went
+        if (ringed) {
+            val g = (2 * dp).toFloat()
+            c.drawRoundRect(RectF(box.left - g, box.top - g, box.right + g, box.bottom + g), r + g, r + g,
+                stroke(argb(MarkDims.ACTIVE_COLOUR), (2 * dp).toFloat()))
         }
         val ink = pen(f.fs, st.bold).apply { color = argb(st.ink) }
         val x = DimLayout.textLeft(up, dp).toFloat(); val y = DimLayout.baseline(up, dp).toFloat()
@@ -1040,7 +1047,7 @@ internal object SurveyPrepDraw {
             val past = ink.measureText(f.text)
             c.drawText(MarkDims.CHECK_GLYPH, x + past, y, ink.apply { color = argb(MarkDims.checkInk(f.active)) })
         }
-        if (p.turned) c.restore()
+        if (turned) c.restore()
         // the compact plate's " × ", once, after its first half
         if (p.how == DimLayout.How.COMPACT && p.role == MarkDims.Role.WIDTH) {
             c.drawRect(b.r.toFloat(), b.t.toFloat(), (b.r + times).toFloat(), b.b.toFloat(), Paint().apply { color = argb(0x000000, 0x88) })

@@ -40,30 +40,27 @@ class OneStepTest {
         assertEquals(listOf("1 · रेषा", "2 · मार्क", "3 · 360"), StepRoute.ROUTE.indices.map { StepRoute.routeLabel(Tx.MR, it) })
         assertEquals(listOf(0, 1, 2), StepRoute.ROUTE.map { StepRoute.routeIndex(it) })
         // 3 · MEASURE IS NO STEP: its key is on no part of the route
-        assertFalse(StepRoute.MEASURE in StepRoute.ROUTE); assertEquals(-1, StepRoute.routeIndex(StepRoute.MEASURE)); assertEquals(-1, StepRoute.routeIndex("plan"))
-        // a key somebody still holds lands on a real step: the old third step is 2 · Mark, where its figures now are
-        assertEquals(listOf("lines", "mark", "360", "mark", "lines", "lines"), listOf("lines", "mark", "360", "measure", "list", "").map { StepRoute.routeOf(it) })
-        // the four-step route is untouched by this slice: the screen still draws it until I1b
-        assertEquals(listOf("lines", "mark", "measure", "360"), StepRoute.STEPS)
+        assertFalse("measure" in StepRoute.ROUTE); assertEquals(-1, StepRoute.routeIndex("measure")); assertEquals(-1, StepRoute.routeIndex("plan"))
+        // a key somebody still holds lands on a real step -- 1 · Lines, the step every face starts on (the four-step
+        // route and its key went in slice I1b, so "measure" is nobody's key any more)
+        assertEquals(listOf("lines", "mark", "360", "lines", "lines", "lines"), listOf("lines", "mark", "360", "measure", "list", "").map { StepRoute.routeOf(it) })
     }
 
     @Test fun `every phase shows all three steps - 2 Mark is the view where the phase has no Mark tool`() {
         for (st in STAGES) assertEquals(StepRoute.ROUTE, PhaseTools.routeSteps(st), "$st")
         assertEquals(listOf(PhaseTools.Tool.LINES, PhaseTools.Tool.LIST, PhaseTools.Tool.VIEW_360), StepRoute.ROUTE.map { PhaseTools.routeTool(it) })
-        assertNull(PhaseTools.routeTool(StepRoute.MEASURE)); assertNull(PhaseTools.routeTool("plan"))
+        assertNull(PhaseTools.routeTool("measure")); assertNull(PhaseTools.routeTool("plan"))
         // what the phase takes away is what can be DONE in 2 · Mark, never the step
         //                                      Survey Wish  Vendor Estim. Revis. Approved unread
         assertEquals(listOf(true, true, true, false, true, false, true), STAGES.map { PhaseTools.can(PhaseTools.Tool.PALETTE, it) }, "the tool row")
         assertEquals(listOf(true, true, true, false, true, false, true), STAGES.map { PhaseTools.holds(it) }, "holding and moving")
         assertEquals(listOf(true, false, false, false, false, false, true), STAGES.map { MeasureFlow.canRead(it) }, "gold, the keypad, the laser chip, the counts, the next slot")
-        // the four-step answers stand: at Estimation and Client approved the screen still has no 2 · Mark until I1b
-        assertEquals(listOf("lines", "measure", "360"), PhaseTools.prepSteps(PhaseTools.ESTIMATION)); assertEquals(StepRoute.MEASURE, PhaseTools.prepMode("mark", PhaseTools.APPROVED) { true })
     }
 
     @Test fun `the step survey prep is on - kept, the old third step is 2 Mark, and 2 Mark without four closed lines falls to 1 Lines`() {
         for (st in STAGES) {
             for (m in StepRoute.ROUTE) assertEquals(m, PhaseTools.routeMode(m, st) { true }, "$m at $st")
-            assertEquals(StepRoute.MARK, PhaseTools.routeMode(StepRoute.MEASURE, st) { true }, "$st")
+            assertEquals(StepRoute.LINES, PhaseTools.routeMode("measure", st) { true }, "$st: a key nobody's route has starts on 1 · Lines")
             // no step falls to one that no longer exists
             for (m in listOf("lines", "mark", "measure", "360", "list")) for (markable in listOf(true, false))
                 assertTrue(PhaseTools.routeMode(m, st) { markable } in StepRoute.ROUTE, "$m at $st")
@@ -71,7 +68,7 @@ class OneStepTest {
             // 1 · Lines and 3 · 360 do not ask whether the lines close
             assertEquals(StepRoute.PANO, PhaseTools.routeMode(StepRoute.PANO, st) { false }); assertEquals(StepRoute.LINES, PhaseTools.routeMode(StepRoute.LINES, st) { false })
             assertEquals(PhaseTools.Ask.OPEN, PhaseTools.routeAsk(StepRoute.PANO, st) { false }); assertEquals(PhaseTools.Ask.OPEN, PhaseTools.routeAsk(StepRoute.LINES, st) { false })
-            assertEquals(PhaseTools.Ask.HIDDEN, PhaseTools.routeAsk(StepRoute.MEASURE, st) { true }, "the old step cannot be asked for")
+            assertEquals(PhaseTools.Ask.HIDDEN, PhaseTools.routeAsk("measure", st) { true }, "the old step cannot be asked for")
         }
     }
 
@@ -97,10 +94,10 @@ class OneStepTest {
         assertEquals(388, StepRoute.markPhotoDp(Under.KEYPAD)); assertEquals(570, StepRoute.markPhotoDp(Under.NOTHING))
         // the chrome above the photo: the padding 12, the band 20, the top bar 40, tabs and strip 92, the caption 22
         assertEquals(186, StepRoute.PORTRAIT_CHROME_DP); assertEquals(12 + 20 + 40 + StepRoute.budgetDp(false, "front") + 22, StepRoute.PORTRAIT_CHROME_DP)
-        // AGAINST TODAY (the four-step screen): the keypad is no longer under a 56 dp measure bar, so the photo is 60 dp
-        // taller while he types (328 -> 388), and a mark being measured by the walk costs no height at all
-        val today = StepRoute.PORTRAIT_WINDOW_DP - StepRoute.PORTRAIT_CHROME_DP - StepRoute.measureBarDp(false) - StepRoute.PAD_ROWS * StepRoute.padRowDp(false) - 4 - 6
-        assertEquals(328, today); assertEquals(60, StepRoute.markPhotoDp(Under.KEYPAD) - today)
+        // AGAINST 0.3.345 (the four-step screen): the keypad stood under a 56 dp measure bar with 4 + 6 dp between, so the
+        // photo is 60 dp taller while he types (328 -> 388), and a mark being measured by the walk costs no height at all
+        val was = StepRoute.PORTRAIT_WINDOW_DP - StepRoute.PORTRAIT_CHROME_DP - 56 - StepRoute.PAD_ROWS * StepRoute.padRowDp(false) - 4 - 6
+        assertEquals(328, was); assertEquals(60, StepRoute.markPhotoDp(Under.KEYPAD) - was)
     }
 
     @Test fun `in landscape everything 2 Mark can stand under the photo fits the column, and the photo keeps its height`() {
@@ -119,9 +116,6 @@ class OneStepTest {
             val row = SurveyPrepPalette.row(kind)
             assertEquals(listOf(RowKind.TOOL, RowKind.TOOL, RowKind.TYPE, RowKind.TYPE, RowKind.TYPE, RowKind.MORE, RowKind.NEXT), row.map { it.kind }, kind)
             assertEquals(7, row.size)
-            // today's row is Select and the same six: the tools, the types and More are untouched, Select goes, the last slot is new
-            val old = SurveyPrepPalette.slots(kind)
-            assertEquals(SurveyPrepPalette.SlotKind.SELECT, old.first().kind); assertEquals(old.drop(1).map { it.key }, row.dropLast(1).map { it.key }, kind)
             assertFalse(row.any { it.key == SurveyPrepPalette.SEL })
         }
         assertEquals(listOf("T", "M", "W", "D", "E", "", ""), SurveyPrepPalette.row("wall").map { it.key })
@@ -186,7 +180,7 @@ class OneStepTest {
     @Test fun `the new texts, English first - pinned in English, and their Marathi is their English until Amit has verified the journey`() {
         assertEquals("Reference shown on 2 · Mark and 3 · 360", SurveyRef.shownOnRoute(Tx.EN, "front", true))
         assertEquals("Reference hidden on the faces — it still squares the front wall", SurveyRef.shownOnRoute(Tx.EN, "front", false))
-        assertEquals(SurveyRef.shownSaid(Tx.MR, "front", false), SurveyRef.shownOnRoute(Tx.MR, "front", false), "the hidden line is the key it always was")
+        assertEquals("बाजूंवर संदर्भ लपवला — तरीही तो समोरील भिंत सरळ करतो", SurveyRef.shownOnRoute(Tx.MR, "front", false), "the hidden line is the key it always was")
         assertEquals("D2 1203 mm — not used: readings are taken on the wall's own tab", MeasureText.on360(Tx.EN, 1203))
         assertEquals("This reading does not match the mark. Shoot again, or ▸ to keep it.", MeasureText.checkReading(Tx.EN))
         for (tx in listOf(Tx.EN, Tx.MR)) {
@@ -195,7 +189,7 @@ class OneStepTest {
             assertEquals("Laser not connected · tap to connect", LaserChip.label(tx, LaserChip.Link.OFF))
             assertEquals("D2 connected · press the meter's own button to read", LaserChip.label(tx, LaserChip.Link.READY))
         }
-        // the old line named a step that is going: it is still what the screen says until I1b
-        assertEquals("Reference shown on 2 · Mark, 3 · Measure and 4 · 360", SurveyRef.shownSaid(Tx.EN, "front", true))
+        // the old line named a step that is gone: it went in I1b with its key (sp.reference_shown_measure)
+        assertFalse(SurveyRef::class.java.declaredMethods.any { it.name == "shownSaid" })
     }
 }

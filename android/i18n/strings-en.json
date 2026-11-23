@@ -4665,14 +4665,6 @@
   ],
   "kind": "static"
  },
- "common.select": {
-  "en": "Select",
-  "where": [
-   "v53build/sp.js:1381 · sp",
-   "v53build/sp.js:1381 · P"
-  ],
-  "kind": "static"
- },
  "common.share": {
   "en": "Share",
   "where": [
@@ -9777,11 +9769,6 @@
    "prototype-only"
   ]
  },
- "refuse.sp.tap_measurement_first": {
-  "en": "Tap a measurement first",
-  "where": "v53build/sp.js:1081 · fire",
-  "kind": "static"
- },
  "refuse.sp.these_four_lines_do": {
   "en": "These four lines do not make a closed shape yet — drag them first",
   "where": "v53build/sp.js:1071 · px",
@@ -11613,27 +11600,6 @@
    "fragment"
   ]
  },
- "sp.measure.all": {
-  "en": "all",
-  "where": [
-   "S2 APK phone text · SurveyPrepScreen.kt (slice M2) at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the toggle beside fit and grid in 3 · Measure that draws every figure of the face at once, lower case as sp.fit and sp.grid are (common.all is the capitalised filter chip); no reader until slice M2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "static",
-  "flags": [
-   "phone-text"
-  ]
- },
- "sp.measure.aria.all": {
-  "en": "Every figure on this face",
-  "where": [
-   "S2 APK phone text · SurveyPrepScreen.kt (slice M2) at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the all toggle's screen-reader label; no reader until slice M2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "static",
-  "flags": [
-   "phone-text",
-   "aria-label"
-  ]
- },
  "sp.measure.aria.keep": {
   "en": "Keep this reading · nothing else left on this wall",
   "where": [
@@ -11654,39 +11620,6 @@
   "placeholders": {
    "n": "how many figures the open face still asks"
   },
-  "flags": [
-   "phone-text",
-   "aria-label"
-  ]
- },
- "sp.measure.aria.previous": {
-  "en": "The measurement before",
-  "where": [
-   "S2 APK phone text · SurveyMeasure.kt (slice M2) at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the measure bar's ‹ button, read out; no reader until slice M2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "static",
-  "flags": [
-   "phone-text",
-   "aria-label"
-  ]
- },
- "sp.measure.aria.skip": {
-  "en": "Skip to the next measurement",
-  "where": [
-   "S2 APK phone text · SurveyMeasure.kt (slice M2) at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the measure bar's › button, read out; no reader until slice M2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "static",
-  "flags": [
-   "phone-text",
-   "aria-label"
-  ]
- },
- "sp.measure.aria.type": {
-  "en": "Type the figure",
-  "where": [
-   "S2 APK phone text · SurveyMeasure.kt (slice M2) at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the measure bar's figure box, which opens the pad, read out; no reader until slice M2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "static",
   "flags": [
    "phone-text",
    "aria-label"
@@ -11716,39 +11649,12 @@
    "phone-text"
   ]
  },
- "sp.measure.next_face_x": {
-  "en": "Next: {face} · {n} to measure ▸",
-  "where": [
-   "S2 APK phone text · MeasureText.kt nextFace at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the measure bar's button on a finished face: the next face in tab order with something left · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "face": "the next face's name through Masters.surface (surface.*)",
-   "n": "what is still to measure there, digits"
-  },
-  "flags": [
-   "phone-text"
-  ]
- },
  "sp.measure.not_in_room": {
   "en": "Not in the room — a mark placed after the survey has nothing to measure",
   "where": [
    "S2 APK phone text · MeasureText.kt notInRoom at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the screen's message line, on a tap on a figure of a mark born a Client wish or Vendor added · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
-  "flags": [
-   "phone-text"
-  ]
- },
- "sp.measure.photo_says_x": {
-  "en": "The photo says ≈{est} mm. Check the mark, or shoot again.",
-  "where": [
-   "S2 APK phone text · MeasureText.kt photoSays at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the screen's message line, when a reading that fails the check against the photo lands and when a plate carrying ! becomes active; never in the bar · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "est": "the photo's estimate, whole mm"
-  },
   "flags": [
    "phone-text"
   ]
@@ -11761,34 +11667,6 @@
   "kind": "template",
   "placeholders": {
    "total": "the room's readings, digits"
-  },
-  "flags": [
-   "phone-text"
-  ]
- },
- "sp.measure.sides_say_x": {
-  "en": "The other sides make the {side} ≈{est} mm. Check the readings, or the corners.",
-  "where": [
-   "S2 APK phone text · MeasureText.kt sidesSay at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the screen's message line, when a four-corner mark's three straight sides and its sloping side do not close -- said as any of its four side readings lands or becomes active, so it names the side · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "side": "the sloping side's own words, a measure.side_* text (bottom side; on a plan, back side)",
-   "est": "what the other three readings make that side, whole mm"
-  },
-  "flags": [
-   "phone-text"
-  ]
- },
- "sp.measure.x_of_x": {
-  "en": "{read} of {total} measured",
-  "where": [
-   "S2 APK phone text · MeasureText.kt progress at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the measure bar's second line, the open face's progress · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "read": "the readings taken on the face, digits",
-   "total": "the readings taken and those still to take, digits"
   },
   "flags": [
    "phone-text"
@@ -12306,16 +12184,6 @@
    "phone-text"
   ]
  },
- "sp.reference_shown_measure": {
-  "en": "Reference shown on 2 · Mark, 3 · Measure and 4 · 360",
-  "where": [
-   "S2 APK phone text · SurveyRef.kt (slice M2) at 868ca7e+M1 · Survey prep · measure on the photo (port 63 slice M1, 16 Nov 2026; DESIGN-port63 §3): the reference rectangle's line under 1 · Lines once the third step is 3 · Measure, in place of sp.reference_shown_2_mark (\"… 3 · List …\"); no reader until slice M2 changes the step · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
-  ],
-  "kind": "static",
-  "flags": [
-   "phone-text"
-  ]
- },
  "sp.right": {
   "en": " right",
   "where": "v53build/sp.js:656 · L",
@@ -12543,14 +12411,6 @@
   "flags": [
    "fragment"
   ]
- },
- "sp.tape_x_mm": {
-  "en": "Tape · {v} mm",
-  "where": "v53build/sp.js:1507 · ak",
-  "kind": "template",
-  "placeholders": {
-   "v": "Math.round(plen(mq.pts))"
-  }
  },
  "sp.tape_x_mm_photo": {
   "en": "Tape · {v} mm · from the photo",
@@ -12996,21 +12856,6 @@
    "t": "fo.t",
    "v": "hx[0]==='l'?'left':'right'"
   }
- },
- "sp.x_x_mark_x": {
-  "en": "{T}: {length} mark{pl}, {v} measurements. ",
-  "where": "v53build/sp.js:1539 · els",
-  "kind": "template",
-  "placeholders": {
-   "T": "NAME[T]",
-   "length": "els.length",
-   "pl": "els.length===1?'':'s'",
-   "v": "els.reduce((b,e)=>b+measures(T,e).length,0)"
-  },
-  "flags": [
-   "fragment",
-   "plural-by-suffix"
-  ]
  },
  "sp.x_x_x_x": {
   "en": "{v} · {A} × {B} · {n} mark{pl}",
