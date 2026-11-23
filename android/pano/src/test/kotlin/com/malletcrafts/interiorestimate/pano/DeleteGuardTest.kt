@@ -333,7 +333,9 @@ class DeleteGuardTest {
         // THE ONE WAY IN (port 63 slice I2b): the panel's Delete, where MarkSheet.actStep answers Delete -- no row, no disc
         // on the photo or the 360, no menu
         val act = body(c, "fun panelAct(act: String)")
-        assertEquals(1, count(act, "when (val step = MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)) {"))
+        // (port 63 slice Q2 moved this pin: the call names `shape = true` since the four-corner mark is on -- the shape row
+        //  is an act the panel may be asked, and Delete is still answered by the same call)
+        assertEquals(1, count(act, "when (val step = MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked, shape = true)) {"))
         assertEquals(1, count(act, "if (MarkSheet.panelCancel(prep, pn)) pn.draft?.let { st -> noteRemoved(st) } else deleteMark(pn.id)"))
         assertTrue(act.indexOf("is MarkSheet.ActStep.Delete -> {") in 0 until act.indexOf("deleteMark(pn.id)"))
         assertTrue(act.indexOf("if (!MarkSheet.answers(pn, SystemClock.uptimeMillis())) return") in 0 until act.indexOf("MarkSheet.actStep("), "deaf for its first 300 ms")
@@ -378,7 +380,9 @@ class DeleteGuardTest {
         assertEquals(1, count(sheet, "private val MS_DEL_LINE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))"))
         assertEquals(1, count(sheet, "private val MS_DEL = Color(SurveyPrepDraw.argb(DeleteGuard.INK))"))
         // the screen hands the panel the phase's acts and nothing reorders them on the way
-        assertEquals(1, count(c, "val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)"))
+        // (port 63 slice Q2 moved this pin: the panel is drawn WITH its shape row, `shape = true` -- Delete still last and
+        //  apart with it drawn, which this file's figures hold: "the panel with the shape row drawn")
+        assertEquals(1, count(c, "val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)"))
         assertEquals(1, count(c, "onPanelAct = { act -> panelAct(act) },"))
         // and nothing in the 360 deletes or draws a delete control
         assertEquals(0, count(p3, "elete("), "the 360 deletes nothing by itself")

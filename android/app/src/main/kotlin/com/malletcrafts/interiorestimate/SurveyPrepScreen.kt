@@ -120,6 +120,7 @@ import com.malletcrafts.interiorestimate.pano.PhotoLift
 import com.malletcrafts.interiorestimate.pano.PhotoFigures
 import com.malletcrafts.interiorestimate.pano.Pick
 import com.malletcrafts.interiorestimate.pano.PlanSave
+import com.malletcrafts.interiorestimate.pano.Quad
 import com.malletcrafts.interiorestimate.pano.SaveStay
 import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.StepRoute
@@ -342,6 +343,14 @@ internal fun SurveyPrepDialog(
     // the part of the held item LAST TOUCHED -- the tab, corner or end last pressed (Pick.handle), else its body: what
     // Fine move nudges as it starts (NudgePad.touched keeps it from one event to the next)
     var part by remember { mutableStateOf(NudgePad.BODY) }
+    // THE MARK WHOSE FOUR CORNERS ARE FREE WITH NO `quad` STORED (port 63 slice Q2; DESIGN-quad §3.1): set by the panel's
+    // `Four corners` (MarkSheet.shapeStep) and by a corner grabbed, kept while that mark stays picked, cleared when the
+    // selection leaves it. This screen holds no rule for it: after every event that can move the pick or the part it
+    // asks Quad.freed, and nothing else writes it but the panel's act.
+    var freeId by remember { mutableStateOf<String?>(null) }
+    /** WHETHER A MARK'S FOUR CORNERS ARE FREE -- THE ONE VALUE (Quad.freeOf) the photo's painter, its press, the figures'
+     *  layout and the 360 are all handed, so no two of them can work it out differently. Read from state on every call. */
+    fun freeNow(): (SurveyPrep.Mark) -> Boolean = Quad.freeOf(freeId, pick.picked, part)
     /** What is selected NOW, as the painters and the 360 take it: the picked item with the part last touched, else
      *  1 · Lines' own selection. Read from state on every call. */
     fun selNow(): SpSel? = pick.picked?.let { pid -> prep.itemById(pid)?.let { o -> SpSel(o.s, id = pid, part = part) } } ?: lineSel
@@ -674,6 +683,7 @@ internal fun SurveyPrepDialog(
         padDoes(o.pad)
         pick = o.state
         part = NudgePad.touched(part, before, o, body)
+        freeId = Quad.freed(freeId, pick.picked, part)
         pad = NudgePad.afterEvent(prep, pad, pick, quoteStage, o.nudge, body)
         // the keypad is the gold figure's: with nothing gold it is not asked for any more
         if (o.state.gold == null) padOpen = false
@@ -697,6 +707,7 @@ internal fun SurveyPrepDialog(
         // a reading that landed dropped the hold (Pick rows 18, 19): nothing is being touched, and a Fine move ends as
         // ✓ ends it -- every nudge is already written (NudgePad.after; DESIGN-imagemeter §4.3, 6)
         part = NudgePad.BODY
+        freeId = Quad.freed(freeId, pick.picked, part)
         pad = NudgePad.after(prep, pad, pick, quoteStage)
         if (a.state.gold == null) padOpen = false
         buzz(a.haptic)
@@ -797,7 +808,7 @@ internal fun SurveyPrepDialog(
         if (moved || fix.changed) changed()
         // readings came or went under the pick: what is gold must still be asked (Pick.settle)
         val kept = Pick.settle(scene(), pick)
-        if (kept != pick) { pick = kept; pad = NudgePad.after(prep, pad, pick, quoteStage); if (kept.gold == null) padOpen = false; rev++ }
+        if (kept != pick) { pick = kept; freeId = Quad.freed(freeId, pick.picked, part); pad = NudgePad.after(prep, pad, pick, quoteStage); if (kept.gold == null) padOpen = false; rev++ }
         // what had to be said -- a conflict applied, an orphan re-deleted -- rendered in the language on when ⋮ opens
         // (Readings.conflictText / orphanText, port 61c slice M3b)
         val clean = applied.isEmpty() && orphans.isEmpty()
@@ -884,7 +895,7 @@ internal fun SurveyPrepDialog(
      *  the room and the phase still allow them (Pick.settle). */
     fun settled() {
         val kept = Pick.settle(scene(), pick)
-        if (kept != pick) { pick = kept; part = NudgePad.BODY; pad = NudgePad.after(prep, pad, pick, quoteStage); if (kept.gold == null) padOpen = false; rev++ }
+        if (kept != pick) { pick = kept; part = NudgePad.BODY; freeId = Quad.freed(freeId, pick.picked, part); pad = NudgePad.after(prep, pad, pick, quoteStage); if (kept.gold == null) padOpen = false; rev++ }
     }
     /**
      * THE 360's PRESS (its gestures stay as built, DESIGN-imagemeter §11): a thing pressed there is picked and held as
@@ -1258,7 +1269,10 @@ internal fun SurveyPrepDialog(
         took(Pick.shaped(scene(), pick, mid))
         // the item's box as the photo last drew it, on 2 · Mark; on the 360 there is none, and the pad stands on the right
         val box = if (mode == StepRoute.MARK && shown.id == mid) shown.item else null
-        pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp, stepTaken)
+        // a mark whose corners are free shows four corners and no tab: a tab pressed before `Four corners` is the whole
+        // mark, a corner is its own part (port 63 slice Q2; NudgePad.start's `free`, by the screen's one rule)
+        pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp, stepTaken,
+            free = Quad.freeIn(prep, mid, freeId, pick.picked, last))
         rev++
     }
     /** A cell of Fine move's pad pressed: an arrow nudges the part by the step and never snaps, the centre cell switches
@@ -1272,6 +1286,8 @@ internal fun SurveyPrepDialog(
         val a = ab(s)
         val r = NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }
         pad = r.state
+        // a corner the shape refuses moved nothing and took no ↶ step: it says its one line (port 63 slice Q2; decision 4)
+        r.said?.let { m -> say(m(tx)) }
         if (r.moved) changed() else rev++
     }
     /**
@@ -1280,7 +1296,8 @@ internal fun SurveyPrepDialog(
      * REFUSED -- nothing happens and the panel stays, saying why in its own line; DELETE -- the panel closes, what was
      * typed is dropped, and the item is deleted ("FW1 deleted", with UNDO); every other act -- Done, and where that
      * closed the panel with its item still there (MarkSheet.actRuns), the act: Lock / Unlock, Duplicate, Lock all, Fine
-     * move. DONE'S UNDO STEP AND THE ACT'S ARE ONE ↶ STEP (MarkSheet.stepsToDrop): when both took one the act's own is
+     * move, and FOUR CORNERS / RECTANGLE (port 63 slice Q2; MarkSheet.shapeStep).
+     * DONE'S UNDO STEP AND THE ACT'S ARE ONE ↶ STEP (MarkSheet.stepsToDrop): when both took one the act's own is
      * taken off again, and a snackbar the act showed keeps its UNDO on the step that is left. FINE MOVE takes its step
      * later, at its first nudge -- so where Done took one, the Fine move is told it is already taken
      * (NudgePad.doneTookStep) and its nudges ride on Done's.
@@ -1288,7 +1305,7 @@ internal fun SurveyPrepDialog(
     fun panelAct(act: String) {
         val pn = panel ?: return
         if (!MarkSheet.answers(pn, SystemClock.uptimeMillis())) return
-        when (val step = MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)) {
+        when (val step = MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked, shape = true)) {
             is MarkSheet.ActStep.Refused -> panel = step.panel
             is MarkSheet.ActStep.Delete -> {
                 panel = null
@@ -1305,7 +1322,17 @@ internal fun SurveyPrepDialog(
                         // a mark's type, or every tape, or every Line mark -- never the other (SurveyPrepEdit.lockGroupOf)
                         SurveyPrepEdit.LOCK_ALL -> SurveyPrepEdit.lockGroupOf(prep, pn.id)?.let { (s, g) -> lockAllOf(s, g.t, !g.all, g.kind) }
                         MarkSheet.FINE -> fineMove(pn.id, NudgePad.doneTookStep(before, mid))
-                        // (the shape row, Four corners / Rectangle, is slice Q2's: MarkSheet.acts draws none until then)
+                        // FOUR CORNERS / RECTANGLE (port 63 slice Q2; DESIGN-quad §3.1): ONE step, MarkSheet.shapeStep's --
+                        // `Four corners` changes nothing in the record, frees the mark's corners and says to drag one;
+                        // `Rectangle` removes the shape in one ↶ step. It answers the phase and the lock itself. The mark
+                        // is then HELD (Pick row 16), so it shows the corners or the tabs the act left it with.
+                        SurveyPrepEdit.SHAPE_FREE, SurveyPrepEdit.SHAPE_BOX -> {
+                            val r = MarkSheet.shapeStep(tx, prep, pn.id, step.act, quoteStage, freeId, part) { snapshot() }
+                            freeId = r.freeId; part = r.part
+                            r.said?.let { t -> say(t) }
+                            if (r.hold) took(Pick.shaped(scene(), pick, pn.id))
+                            if (r.changed) changed()
+                        }
                         else -> Unit
                     }
                     val drop = MarkSheet.stepsToDrop(before, mid, hist.size)
@@ -1778,6 +1805,8 @@ internal fun SurveyPrepDialog(
                 // Nothing is ever gold there (Pick.goldOk), so it is handed no reading being taken.
                 Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, selNow(), pick.gold, tool,
                     mdrag, area, areaS, kdraft, SurveyGuide.now(mdrag, endG, areaS, area, tool, kdraft), grid, p3Actions,
+                    // the screen's one freeId: the 360 works a mark's free corners out from it and the selection (slice Q2)
+                    freeId = freeId,
                     stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })
             } else if (mode != StepRoute.LINES && frameOf(tab) == null) {
                 // A FACE WHOSE FOUR LINES DO NOT CLOSE CANNOT BE SQUARED: it says so, where a picture that never comes kept
@@ -1798,6 +1827,8 @@ internal fun SurveyPrepDialog(
                     tab = tab, mode = mode, rev = rev,
                     prep = prep, ab = ab(tab), frame = frameOf(tab), rect = rectOf(tab),
                     sel = selNow(), pick = pick, scene = scene(),
+                    // WHETHER A MARK'S FOUR CORNERS ARE FREE (port 63 slice Q2): the one value, for the press and the painter
+                    free = freeNow(),
                     // port 63 slice I1: what a TAP on the photo with nothing to place does is Pick.tap's -- a figure turns
                     // gold (the gold one opens the keypad), an item's body is picked and held, a handle of the held item
                     // becomes the part last touched, empty photo lets the pick go or leaves the gold alone -- and, slice
@@ -2311,7 +2342,7 @@ internal fun SurveyPrepDialog(
             // sheet's own blocks. Each tap and keystroke replaces the panel's draft, read as it stands when it lands --
             // and NONE IS TAKEN IN ITS FIRST 300 MS (MarkSheet.answers): it opens under the finger that opened it.
             panel?.let { pn ->
-                val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)
+                val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)
                 if (drawn == null) LaunchedEffect(pn.id) { panel = null }   // its item is gone: the panel closes
                 else {
                     /** A tap or a keystroke in the panel's blocks: its draft as [f] leaves it -- once the panel answers. */
@@ -2460,6 +2491,13 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
  * (PhotoLift), moved and not rescaled, so the picked item stays in view above the
  * panel; the lift is a layout offset of the whole photo, so every touch maps
  * through it by construction.
+ * A MARK MAY HAVE FOUR CORNERS (port 63 slice Q2; DESIGN-quad §3): one whose
+ * corners are [free] -- it has a shape, or the panel's `Four corners` freed it, or
+ * a corner of it was grabbed (Quad.freeOf) -- shows, held, four ROUND handles
+ * where a rectangle shows eight square tabs; each drags its own corner under the
+ * magnifier (Quad.drag: a side near upright or level snaps straight, its guide
+ * ray bold; a corner that would break the shape stops), and its body is pressed
+ * only inside its shape.
  */
 @Composable
 private fun SpPhoto(
@@ -2479,6 +2517,10 @@ private fun SpPhoto(
      *  events happen (the room, the phase, the step), so the gesture asks Pick.drag which press may move anything. */
     pick: Pick.State,
     scene: Pick.Scene,
+    /** Port 63 slice Q2 (DESIGN-quad §3.1): whether a mark's FOUR CORNERS ARE FREE -- the dialog's one value
+     *  (Quad.freeOf). The held mark then shows four round corners where its eight tabs were and is pressed by them;
+     *  every such mark's body counts only inside its shape. */
+    free: (SurveyPrep.Mark) -> Boolean,
     /** A TAP ON 2 · MARK WITH NO TOOL ON: what SurveyPrepTouch.hit found under it, and -- when it found nothing -- the
      *  Tape, Line, area or chain whose line the finger is on (12 dp). The dialog asks Pick.tap and does what it says. */
     onTap: (SurveyPrepTouch.Hit?, String?) -> Unit,
@@ -2595,6 +2637,7 @@ private fun SpPhoto(
     val prepS by rememberUpdatedState(prep)
     val rectS by rememberUpdatedState(rect); val abS by rememberUpdatedState(ab)
     val pickS by rememberUpdatedState(pick); val sceneS by rememberUpdatedState(scene)
+    val freeS by rememberUpdatedState(free)
     val onTapS by rememberUpdatedState(onTap); val onHandleS by rememberUpdatedState(onHandle)
     val onLineGrabS by rememberUpdatedState(onLineGrab)
     val onBeforeChangeS by rememberUpdatedState(onBeforeChange); val onMovedS by rememberUpdatedState(onMoved)
@@ -2814,6 +2857,10 @@ private fun SpPhoto(
         return prepS.surface(tab).marks.map { e ->
             val p = toS(sq.x(e.x0), sq.y(e.y1)); val q = toS(sq.x(e.x1), sq.y(e.y0))
             SurveyPrepTouch.Drawn(e.id, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble(),
+                // A MARK WHOSE CORNERS ARE FREE (port 63 slice Q2; DESIGN-quad §3.4): its four corners as drawn, q0 … q3 --
+                // the HELD one is pressed by them where the eight tabs stood, and every one's body counts only inside
+                // its shape, so the empty corner of its bounding box no longer hides what is under it
+                corners = Quad.freeCorners(e, freeS(e))?.map { c -> toS(sq.x(c[0]), sq.y(c[1])).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } },
                 spot = if (SurveyPrep.isSpot(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)
         }
     }
@@ -2907,7 +2954,26 @@ private fun SpPhoto(
                     Pick.Drag.MOVE -> {
                         val part = h.part
                         val start = e.copy(); val mx0 = sq.mmX(at[0]); val my0 = sq.mmY(at[1])
-                        SpGrab(at[0], at[1], SpSel(tab, id = e.id, part = part), null, slop = part == "body") { jx, jy ->
+                        val ci = Quad.cornerOf(part)
+                        if (ci != null) {
+                            // A CORNER DRAGGED BY ITSELF (port 63 slice Q2; DESIGN-quad §3.2), built as a Line's end is
+                            // (endHit): it moves only once the finger has left the dead zone, so a tap on its handle
+                            // moves nothing; it starts from the CORNER, not from where the finger missed it; the
+                            // magnifier looks at the corner where it has snapped to; a second finger puts it back. Where
+                            // it goes is Quad.drag's -- kept on the face, a side within 5° of upright or level snapping
+                            // straight within a Line end's snapping distance (25 mm, or 14 dp at this zoom), and STOPPING
+                            // where the shape would break (null: nothing moves and nothing is said) -- and its guide's
+                            // two rays run through the corner, the ray along a side that is straight drawn bold.
+                            val c0 = Quad.corners(start)[ci]; val px = sq.x(c0[0]); val py = sq.y(c0[1])
+                            val tol = SurveyGuide.endTol(density.density.toDouble(), SurveyGuide.mmPerCanvasPx(sq.mpp, k()))
+                            val s = tab
+                            SpGrab(px, py, SpSel(tab, id = e.id, part = part), null,
+                                focus = { Quad.corners(e)[ci].let { q -> doubleArrayOf(sq.x(q[0]), sq.y(q[1])) } },
+                                cancel = { onEndGuideS(null) }, gate = true) { jx, jy ->
+                                Quad.drag(e, start, ci, sq.mmX(jx) - c0[0], sq.mmY(jy) - c0[1], ab[0], ab[1], tol)?.let { went -> onEndGuideS(Quad.guide(s, went)) }
+                            }
+                        }
+                        else SpGrab(at[0], at[1], SpSel(tab, id = e.id, part = part), null, slop = part == "body") { jx, jy ->
                             SurveyPrep.moveMark(e, start, part, sq.mmX(jx) - mx0, sq.mmY(jy) - my0, ab[0], ab[1])
                             SurveyPrep.snapMark(e, part, ab[0], ab[1])
                         }
@@ -3094,6 +3160,8 @@ private fun SpPhoto(
                 // very point (tapes laid end to end, ct52 FX13); with Select on, the press grabbed an end
                 var startAt: DoubleArray? = null
                 var endGrabbed = false
+                // port 63 slice Q2: the press grabbed a CORNER of the held mark -- its guide goes off when the gesture ends
+                var cornerGrabbed = false
                 // the grab moves only past the dead zone: an end's (slice 10) or a chain's point (slice 11, SpGrab.gate)
                 var gated = false
                 // v52 slice 10 review: an end moves only once the finger has left the touch slop (4 dp at least), so a
@@ -3156,6 +3224,7 @@ private fun SpPhoto(
                                     grab = g; if (g.gate) gated = true; gc.grabbed()
                                     // a handle of the held item pressed: that part is the one last touched (Pick.handle)
                                     val pt = g.sel.part
+                                    if (g.locked == null && Quad.cornerOf(pt) != null) cornerGrabbed = true
                                     if (g.locked == null && pt != "body") onHandleS(pt)
                                     else if (h is SurveyPrepTouch.Hit.Node && g.locked == null) onHandleS(Pick.nodePart(h.i))
                                 }
@@ -3367,6 +3436,8 @@ private fun SpPhoto(
                     if (draft != null) { draft = null; onDragCancelS() }
                     // an end let go (or cancelled, or taken by a long press): its guide fades out
                     if (endGrabbed) onEndGuideS(null)
+                    // ... and a corner's, the same (port 63 slice Q2)
+                    if (cornerGrabbed) onEndGuideS(null)
                     loupe = null
                     if (moved) onChangedS() else tick++
                     onBusyS(false)
@@ -3431,6 +3502,9 @@ private fun SpPhoto(
                             live = live, keep = figKeep, pick = pick, ready = laserReady, ring = ring,
                             // after Survey nothing is read here, so the picked item asks nothing: no `?` (the review of I1, finding 5)
                             ask = MeasureFlow.canRead(scene.stage),
+                            // WHETHER A MARK'S FOUR CORNERS ARE FREE (port 63 slice Q2; Quad.freeOf): the held mark then
+                            // shows four round corners where its eight tabs were, and the chip and every plate keep clear
+                            free = free,
                             // THE PICKED ITEM'S CODE IS A CHIP (port 63 slice I2b; SurveyPrepTouch.codeChip): on 2 · Mark,
                             // with no tool on -- held or not, at every stage: it is the way to its panel
                             chip = mode == StepRoute.MARK && !SurveyPrepPalette.armed(tool),

@@ -2154,3 +2154,14 @@ measured); a refused corner nudge of Fine move's pad says one line and takes no 
 §6's pad); the panel's `Four corners` / `Rectangle` run as one pure step (`MarkSheet.shapeStep`), with `shape = false`
 still the default until the screen turns it on; and "a four-corner mark's corners are not drawn as handles yet (Q2's)"
 of §23.4 has its rule (`Quad.handles`, `NudgePad.solid` on `q0…q3`). No `:app` file changed.
+
+### 23.6 Q2b — the four-corner mark on screen (23 Nov 2026)
+
+Built over Q2a, in `:app`, and written up in **`DESIGN-quad.md` §12** (what Amit sees step by step, what changed in each
+file, what was decided where the design was silent, the build note, the lines to look at first if CI's compile is
+red). What it settles of THIS design: §8.3's shape row is ON — the panel's two calls name `shape = true` and its `when`
+runs `Four corners` / `Rectangle` through `MarkSheet.shapeStep`; §23.4's "a four-corner mark's corners are not drawn as
+handles yet" is closed — a held mark whose corners are free shows four round handles where its eight tabs were, the
+one Fine move nudges solid; the code chip keeps the bounding box and stands 16 dp clear of the four corners as they
+stand (§8.2); and §18 holds for the four sides and the diagonal as for every figure — nothing nobody measured, no `≈`.
+`:app` is compiled only by CI and nothing has been seen on a phone.

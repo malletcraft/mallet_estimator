@@ -18,7 +18,8 @@ import kotlin.math.max
  *  - ⋮ clears this surface or the whole room after a second tap -- every UNLOCKED item and its readings;
  *  - Start over keeps a locked surface's lines, every locked item and its readings; the rest starts fresh.
  *  - (port 63 slice Q1) a mark that may have four free corners gains one row after Duplicate, "Four corners" or
- *    "Rectangle" ([shapeRow]) -- built here and NOT on screen until slice Q2 asks for it ([menuItemsOf]'s `shape`);
+ *    "Rectangle" ([shapeRow]) -- built here, and on screen only where the caller asks for it ([menuItemsOf]'s `shape`:
+ *    the panel that slides up does, since slice Q2b);
  * Everything walks [SurveyPrep.Prep.itemsOf], so the Line and Tape (slice 9) and the chains (slice 11) join a clear
  * and a count by joining it; Start over, Lock all, the menu and Duplicate name them.
  *

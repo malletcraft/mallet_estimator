@@ -159,7 +159,8 @@ private const val MS_OFF = 0.45f
 
 /**
  * What the panel's controls do. Each is a tap or a keystroke for the caller to hand to [MarkSheet]'s pure functions:
- * one of the ACTS tapped (its id: SurveyPrepEdit.LOCK / DUPLICATE / LOCK_ALL / DELETE, MarkSheet.FINE),
+ * one of the ACTS tapped (its id: SurveyPrepEdit.LOCK / DUPLICATE / LOCK_ALL / DELETE, MarkSheet.FINE, and since port
+ * 63 slice Q2 the shape row's SurveyPrepEdit.SHAPE_FREE / SHAPE_BOX -- `Four corners` / `Rectangle`),
  * a KIND chip tapped (the sub-kind's id; slice L6),
  * a move tapped (its target), a why typed (the move's target, the text), an act chip, the note typed, the audience
  * picked (true: Office only), the TRADE button, a trade picked in the picker, a bare part of the sheet tapped (the

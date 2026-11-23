@@ -1133,6 +1133,19 @@ changed**: the diff of `strings-mr.json` is two additions.
 `i18nRatchet` lowered nothing and no file is gone; `unkeyed.tsv` stays empty; the accessors nothing calls BY NAME go
 657 -> 656 (`sp.shape.drag_corners` is read now; both new keys are born read).
 
+## Port 63 slice Q2b (23 Nov 2026): the four-corner mark on screen -- no key added, changed or removed
+
+Slice Q2b switches the screen over to the rules slice Q2a wrote (`android/docs/port63/DESIGN-quad.md` §12): the panel's
+`Four corners` / `Rectangle`, four round corner handles, a corner dragged by itself, the outline, the dim hole and the
+gold frame round the shape, the same on the 360. **No file is added and no text is added, re-worded or removed**: every
+word the new screen says is a `tx.<key>` read made in `:pano` (`MarkSheet.shapeStep`, `NudgePad.cornerStops`,
+`MeasureText.sidesSay`, `SurveyPrepFile`'s problem line), and `:app` composes no sentence of its own.
+
+1,934 keys; `:pano:i18nGen` regenerated `Tx` with no difference (1,863 accessors, the same 14 refused, 20 master maps);
+`:pano:i18nRatchet` lowered nothing; `unkeyed.tsv` stays empty; `mr-pending.tsv` stays at 31; no Marathi was composed
+and no existing value changed. The fifteen four-corner texts are still English in both tables (decision 7 above:
+English first), each listed in `mr-pending.tsv`.
+
 ## What is here
 
 | File | What it is | Who writes it |

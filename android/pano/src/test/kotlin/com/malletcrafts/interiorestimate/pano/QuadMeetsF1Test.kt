@@ -341,72 +341,157 @@ class QuadMeetsF1Test {
         assertTrue(other.check && !other.active); assertEquals(MarkDims.CHECK_COLOUR, MarkDims.checkInk(other.active))
     }
 
-    // ---------------------------------------------------------------- Q1 is still invisible to :app
+    // ---------------------------------------------------------------- slice Q2: the four-corner mark is ON in :app
 
-    @Test fun `the screen's calls are batch-next's own - no shape row, no free corner and no Quad reaches app before slice Q2`() {
-        val dir = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")
-        fun code(name: String) = File(dir, name).also { assertTrue(it.isFile, "$name is where this test reads it") }.readText()
-        fun count(text: String, what: String) = text.windowed(what.length) { if (it == what) 1 else 0 }.sum()
-        val screen = code("SurveyPrepScreen.kt"); val p3 = code("SurveyPrep360.kt"); val draw = code("SurveyPrepDraw.kt")
-        // the panel's acts (the menu's rows, since port 63 slice I2b): drawn by the one call and asked by the one call, five
-        // and six arguments -- F1's `chains` and Q1's `shape` both at their defaults; the screen names no menu any more
-        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.panel("))
-        assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.actStep("))
-        assertEquals(0, count(screen, "menuItemsOf("))
-        // the press: Drawn with no corners; hit with F1's `body`
-        assertEquals(1, count(screen, "SurveyPrepTouch.Drawn(")); assertEquals(0, count(screen, "corners ="))
-        assertEquals(1, count(screen, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)"))
-        // the code chip (the trash's place, since slice I2b): a mark's handles by its box and whether it is a spot -- no corners
-        assertEquals(1, count(draw, "SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot), pen(chipFs, true).measureText(chipSays).toDouble(),")); assertEquals(1, count(draw, "handlesOf("))
-        assertEquals(0, count(screen, "keepOfMark(")); assertEquals(0, count(p3, "trashOf("))
-        // the 360's tabs: the eight
-        assertEquals(2, count(p3, "Pano360.tabsOf(e)")); assertEquals(2, count(p3, "tabsOf("))
-        // the plates: PhotoFigures.layout with no `free` (port 63 slice I1b: it replaced DimLayout.mark in the painter)
-        assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)")); assertEquals(0, count(draw, "DimLayout.mark("))
-        for (name in dir.list()!!.filter { it.endsWith(".kt") }) {
-            val text = code(name)
-            assertFalse(Regex("""\bQuad\.""").containsMatchIn(text), "$name names Quad")
-            for (word in listOf("SHAPE_FREE", "SHAPE_BOX", "shapeRow", "free = ", "freeId")) assertEquals(0, count(text, word), "$name: $word")
-        }
-    }
-
-    // ---------------------------------------------------------------- the plan for Q2 names what Q2 turns red
+    private val appDir = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")
+    /** A file of `:app` as code: without its comment lines, so a sentence that names a function is never counted as a call. */
+    private fun appCode(name: String) = File(appDir, name).also { assertTrue(it.isFile, "$name is where this test reads it") }.readLines()
+        .filter { l -> l.trimStart().let { !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") } }.joinToString("\n")
+    private fun count(text: String, what: String) = text.windowed(what.length) { if (it == what) 1 else 0 }.sum()
 
     /**
-     * The review of the merge, finding 2 (16 Nov 2026): DESIGN-quad's plan for slice Q2 listed the `:pano` source pins
-     * that move as they stood on 7c49835 -- two tests -- while F1 pinned the very lines Q2 rewrites in four more. A plan
-     * that reads as complete and is not is the fault; so the lines are listed HERE, as `:app` has them today, and every
-     * test that pins one has to be named in DESIGN-quad section 10's note 6. A later slice on batch-next that pins one
-     * of them in a new test turns this red until the note names it. It goes with the test above, in slice Q2.
+     * REWRITTEN IN SLICE Q2 (23 Nov 2026), as DESIGN-quad section 10's note 6 said it would be. Until Q2 this test held
+     * that NOTHING of Q1 reached `:app` -- no shape row, no free corner, no `Quad.` in any file -- because a row drawn
+     * with no act behind it would have been a dead row on the phone. Q2 turns the four-corner mark on, so the test now
+     * holds the NEW calls, one by one: each is the call DESIGN-quad section 11.5 gives, to a rule that is tested in
+     * `:pano` (QuadScreenTest and the tests this file's first five sections name). What it guards is the same thing
+     * from the other side: `:app` draws and calls, and works nothing out itself -- ONE `freeId`, written by one rule;
+     * ONE `free`, handed to the painter, the press, the layout and the 360; and no write of the shape that is not a
+     * Quad function.
      */
-    @Test fun `DESIGN-quad's note for Q2 names every test that pins a line of app slice Q2 rewrites`() {
-        val app = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")
+    @Test fun `the screen's calls are slice Q2's - one freeId, one free, the shape row on, and every rule asked of pano`() {
+        val screen = appCode("SurveyPrepScreen.kt"); val p3 = appCode("SurveyPrep360.kt"); val draw = appCode("SurveyPrepDraw.kt")
+        // THE SWITCH: the panel's two calls name `shape = true`, and its `when` runs the two shape acts as ONE step
+        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)")); assertEquals(1, count(screen, "MarkSheet.panel("))
+        assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked, shape = true)")); assertEquals(1, count(screen, "MarkSheet.actStep("))
+        assertEquals(0, count(screen, "menuItemsOf("))
+        val act = screen.substring(screen.indexOf("fun panelAct(act: String)")).let { it.substring(0, it.indexOf("\n    fun ", 1)) }
+        assertEquals(1, count(act, "SurveyPrepEdit.SHAPE_FREE, SurveyPrepEdit.SHAPE_BOX -> {"))
+        assertEquals(1, count(act, "val r = MarkSheet.shapeStep(tx, prep, pn.id, step.act, quoteStage, freeId, part) { snapshot() }"))
+        assertEquals(1, count(act, "freeId = r.freeId; part = r.part"))
+        assertEquals(1, count(act, "r.said?.let { t -> say(t) }"))
+        assertEquals(1, count(act, "if (r.hold) took(Pick.shaped(scene(), pick, pn.id))")); assertEquals(1, count(act, "if (r.changed) changed()"))
+        // ... after freeId and the part are set, so the hold keeps them (Quad.freed(id, id, BODY) is id)
+        assertTrue(act.indexOf("freeId = r.freeId; part = r.part") in 0 until act.indexOf("if (r.hold) took("))
+        // the shape's act asks no phase and no lock of its own: MarkSheet.shapeStep answers both (PhaseToolsTest's count of 2 stands)
+        assertEquals(1, count(screen, "MarkSheet.shapeStep(")); assertEquals(0, count(screen, "Quad.clear(")); assertEquals(0, count(screen, "Quad.set("))
+
+        // ONE freeId, WRITTEN BY ONE RULE: after every event that can move the pick or the part -- a Pick event, a reading
+        // landed, readings pulled under the pick, the room changed -- and by the panel's act; handed to the 360 and to nobody else
+        assertEquals(1, count(screen, "var freeId by remember { mutableStateOf<String?>(null) }"))
+        assertEquals(4, count(screen, "freeId = Quad.freed(freeId, pick.picked, part)"))
+        assertEquals(1, count(screen, "part = NudgePad.touched(part, before, o, body)\n        freeId = Quad.freed(freeId, pick.picked, part)"), "took: once the part is set")
+        assertEquals(1, count(screen, "part = NudgePad.BODY\n        freeId = Quad.freed(freeId, pick.picked, part)"), "landed")
+        assertEquals(1, count(screen, "pick = kept; part = NudgePad.BODY; freeId = Quad.freed(freeId, pick.picked, part);"), "settled")
+        assertEquals(1, count(screen, "pick = kept; freeId = Quad.freed(freeId, pick.picked, part);"), "readings pulled under the pick")
+        assertEquals(1, count(screen, "freeId = freeId,"), "the 360 is handed it")
+        assertEquals(6, count(screen, "freeId = "), "the four above, the panel's act, the 360's argument -- and nothing else writes it")
+        // ONE free: Quad.freeOf, once in the screen and once in the 360, and Quad.free itself in neither
+        assertEquals(1, count(screen, "fun freeNow(): (SurveyPrep.Mark) -> Boolean = Quad.freeOf(freeId, pick.picked, part)")); assertEquals(1, count(screen, "Quad.freeOf("))
+        assertEquals(1, count(screen, "free = freeNow(),"), "the photo: its press and its painter")
+        assertEquals(1, count(screen, "val freeS by rememberUpdatedState(free)"), "the gesture outlives recompositions")
+        assertEquals(1, count(screen, "free = free,"), "the painter's Marks")
+        // ... handed BEFORE the pinned tail of the screen's Marks(...) (MeasureScreenTest)
+        assertTrue(screen.indexOf("free = free,") in 0 until screen.indexOf("nudge = if (which == \"main\") fine else null), mm, u)"))
+        assertEquals(1, count(p3, "fun free(e: SurveyPrep.Mark): Boolean = Quad.freeOf(freeIdS, selS?.id, selS?.part)(e)")); assertEquals(1, count(p3, "Quad.freeOf("))
+        for (name in appDir.list()!!.filter { it.endsWith(".kt") }) assertFalse(Regex("""\bQuad\.free\(""").containsMatchIn(appCode(name)), "$name asks Quad.free itself")
+
+        // THE PRESS: every mark of the face with its free corners, BEFORE its spot (NotePinTest's literal); hit with F1's `body`
+        assertEquals(1, count(screen, "SurveyPrepTouch.Drawn("))
+        assertEquals(1, count(screen, "corners = Quad.freeCorners(e, freeS(e))?.map { c -> toS(sq.x(c[0]), sq.y(c[1])).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } },"))
+        assertEquals(1, count(screen, "corners ="))
+        assertTrue(screen.indexOf("corners = Quad.freeCorners(") in 0 until screen.indexOf("spot = if (SurveyPrep.isSpot(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)"))
+        assertEquals(1, count(screen, "nodes, SurveyChain.NODE_HIT_DP * density.density, body = bodyGrab(sx, sy) != null, chip = shown.chip?.tap)"))
+        // A CORNER'S GRAB: Quad.drag with a Line end's snapping distance, the guide through the corner, gated like an end --
+        // and the guide goes off however the gesture ends. A refused drag (null) says nothing.
+        assertEquals(1, count(screen, "val ci = Quad.cornerOf(part)"))
+        assertEquals(1, count(screen, "Quad.drag(e, start, ci, sq.mmX(jx) - c0[0], sq.mmY(jy) - c0[1], ab[0], ab[1], tol)?.let { went -> onEndGuideS(Quad.guide(s, went)) }"))
+        assertEquals(1, count(screen, "cancel = { onEndGuideS(null) }, gate = true) { jx, jy ->"))
+        assertEquals(1, count(screen, "if (g.locked == null && Quad.cornerOf(pt) != null) cornerGrabbed = true")); assertEquals(1, count(screen, "if (cornerGrabbed) onEndGuideS(null)"))
+        assertEquals(1, count(screen, "Quad.drag("))
+        // FINE MOVE: told whether the corners are free; a refused corner nudge says its line
+        assertEquals(1, count(screen, "free = Quad.freeIn(prep, mid, freeId, pick.picked, last))"))
+        assertEquals(1, count(screen, "val r = NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }\n        pad = r.state\n        r.said?.let { m -> say(m(tx)) }"))
+
+        // THE PAINTER: which handles is Quad.handles'; the chip keeps clear of the free corners; the outline, the gold frame
+        // and the hole go round the shape (Quad.of / corners / grown); the plates are handed the one free
+        assertEquals(1, count(draw, "val handles = Quad.handles(e, sel && o.mode == \"main\" && !locked && o.tabs, o.free(e))"))
+        assertEquals(1, count(draw, "if (handles == Quad.Handles.CORNERS) {")); assertEquals(1, count(draw, "if (handles == Quad.Handles.TABS) {"))
+        assertEquals(1, count(draw, "val solid = NudgePad.solid(o.nudge, e.id, Quad.PARTS[i])"), "the corner Fine move nudges is solid")
+        assertEquals(1, count(draw, "val r = SurveyGuide.END_R_DP.toFloat() * o.dp"), "round, a Line's end's size")
+        assertEquals(1, count(draw, "val hand = Quad.handles(sm, o.tabs && !SurveyPrep.isLocked(sm), isFree) != Quad.Handles.NONE"))
+        assertEquals(1, count(draw, "SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot, freeAt), pen(chipFs, true).measureText(chipSays).toDouble(),")); assertEquals(1, count(draw, "handlesOf("))
+        assertEquals(1, count(draw, "if (Quad.of(e) != null) Quad.corners(e).map { q -> m(sq.x(q[0]), sq.y(q[1])) } else null"), "a mark with no shape is drawn by drawRect, as it always was")
+        assertEquals(1, count(draw, "Quad.of("))
+        assertEquals(1, count(draw, "Quad.grown(")); assertEquals(1, count(draw, "val frame = polyPath(grown(shape, gap))")); assertEquals(1, count(draw, "if (holeShape != null) poly(grown(holeShape, pad))"))
+        assertEquals(1, count(draw, "if (life == MarkLife.DROP) c.drawLine(shape[0][0], shape[0][1], shape[2][0], shape[2][1], slash)"), "a Dropped one's stroke runs q0 to q2")
+        assertEquals(1, count(draw, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, free = o.free, ask = o.ask)")); assertEquals(0, count(draw, "DimLayout.mark("))
+        assertEquals(1, count(draw, "val free: (SurveyPrep.Mark) -> Boolean = { false },"), "named and defaulted: a saved picture frees none")
+        // THE SAVED PICTURES' OLD PAINTER IS NOT THIS SLICE'S (decision 5): it names no Quad and no free
+        val dims = draw.substring(draw.indexOf("    private fun dims(c: Canvas, s: String, e: SurveyPrep.Mark, o: Marks,"))
+        assertFalse(dims.contains("Quad.")); assertFalse(dims.contains("free"))
+        assertFalse(appCode("FaceWriter.kt").contains("Quad.")); assertFalse(appCode("AsIsUpload.kt").contains("Quad."))
+
+        // THE 360: the same free for the corners a press takes and the handles the painter draws
+        assertEquals(2, count(p3, "Pano360.tabsOf(e, free(e))")); assertEquals(2, count(p3, "tabsOf("))
+        assertEquals(1, count(p3, "free = { e -> free(e) }), ink, size.width, size.height)")); assertEquals(1, count(p3, "val free = st.free"))
+        assertEquals(1, count(p3, "val freeIdS by rememberUpdatedState(freeId)"))
+        assertEquals(0, count(screen, "keepOfMark(")); assertEquals(0, count(p3, "trashOf("))
+
+        // NO :app FILE WRITES A MARK'S `extra`, AND EVERY Quad FUNCTION :app NAMES IS ONE OF THESE: what it reads to draw
+        // and press, and the one write -- a corner dragged, Quad.drag. The panel's Rectangle is MarkSheet.shapeStep's
+        // (Quad.clear, in :pano); a nudge is NudgePad's. A new name here is a rule that left :pano.
+        val named = sortedSetOf<String>()
+        for (name in appDir.list()!!.filter { it.endsWith(".kt") }) {
+            val text = appCode(name)
+            assertEquals(0, count(text, ".extra ="), "$name writes a mark's extra")
+            for (word in listOf("shapeRow", "Quad.KEY", "\"quad\"")) assertEquals(0, count(text, word), "$name: $word")
+            Regex("""\bQuad\.(\w+)""").findAll(text).forEach { named += it.groupValues[1] }
+            if (name !in setOf("SurveyPrepScreen.kt", "SurveyPrepDraw.kt", "SurveyPrep360.kt")) assertFalse(text.contains("Quad."), "$name names Quad")
+        }
+        assertEquals(sortedSetOf("Handles", "PARTS", "cornerOf", "corners", "drag", "freeCorners", "freeIn", "freeOf", "freed", "grown", "guide", "handles", "of"), named)
+    }
+
+    // ---------------------------------------------------------------- the design names what pins Q2's lines
+
+    /**
+     * MOVED IN SLICE Q2, as it said it would be ("It goes with the test above, in slice Q2"). Until Q2 this test listed the
+     * lines of `:app` that Q2 was going to REWRITE and held DESIGN-quad section 10's note 6 to naming every `:pano` test
+     * that pinned one -- the review of the merge (16 Nov 2026, finding 2) had found the plan's list two tests long while
+     * six tests pinned those lines. Those lines are rewritten now, so that list is of a commit that is gone. The rule it
+     * kept is kept the other way round: THE LINES Q2 WROTE are listed here as `:app` has them, and DESIGN-quad section
+     * 12.5 has to name every test that pins one -- so the next slice that rewrites one (M3's saved pictures, I3's tool
+     * row) reads there which tests move with it, and a later test that pins one turns this red until 12.5 names it.
+     */
+    @Test fun `DESIGN-quad section 12 names every test that pins a line of app slice Q2 wrote`() {
         val tests = File("src/test/kotlin/com/malletcrafts/interiorestimate/pano")
         val doc = File("../docs/port63/DESIGN-quad.md").also { assertTrue(it.isFile, "DESIGN-quad.md is where this test reads it") }.readText()
-        val from = doc.indexOf("\n6. **THE SOURCE PINS THAT MOVE IN Q2")
-        assertTrue(from >= 0, "DESIGN-quad section 10 has no note 6 naming the source pins that move in Q2")
-        val to = doc.indexOf("\n7. **", from); assertTrue(to > from, "note 6 ends where note 7 begins")
+        val from = doc.indexOf("\n### 12.5 ")
+        assertTrue(from >= 0, "DESIGN-quad section 12 has no 12.5 naming the source pins on the lines Q2 wrote")
+        val to = doc.indexOf("\n### ", from + 1).let { if (it < 0) doc.length else it }
         val note = doc.substring(from, to)
-        // every line of :app that section 6 and section 10's notes 1 to 3 have Q2 rewrite, as it stands today
         val lines = mapOf(
             "SurveyPrepScreen.kt" to listOf(
-                "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)",                                        // gains `shape = true`
-                "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)",                                 // gains `shape = true`
-                "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse("),                           // a third: the shape's act
-                // (the long-press menu's call and height, and both floating discs' keeps, went in port 63 slice I2b;
-                //  sayCheck's two lines in slice I1b: no photo estimate is said any more)
+                "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)",
+                "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked, shape = true)",
+                "freeId = Quad.freed(freeId, pick.picked, part)",
+                "free = Quad.freeIn(prep, mid, freeId, pick.picked, last))",
+                "corners = Quad.freeCorners(e, freeS(e))",
+                "MarkSheet.shapeStep(tx, prep, pn.id, step.act, quoteStage, freeId, part) { snapshot() }"),
             "SurveyPrepDraw.kt" to listOf(
-                "SurveyPrepTouch.handlesOf(bb, spot)",                                                         // the chip's handles: gains the corners
-                "val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->",                 // the hole is the shape's
-                "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)"))   // gains `free` (I1b)
+                "SurveyPrepTouch.handlesOf(bb, spot, freeAt)",
+                "Quad.handles(e, sel && o.mode == \"main\" && !locked && o.tabs, o.free(e))",
+                "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, free = o.free, ask = o.ask)"),
+            "SurveyPrep360.kt" to listOf("Pano360.tabsOf(e, free(e))"))
         val sources = tests.listFiles()!!.filter { it.name.endsWith("Test.kt") }.associate { it.name.removeSuffix(".kt") to it.readText() }
         assertTrue(sources.size > 90, "the tests are where this test reads them")
         val named = mutableSetOf<String>()
         for ((file, ls) in lines) for (line in ls) {
-            assertTrue(File(app, file).readText().contains(line), "$file no longer has `$line`: this list is of another commit")
-            val pinning = sources.filterValues { it.contains(line) }.keys
-            for (t in pinning) { assertTrue(note.contains("`$t`"), "$t pins `$line`, which slice Q2 rewrites, and note 6 does not name it"); named += t }
+            assertTrue(File(appDir, file).readText().contains(line), "$file no longer has `$line`: this list is of another commit")
+            // (a line of Kotlin held in a test is written with its quotes escaped: both spellings are looked for)
+            val pinning = sources.filterValues { it.contains(line) || it.contains(line.replace("\"", "\\\"")) }.keys
+            for (t in pinning) { assertTrue(note.contains("`$t`"), "$t pins `$line`, which slice Q2 wrote, and DESIGN-quad 12.5 does not name it"); named += t }
         }
-        assertEquals(setOf("DeleteGuardTest", "FeaturesTest", "MarkSheetTest", "MeasureScreenTest", "NotePinTest", "PhaseToolsTest", "QuadMeetsF1Test"), named)
+        assertEquals(setOf("DeleteGuardTest", "FeaturesTest", "MarkSheetTest", "MeasureScreenTest", "NotePinTest", "PhaseToolsTest", "QuadMeetsF1Test", "QuadScreenTest"), named)
     }
 }

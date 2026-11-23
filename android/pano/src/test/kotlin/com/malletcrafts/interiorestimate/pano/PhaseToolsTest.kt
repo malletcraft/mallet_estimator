@@ -794,7 +794,8 @@ class PhaseToolsTest {
         assertEquals(2, count(main, "quoteStage = QuoteStageSync.prepStage(context,")); assertEquals(2, count(main, "projectLine = QuoteStageSync.prepLine(context,"))
         // the panel's acts are the phase's (the long-press menu's rows until port 63 slice I2b: MarkSheet.acts takes them
         // from SurveyPrepEdit.menuItemsOf, cut by the stage and the capture's chip), and both views are handed the stage
-        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)"))
+        // (port 63 slice Q2 moved this pin: both calls name `shape = true`; the stage and the capture's chip are handed as before)
+        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)")); assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked, shape = true)"))
         assertEquals(0, count(screen, "menuItemsOf("), "the screen names no menu: the acts are MarkSheet's")
         assertEquals(2, count(screen, "stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })"), "2 · Mark's photo and the 360")
         // a refused act: the phase is asked BEFORE the lock, as sp.js asks it

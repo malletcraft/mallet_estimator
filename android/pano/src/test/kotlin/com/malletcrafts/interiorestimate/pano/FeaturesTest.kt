@@ -628,7 +628,9 @@ class FeaturesTest {
         for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "prep.addChain("), "$rel plots a chain")
         // ENTRY 3: the panel's acts (the long-press menu's rows until port 63 slice I2b) and the act both ask the copy
         // rule, with no answer of their own: drawn and asked through MarkSheet, which hands the menu's rule the switch
-        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)")); assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked)"))
+        // (port 63 slice Q2 moved this pin: both calls name `shape = true`; the chain switch they hand on is untouched)
+        assertEquals(1, count(screen, "MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)")); assertEquals(1, count(screen, "MarkSheet.actStep(tx, prep, pn, act, quoteStage, asPicked, shape = true)"))
+        assertEquals(1, count(screen, "MarkSheet.panel(")); assertEquals(1, count(screen, "MarkSheet.actStep("))
         assertEquals(0, count(screen, "menuItemsOf("))
         val dup = screen.indexOf("if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }")
         val made = screen.indexOf("SurveyPrepEdit.duplicateChain(prep, mid, a[0], a[1], nid)")

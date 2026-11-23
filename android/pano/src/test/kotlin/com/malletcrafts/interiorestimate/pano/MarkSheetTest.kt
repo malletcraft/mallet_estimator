@@ -656,7 +656,8 @@ class MarkSheetTest {
             "        panel = MarkSheet.openPanel(prep, mid, SystemClock.uptimeMillis(), longPress, focusMove, fresh, hist.size)\n    }"), "opening takes no undo step")
         // the panel is drawn from MarkSheet.panel for the stage the dialog was given -- its blocks are MarkSheet.view's -- and
         // every tap goes to a pure function
-        assertTrue(prep.contains("val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked)"))
+        // (port 63 slice Q2 moved this pin: the panel is drawn with its shape row, `shape = true`)
+        assertTrue(prep.contains("val drawn = MarkSheet.panel(tx, prep, pn, quoteStage, asPicked, shape = true)"))
         for (f in listOf("pickSub(prep, cur, sub)", "pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, text)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, text)",
             "pickOffice(cur, office)", "togglePicker(prep, cur)", "pickCat(cur, cat)", "closePicker(cur)")) assertTrue(prep.contains("MarkSheet.$f"), f)
         // THE CODE IS A BUTTON FOR EVERY ITEM (port 63 slice I2b): the row under the photo whose label opened the sheet is

@@ -272,7 +272,10 @@ class MeasureScreenTest {
         val c = code(sps); val d = code(spd); val p3 = code(s360)
         // THE CHIP: placed by SurveyPrepTouch before the figures, its tap box kept clear by their layout, drawn over everything
         val marks = body(d, "fun drawMarks(c: Canvas, tx: Tx, audience: SheetMarks.Audience, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float)")
-        assertEquals(1, count(marks, "chipOf = SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot), pen(chipFs, true).measureText(chipSays).toDouble(),"))
+        // (port 63 slice Q2 moved this pin: the chip keeps clear of the held mark's FOUR CORNERS where they are free --
+        //  `freeAt`, Quad.freeCorners through the painter's mapping -- and of its eight tabs or a spot's middle otherwise)
+        assertEquals(1, count(marks, "chipOf = SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot, freeAt), pen(chipFs, true).measureText(chipSays).toDouble(),"))
+        assertEquals(1, count(marks, "val freeAt = Quad.freeCorners(sm, isFree)?.map { q -> m(sq.x(q[0]), sq.y(q[1])).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } }"))
         assertEquals(1, count(marks, "cw, ch, dpx, SurveyPrepTouch.chipLift(hand, chipFs, u.toDouble(), dpx), o.keep)"))
         assertEquals(1, count(marks, "chipOf = SurveyPrepTouch.codeChipOfLine(scr, pen(chipFs, true).measureText(chipSays).toDouble(), cw, ch, dpx, o.keep)"))
         assertEquals(1, count(marks, "val name = PhotoFigures.nameOf(o.prep, o.pick ?: Pick.State(o.selId, false, o.active))"), "its words are the item's name, P4's one place")
@@ -298,7 +301,10 @@ class MeasureScreenTest {
         assertEquals(1, count(c, "onTop = { y -> panelTop = y }))")); assertEquals(1, count(c, "shown = shown, panelTop = { panelTop },"))
         assertEquals(1, count(code(app + "MarkSheet.kt"), "onTop(at[1] + c.positionInRoot().y)"))
         // FINE MOVE: the pad is NudgePad's, over the photo, and it follows every Pick event
-        assertEquals(1, count(c, "pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp, stepTaken)"))
+        // (port 63 slice Q2 moved this pin: Fine move is told whether the mark's corners are free, by the screen's one rule --
+        //  a tab pressed before `Four corners` is then the whole mark, never an edge with no handle on screen)
+        assertEquals(1, count(c, "pad = NudgePad.start(prep, mid, quoteStage, last, box, shown.w, shown.h, pxPerDp, stepTaken,\n" +
+            "            free = Quad.freeIn(prep, mid, freeId, pick.picked, last))"))
         // DONE'S UNDO STEP IS THE FINE MOVE'S (the review of I2, finding 2): typed in the panel, then Fine move, is one step
         assertEquals(1, count(c, "MarkSheet.FINE -> fineMove(pn.id, NudgePad.doneTookStep(before, mid))")); assertEquals(1, count(c, "fun fineMove(mid: String, stepTaken: Boolean) {"))
         assertEquals(2, count(c, "fineMove("), "its declaration and the panel's act: nothing starts one any other way")
@@ -320,7 +326,10 @@ class MeasureScreenTest {
         assertEquals(1, count(d, "val solid = NudgePad.solid(o.nudge, e.id, k)")); assertEquals(1, count(d, "for (k in SurveyPrepTouch.TABS) {"))
         assertEquals(1, count(d, "val at = SurveyPrepTouch.tabAt(k, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble())"))
         assertEquals(2, count(d, "solid = { i -> NudgePad.solid(o.nudge, q.id, NudgePad.pointPart(i)) })"), "a Line or an area, and a Tape")
-        assertEquals(3, count(d, "NudgePad.solid("))
+        // (port 63 slice Q2 moved this count 3 -> 4: a mark whose corners are free shows four round corner handles in the
+        //  tabs' place, and each asks the same one rule by its own key, q0 … q3 -- a branch BESIDE the eight tabs)
+        assertEquals(1, count(d, "val solid = NudgePad.solid(o.nudge, e.id, Quad.PARTS[i])"), "a free mark's four corners")
+        assertEquals(4, count(d, "NudgePad.solid("))
         assertEquals(1, count(c, "fun sheetOrFinger(): Boolean = photoBusy || panel != null || moreOpen\n"), "the pad holds no reading back: it is no sheet")
         // the pure half: the wall's window, long-pressed, then lifted over a half-open panel
         val p = wall(); val o = Pick.longPress(sc(p), Pick.NONE, "d1")
@@ -350,7 +359,9 @@ class MeasureScreenTest {
     @Test fun `no estimate reaches the editing photo or the 360 - the painter asks PhotoFigures and placeShown alone`() {
         val c = code(spd); val t = text(spd)
         val figs = body(c, "private fun figures(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float,")
-        assertEquals(1, count(figs, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)"))
+        // (port 63 slice Q2 moved this pin: the layout is handed the screen's one `free`, so the held mark's four corners are
+        //  kept clear where its eight tabs were; what a figure SAYS is unchanged -- no estimate, QuadScreenTest holds it)
+        assertEquals(1, count(figs, "PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, free = o.free, ask = o.ask)"))
         assertEquals(1, count(figs, "DimLayout.placeShown(laid, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)"))
         assertEquals(0, count(c, "DimLayout.mark("), "the old builder printed estimates"); assertEquals(0, count(c, "OldPlace"))
         assertEquals(1, count(c, "MarkDims.plate(f.state, f.active)"), "a plate's look is READ, ASK or GOLD")

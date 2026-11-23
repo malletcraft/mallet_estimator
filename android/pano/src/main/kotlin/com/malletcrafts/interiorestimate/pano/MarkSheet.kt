@@ -557,8 +557,8 @@ object MarkSheet {
      *    already draws in the one place a Drop's why is typed ([MarkLife.deleteWord]); a Note and an Existing mark
      *    keep Delete. On a LOCKED item Delete is drawn, and answers the lock's words ([actStep]);
      *  - `Fine move` where the item may be held ([fineOk]);
-     *  - THE SHAPE ROW, `Four corners` / `Rectangle`, only where the caller asks for it ([shape], OFF by default: the
-     *    merged four-corner model keeps it off until slice Q2 turns the switch on, and then it is line 2's first);
+     *  - THE SHAPE ROW, `Four corners` / `Rectangle`, only where the caller asks for it ([shape], OFF by default; since
+     *    port 63 slice Q2b the screen's two calls, [panel] and [actStep], name `shape = true`, and it is line 2's first);
      *  - `Lock all` reads "Lock all" / "Unlock all" on the cell, and names its group to a screen reader, in the menu's
      *    own words ("Lock all Door", "Unlock all tapes").
      * No act for an id that is no item: the reference rectangle has no panel.

@@ -58,6 +58,7 @@ import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.PhotoFigures
+import com.malletcrafts.interiorestimate.pano.Quad
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
 import com.malletcrafts.interiorestimate.pano.SurveyMeas
@@ -211,6 +212,11 @@ internal fun Sp360(
     guide: SurveyGuide.Guide?,
     grid: Boolean,
     act: P3Actions,
+    /** Port 63 slice Q2 (DESIGN-quad §3.6): the screen's ONE `freeId` -- the mark whose four corners are free with no
+     *  `quad` stored (the panel's `Four corners`, or a corner grabbed; Quad.freed) -- beside [sel], whose part is the
+     *  part last touched. Whether a mark's corners are free is worked out from the two by ONE function here ([free]),
+     *  which both the press and the painter ask. */
+    freeId: String?,
     /** Port 62 slice L4: the project's quote stage, as the dialog was given it -- a mark the phase holds read-only
      *  (PhaseTools.editable) is picked and does not move, a drag on it says why, and it has no tabs; the
      *  chip's second half says what a tap places a mark as. One rule with 2 · Mark: one model, two views. */
@@ -232,6 +238,15 @@ internal fun Sp360(
     val areaS0 by rememberUpdatedState(area); val areaSurfS by rememberUpdatedState(areaS)
     val chainS by rememberUpdatedState(chain)
     val stageS by rememberUpdatedState(stage)
+    val freeIdS by rememberUpdatedState(freeId)
+    /**
+     * WHETHER THE MARK [e]'S FOUR CORNERS ARE FREE (port 63 slice Q2; DESIGN-quad §3.1, §3.6): the screen's one rule
+     * (Quad.freeOf) on the screen's one `freeId` and the picked mark's part last touched -- THE ONE PLACE THE 360 WORKS
+     * IT OUT. The tabs a press can take (sceneOf) and the handles the painter draws (P3Draw.State.free) both ask this;
+     * two places that each worked it out would be two answers. Read through States, so the gesture, which outlives
+     * recompositions, sees it as it stands at the press.
+     */
+    fun free(e: SurveyPrep.Mark): Boolean = Quad.freeOf(freeIdS, selS?.id, selS?.part)(e)
     var boxW by remember { mutableStateOf(1f) }
     var boxH by remember { mutableStateOf(1f) }
     var boxAt by remember { mutableStateOf(Offset.Zero) }
@@ -296,7 +311,8 @@ internal fun Sp360(
         // since slice L6), nor on one the phase holds read-only (port 62 slice L4)
         val tabs = sm?.let { (s, e) ->
             if (SurveyPrep.isLocked(e) || SurveyPrep.isSpot(e.t) || !PhaseTools.editable(e, stageS)) emptyList()
-            else Pano360.tabsOf(e).mapNotNull { (part, mm) -> Pano360.toS(v, s, fr.getValue(s), mm[0], mm[1])?.let { part to it } }
+            // ... a mark whose corners are free: its FOUR CORNERS, q0 … q3, in the tabs' place (port 63 slice Q2)
+            else Pano360.tabsOf(e, free(e)).mapNotNull { (part, mm) -> Pano360.toS(v, s, fr.getValue(s), mm[0], mm[1])?.let { part to it } }
         } ?: emptyList()
         val ends = sq?.let { (s, m) -> Pano360.screenPts(v, s, fr.getValue(s), m.pts) }
         // the picked Tape's, Line's or area's own line: a press on it grabs it whole (port 63 slice F1; Pano360.Step.BODY)
@@ -685,7 +701,9 @@ internal fun Sp360(
                 P3Draw.paint(nc, tx, v, fr, prep, P3Draw.State(sel?.id, tab, tool == SurveyPrepPalette.SEL, drag,
                     area?.takeIf { !it.isEmpty() }, areaS, chain, gNow, ga, grid,
                     // no resize tabs on a picked mark the phase holds read-only (port 62 slice L4)
-                    tabs = sel?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true), ink, size.width, size.height)
+                    tabs = sel?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true,
+                    // a mark whose corners are free shows its four round corners in the tabs' place (port 63 slice Q2)
+                    free = { e -> free(e) }), ink, size.width, size.height)
             }
         }
         // THE TOOL CHIP, as on 2 · Mark: "Placing Window · tap the 360"; the Tape's and Line's live words and caution;
@@ -766,14 +784,18 @@ private class P3Ink(val dp: Float) {
 
 /** THE OVERLAY ON THE 360 (sp.js P3.V.draw), in its order: every bounded surface's four lines; the marks (the picked one
  *  last, the rest at 75 %, the photo round it dimmed); the plane grid; each surface's Lines and areas, tapes, chains and
- *  reference; the guide; the picked mark's eight tabs. Everything through [Pano360] and clipped at the near plane. */
+ *  reference; the guide; the picked mark's eight tabs -- or, its corners free, its four round corners (port 63 slice Q2).
+ *  Everything through [Pano360] and clipped at the near plane. */
 private object P3Draw {
 
     class State(val selId: String?, val tab: String, val ends: Boolean, val drag: SurveyMeas.Draft?,
                 val area: List<DoubleArray>?, val areaS: String?, val chain: SurveyChain.Draft?,
                 val guide: SurveyGuide.Guide?, val guideA: Float, val grid: Boolean,
                 /** Port 62 slice L4: the picked mark's eight tabs are drawn; false where the phase holds it read-only. */
-                val tabs: Boolean = true)
+                val tabs: Boolean = true,
+                /** Port 63 slice Q2: whether a mark's four corners are free -- Sp360's one `free`, the same its press
+                 *  asks: the picked mark then shows four ROUND corner handles (Pano360.tabsOf(e, true)), no tab. */
+                val free: (SurveyPrep.Mark) -> Boolean = { false })
 
     private const val OUT = SurveyPrepDraw.OUT_COLOUR
 
@@ -807,14 +829,24 @@ private object P3Draw {
         }
         val g = st.guide
         if (g != null && gS != null) guide(c, v, g, fr.getValue(gS), st.guideA, ink)
-        // the picked mark's eight tabs: white squares ringed in its colour, where a press resizes it
+        // the picked mark's eight tabs: white squares ringed in its colour, where a press resizes it -- or, ITS CORNERS
+        // FREE (port 63 slice Q2; DESIGN-quad §3.2, §3.6), its four corners: white DISCS ringed in its colour, a Line's
+        // end's size, where a press drags that corner. Which, and where, is Pano360.tabsOf's; whether is Sp360's one free
         val sm = st.selId?.let { prep.markById(it) }?.takeIf { it.first in fr }
         if (sm != null && st.tabs && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isSpot(sm.second.t)) {
             val (s, e) = sm; val f = fr.getValue(s); val hh = Pano360.TAB_HALF_DP.toFloat() * u
             val col = SurveyPrep.typeOf(s, e.t).colour
-            for ((_, mm) in Pano360.tabsOf(e)) {
+            val free = st.free
+            val round = Quad.handles(e, true, free(e)) == Quad.Handles.CORNERS
+            for ((_, mm) in Pano360.tabsOf(e, free(e))) {
                 val p = Pano360.toS(v, s, f, mm[0], mm[1]) ?: continue
                 val x = p[0].toFloat(); val y = p[1].toFloat()
+                if (round) {
+                    val rr = SurveyGuide.END_R_DP.toFloat() * u
+                    c.drawCircle(x, y, rr, ink.paint(0xffffff))
+                    c.drawCircle(x, y, rr, ink.stroke(col, 2f * u))
+                    continue
+                }
                 c.drawRect(x - hh, y - hh, x + hh, y + hh, ink.paint(0xffffff))
                 c.drawRect(x - hh, y - hh, x + hh, y + hh, ink.stroke(col, 2f * u))
             }

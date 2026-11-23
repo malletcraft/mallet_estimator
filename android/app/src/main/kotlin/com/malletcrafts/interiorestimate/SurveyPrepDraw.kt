@@ -13,6 +13,7 @@ import com.malletcrafts.interiorestimate.pano.NotePin
 import com.malletcrafts.interiorestimate.pano.NudgePad
 import com.malletcrafts.interiorestimate.pano.PhotoFigures
 import com.malletcrafts.interiorestimate.pano.Pick
+import com.malletcrafts.interiorestimate.pano.Quad
 import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
@@ -258,6 +259,11 @@ internal object SurveyPrepDraw {
          *  drawn solid"): the handle its arrows move is FILLED in the item's colour, ringed white -- one tab or end, or
          *  every handle of the item when they move it whole (NudgePad.solid). Null: no pad, every handle as it was. */
         val nudge: NudgePad.State? = null,
+        /** Port 63 slice Q2 (DESIGN-quad §3.1, §11.2): WHETHER A MARK'S FOUR CORNERS ARE FREE -- the screen's ONE value
+         *  (Quad.freeOf), the same the press and the 360 are handed: the held mark then shows four round corner handles
+         *  where its eight tabs were (Quad.handles), its code chip keeps clear of them and so does every plate. The
+         *  default frees none: a saved picture and the loupe draw no handle at all. */
+        val free: (SurveyPrep.Mark) -> Boolean = { false },
     )
 
     /**
@@ -407,16 +413,51 @@ internal object SurveyPrepDraw {
      * MarkLife.outlineWidth says for the selection and the loupe. False for an Existing mark, drawing nothing: the
      * caller draws v52's own.
      */
-    private fun lifeOutline(c: Canvas, e: SurveyPrep.Mark, p: FloatArray, q: FloatArray, col: Int, u: Float, sel: Boolean, thin: Boolean): Boolean {
+    private fun lifeOutline(c: Canvas, e: SurveyPrep.Mark, p: FloatArray, q: FloatArray, col: Int, u: Float, sel: Boolean, thin: Boolean,
+                            shape: List<FloatArray>? = null): Boolean {
         val life = MarkLife.lifeOf(e)
         val st = MarkLife.stroke(life) ?: return false
         val ink = st.grey ?: col
         fun al(base: Int) = (base * st.alpha).roundToInt()
-        c.drawRect(p[0], p[1], q[0], q[1], Paint().apply { color = argb(ink, al(MarkLife.FILL_ALPHA)) })
-        c.drawRect(p[0], p[1], q[0], q[1], lifeLine(stroke(argb(ink, al(255)), MarkLife.outlineWidth(st, sel, thin).toFloat() * u), st, u))
-        if (life == MarkLife.DROP) c.drawLine(p[0], q[1], q[0], p[1], stroke(argb(MarkLife.SLASH, al(255)), MarkLife.SLASH_W.toFloat() * u))
+        val fill = Paint().apply { color = argb(ink, al(MarkLife.FILL_ALPHA)) }
+        val line = lifeLine(stroke(argb(ink, al(255)), MarkLife.outlineWidth(st, sel, thin).toFloat() * u), st, u)
+        val slash = stroke(argb(MarkLife.SLASH, al(255)), MarkLife.SLASH_W.toFloat() * u)
+        if (shape != null) {
+            // A FOUR-CORNER MARK (port 63 slice Q2; DESIGN-quad §3.4): its state's fill and line ROUND THE SHAPE, and a
+            // Dropped one's red stroke from its bottom-left corner to its top-right, q0 to q2
+            val path = polyPath(shape)
+            c.drawPath(path, fill); c.drawPath(path, line)
+            if (life == MarkLife.DROP) c.drawLine(shape[0][0], shape[0][1], shape[2][0], shape[2][1], slash)
+            return true
+        }
+        c.drawRect(p[0], p[1], q[0], q[1], fill)
+        c.drawRect(p[0], p[1], q[0], q[1], line)
+        if (life == MarkLife.DROP) c.drawLine(p[0], q[1], q[0], p[1], slash)
         return true
     }
+
+    // ------------------------------------------------------------ a mark's four corners (port 63 slice Q2)
+
+    /**
+     * THE FOUR CORNERS OF A FOUR-CORNER MARK ON THE CANVAS, q0 … q3 -- bottom-left, bottom-right, top-right, top-left
+     * (Quad.corners, mm on the face, through the painter's own mapping) -- or NULL FOR A MARK THAT IS ITS BOX, which is
+     * then drawn by `drawRect` exactly as it always was. Whether a mark has a shape at all is Quad.of's, in :pano.
+     */
+    private fun shapeOf(e: SurveyPrep.Mark, sq: SurveyPrep.Square, m: (Double, Double) -> FloatArray): List<FloatArray>? =
+        if (Quad.of(e) != null) Quad.corners(e).map { q -> m(sq.x(q[0]), sq.y(q[1])) } else null
+
+    /** The closed outline through [pts], canvas px, added to this path. */
+    private fun Path.poly(pts: List<FloatArray>) {
+        moveTo(pts[0][0], pts[0][1]); for (i in 1 until pts.size) lineTo(pts[i][0], pts[i][1]); close()
+    }
+
+    /** The closed path through [pts], canvas px. */
+    private fun polyPath(pts: List<FloatArray>): Path = Path().apply { poly(pts) }
+
+    /** [shape] GROWN BY [by] px ON EVERY SIDE (Quad.grown, tested in :pano): what the gold frame round the mark being
+     *  measured and the hole in the dimmed photo round the picked one are drawn by, round the SHAPE. */
+    private fun grown(shape: List<FloatArray>, by: Float): List<FloatArray> =
+        Quad.grown(shape.map { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) }, by.toDouble()).map { q -> floatArrayOf(q[0].toFloat(), q[1].toFloat()) }
 
     /**
      * A SPOT'S STATE (L53.ring, 2887): a ring 3 u outside its dot, in the state's line -- the dot itself stays v52's --
@@ -493,7 +534,7 @@ internal object SurveyPrepDraw {
 
     /**
      * THE GOLD FRAME ROUND THE MARK BEING MEASURED (MarkDims.ACTIVE_COLOUR): [MarkDims.ACTIVE_GAP_DP] outside its box --
-     * a point: a ring that far outside its dot -- gold over a dark casing, so it reads on a bright photo and a dark
+     * a four-corner mark: that far outside its SHAPE (port 63 slice Q2); a point: a ring that far outside its dot -- gold over a dark casing, so it reads on a bright photo and a dark
      * one alike. A Note asks nothing and is never measured.
      */
     private fun measuring(c: Canvas, e: SurveyPrep.Mark, sq: SurveyPrep.Square, m: (Double, Double) -> FloatArray, dp: Float) {
@@ -504,6 +545,13 @@ internal object SurveyPrepDraw {
         if (SurveyPrep.isPoint(e.t)) {
             val d = spotOf(e, sq, m, dp); val r = d[2] + gap + MarkDims.ACTIVE_FRAME_DP.toFloat() * dp / 2f
             c.drawCircle(d[0], d[1], r, case); c.drawCircle(d[0], d[1], r, gold)
+            return
+        }
+        // a four-corner mark is framed ROUND ITS SHAPE (port 63 slice Q2; DESIGN-quad §10 note 4): each side of the frame
+        // the same gap outside its own side (Quad.grown) -- a rectangle's is its box grown, drawn below as it always was
+        shapeOf(e, sq, m)?.let { shape ->
+            val frame = polyPath(grown(shape, gap))
+            c.drawPath(frame, case); c.drawPath(frame, gold)
             return
         }
         val p = m(sq.x(e.x0), sq.y(e.y1)); val q = m(sq.x(e.x1), sq.y(e.y0))
@@ -558,9 +606,14 @@ internal object SurveyPrepDraw {
                     // its code, and ✓ once everything it asks is measured -- as on its box
                     chipSays = SurveyPrepTouch.chipText(if (MarkDims.done(o.prep, s, sm, o.a, o.b)) name + MarkDims.DONE_GLYPH else name)
                     chipInk = SurveyPrep.typeOf(s, sm.t).colour
-                    // it shows its tabs -- held, and no spot (a point and a Note's pin have none): the width plate is hand-anchored
-                    val hand = o.tabs && !SurveyPrep.isLocked(sm) && !spot
-                    chipOf = SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot), pen(chipFs, true).measureText(chipSays).toDouble(),
+                    // it shows its handles -- held, and no spot (a point and a Note's pin have none): the width plate is
+                    // hand-anchored. WHICH handles is Quad.handles' (port 63 slice Q2): its eight tabs, or -- its corners
+                    // free -- its FOUR CORNERS as they stand, which the chip then keeps 16 dp clear of in the tabs' place
+                    // (Quad.freeCorners; the chip itself keeps the bounding box, DESIGN-imagemeter §8.2)
+                    val isFree = o.free(sm)
+                    val hand = Quad.handles(sm, o.tabs && !SurveyPrep.isLocked(sm), isFree) != Quad.Handles.NONE
+                    val freeAt = Quad.freeCorners(sm, isFree)?.map { q -> m(sq.x(q[0]), sq.y(q[1])).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } }
+                    chipOf = SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot, freeAt), pen(chipFs, true).measureText(chipSays).toDouble(),
                         cw, ch, dpx, SurveyPrepTouch.chipLift(hand, chipFs, u.toDouble(), dpx), o.keep)
                 }
             } else {
@@ -588,10 +641,14 @@ internal object SurveyPrepDraw {
             val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->
                 floatArrayOf(d[0] - d[2], d[1] - d[2], d[0] + d[2], d[1] + d[2]) }
             else { val p = m(sq.x(sm.x0), sq.y(sm.y1)); val q = m(sq.x(sm.x1), sq.y(sm.y0)); floatArrayOf(p[0], p[1], q[0], q[1]) }
+            // a picked FOUR-CORNER mark (port 63 slice Q2; DESIGN-quad §3.4): the hole is its SHAPE, the same 6 u outside
+            // every side (Quad.grown) -- so what stands in the empty corner of its bounding box is dimmed with the rest
+            val holeShape = if (SurveyPrep.isSpot(sm.t)) null else shapeOf(sm, sq, m)
             val path = Path().apply {
                 fillType = Path.FillType.EVEN_ODD
                 addRect(0f, 0f, o.width, o.height, Path.Direction.CW)
-                addRect(hole[0] - pad, hole[1] - pad, hole[2] + pad, hole[3] + pad, Path.Direction.CW)
+                if (holeShape != null) poly(grown(holeShape, pad))
+                else addRect(hole[0] - pad, hole[1] - pad, hole[2] + pad, hole[3] + pad, Path.Direction.CW)
             }
             c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, MarkDims.DIM_ALPHA) })
         }
@@ -653,9 +710,17 @@ internal object SurveyPrepDraw {
             }
             // A MARK PAST EXISTING is outlined in its state's line (port 62 slice L2), the loupe's thin copy too; an
             // Existing one exactly as v52 draws it -- and a sheet for anyone but the office is handed Existing marks alone
-            if (!lifeOutline(c, e, p, q, col, u, sel, thin)) {
-                c.drawRect(p[0], p[1], q[0], q[1], Paint().apply { color = argb(col, 0x22) })
-                c.drawRect(p[0], p[1], q[0], q[1], stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u))
+            // A FOUR-CORNER MARK IS DRAWN BY ITS FOUR CORNERS (port 63 slice Q2; DESIGN-quad §3.4), in every mode -- the
+            // editing photo, the magnifier, a saved picture: the same fill and line, round the shape. Null: it is its box.
+            val shape = shapeOf(e, sq, m)
+            if (!lifeOutline(c, e, p, q, col, u, sel, thin, shape)) {
+                val fill = Paint().apply { color = argb(col, 0x22) }
+                val line = stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u)
+                if (shape != null) polyPath(shape).let { path -> c.drawPath(path, fill); c.drawPath(path, line) }
+                else {
+                    c.drawRect(p[0], p[1], q[0], q[1], fill)
+                    c.drawRect(p[0], p[1], q[0], q[1], line)
+                }
             }
             if (!thin) {
                 // the picked item's code is its chip, outside the box (slice I2b): not drawn inside it as well -- inside,
@@ -668,7 +733,23 @@ internal object SurveyPrepDraw {
                 // ... and after its code its act, ✎, V+ and pill; the pill is its first word on a box under 90 u wide
                 lifeTagOf(c, tx, e, if (chipped) "" else code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, (if (o.all) 26f else 13f) * u, u, q[0] - p[0] < 90f * u, faded)
                 if (locked && o.mode == "main") padPill(c, q[0] - 3f * u, p[1] + 3f * u, col, u)
-                if (sel && o.mode == "main" && !locked && o.tabs) {
+                // WHICH HANDLES IT SHOWS is Quad.handles' (port 63 slice Q2; DESIGN-quad §3.1): none unless it is the picked
+                // mark, held, on the editing photo and not locked; its FOUR CORNERS where they are free; else its eight tabs
+                val handles = Quad.handles(e, sel && o.mode == "main" && !locked && o.tabs, o.free(e))
+                if (handles == Quad.Handles.CORNERS) {
+                    // four ROUND handles, one on each corner as it stands (DESIGN-quad §3.2) -- white discs ringed in the
+                    // mark's colour, a Line's end's size: round where a rectangle's tabs are square, so the two are told
+                    // apart at a glance. THE ONE FINE MOVE NUDGES IS SOLID, the colours turned round, and all four when
+                    // its arrows move the whole mark (NudgePad.solid)
+                    val r = SurveyGuide.END_R_DP.toFloat() * o.dp
+                    for ((i, q0) in Quad.corners(e).withIndex()) {
+                        val at = m(sq.x(q0[0]), sq.y(q0[1]))
+                        val solid = NudgePad.solid(o.nudge, e.id, Quad.PARTS[i])
+                        c.drawCircle(at[0], at[1], r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(if (solid) col else 0xffffff) })
+                        c.drawCircle(at[0], at[1], r, stroke(argb(if (solid) 0xffffff else col), 2f * u))
+                    }
+                }
+                if (handles == Quad.Handles.TABS) {
                     // its eight tabs, each where SurveyPrepTouch.tabAt puts it -- white, ringed in the mark's colour; THE ONE
                     // FINE MOVE NUDGES IS SOLID, the colours turned round, and all eight when its arrows move the whole
                     // mark (NudgePad.solid)
@@ -1050,7 +1131,7 @@ internal object SurveyPrepDraw {
         val toPx: (Double, Double) -> DoubleArray = { x, y -> m(sq.x(x), sq.y(y)).let { at -> doubleArrayOf(at[0].toDouble(), at[1].toDouble()) } }
         val textW: (String, Double, Boolean) -> Double = { t, fs, heavy -> pen(fs, heavy).measureText(t).toDouble() }
         val pk = o.pick ?: Pick.State(o.selId, false, o.active)
-        val laid = PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, ask = o.ask)
+        val laid = PhotoFigures.layout(tx, o.prep, s, o.a, o.b, pk, toPx, du, dp, textW, o.live, o.ready, free = o.free, ask = o.ask)
         val times = textW(TIMES, DimLayout.textSize(false, dp), false)
         val out = DimLayout.placeShown(laid, o.width.toDouble(), o.height.toDouble(), codes + o.keep, du, dp, times)
         o.tags?.addAll(out.tags)

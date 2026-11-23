@@ -114,7 +114,9 @@ class NotePinTest {
         // I2b: where the floating trash's box was read); the dimmed hole; the 360's tabs, pressed and drawn
         assertTrue(screen.contains("spot = if (SurveyPrep.isSpot(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)"))
         assertTrue(draw.contains("val spot = SurveyPrep.isSpot(sm.t)\n                val bb = if (spot) spotOf(sm, sq, m, o.dp).let { d ->"))
-        assertTrue(draw.contains("SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot),"), "a Note's pin and a point: the chip keeps clear of its middle, it has no tabs")
+        // (port 63 slice Q2 moved this pin: the call gained the free corners, `freeAt`; `spot` is still asked first --
+        //  SurveyPrepTouch.handlesOf answers a spot's middle whatever corners it is handed, CodeChipTest)
+        assertTrue(draw.contains("SurveyPrepTouch.codeChip(bb, SurveyPrepTouch.handlesOf(bb, spot, freeAt),"), "a Note's pin and a point: the chip keeps clear of its middle, it has no tabs")
         assertTrue(draw.contains("val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->"))
         assertTrue(p3.contains("if (SurveyPrep.isLocked(e) || SurveyPrep.isSpot(e.t) || !PhaseTools.editable(e, stageS)) emptyList()"))
         assertTrue(p3.contains("if (sm != null && st.tabs && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isSpot(sm.second.t)) {"))
