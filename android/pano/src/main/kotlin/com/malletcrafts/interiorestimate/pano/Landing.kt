@@ -1,7 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.i18n.Msg
-import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * A LASER READING ARRIVES (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §4.3 and §4.4). The meter's own button
@@ -105,11 +104,12 @@ object Landing {
     class After(val state: Pick.State, val pad: Pick.Pad, val haptic: Haptic?, val note: Msg?, val ring: String?,
                 val byItself: Boolean, val waits: Boolean)
 
-    /** The note after a reading under [code]: the check's sentence first -- a reading with `!`, or one that completes
-     *  a four-corner mark whose sides do not close ([MeasureFlow.guardText]) -- else, the wall finished, that note.
+    /** The note after a reading under [code]: the check's sentence first -- a reading with `!` says the gross guard's,
+     *  and one that completes a four-corner mark whose sides do not close says THAT, naming the sloping side
+     *  ([MeasureFlow.guardMsg]; port 63 slice Q2a) -- else, the wall finished, that note.
      *  A [Msg]: the screen renders it at once, with the language on then (its `say` keeps the words). */
     private fun noteOf(sc: Pick.Scene, code: String, out: Pick.Out): Msg? {
-        if (MeasureFlow.guardText(Tx.EN, sc.prep, code, sc.ab) != null) return { tx -> MeasureText.checkReading(tx) }
+        MeasureFlow.guardMsg(sc.prep, code, sc.ab)?.let { return it }
         val f = out.finished ?: return null
         val face = sc.prep.ownerOf(code)?.s ?: return null
         return { tx -> Pick.finishedText(tx, sc, face, f) }

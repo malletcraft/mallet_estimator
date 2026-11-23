@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch.Box
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.hypot
 import kotlin.math.max
@@ -141,8 +142,10 @@ object NudgePad {
     }
 
     /** [part] where the item has it, else the whole item: a point has no tab, and "the part last touched" may be
-     *  another item's. */
-    private fun partOf(p: SurveyPrep.Prep, id: String, part: String?): String = part?.takeIf { it in parts(p, id) } ?: BODY
+     *  another item's. [free]: the mark's corners are free ([Quad.free]) -- it shows FOUR CORNERS and no tab, so a tab
+     *  is not a part of it that can have been touched: a tab pressed before `Four corners` freed it is the whole mark. */
+    private fun partOf(p: SurveyPrep.Prep, id: String, part: String?, free: Boolean = false): String =
+        part?.takeIf { it in parts(p, id) && !(free && it in SurveyPrepTouch.TABS) } ?: BODY
 
     /**
      * FINE MOVE BEGINS on [id] at [stage] -- the panel has closed and the item is held ([Pick.shaped], row 16) -- or
@@ -152,10 +155,14 @@ object NudgePad {
      * before `Fine move` was tapped): that step is this Fine move's too, and its first nudge takes no second one --
      * "Done's step and the act's step are ONE ↶ step" (§6), as for Lock, Duplicate and Lock all (the review of I2,
      * finding 2).
+     * [free] (port 63 slice Q2a): the mark's corners are free ([Quad.free], through the screen's one [Quad.freeOf]) --
+     * it shows four corners and no tab, so a TAB as the part last touched (pressed before `Four corners` freed it) is
+     * the whole mark: the arrows never move an edge that has no handle on screen. A corner (q0 … q3) is its own part,
+     * free or not -- pressing one is what frees the mark ([Quad.freed]).
      */
     fun start(p: SurveyPrep.Prep, id: String, stage: Int?, part: String?, bb: Box?, w: Double, h: Double, dp: Double,
-              stepTaken: Boolean = false): State? =
-        if (!MarkSheet.fineOk(p, id, stage)) null else State(id, partOf(p, id, part), FINE_MM, corner(bb, w, h, dp), stepTaken)
+              stepTaken: Boolean = false, free: Boolean = false): State? =
+        if (!MarkSheet.fineOk(p, id, stage)) null else State(id, partOf(p, id, part, free), FINE_MM, corner(bb, w, h, dp), stepTaken)
 
     /** Whether the panel's Done took an undo step: the history held [before] entries before it and [afterDone] after. */
     fun doneTookStep(before: Int, afterDone: Int): Boolean = afterDone > before
@@ -207,8 +214,18 @@ object NudgePad {
 
     // ------------------------------------------------------------------ a press
 
-    /** What a press did: the Fine move after it ([state]; null: it has ENDED, by ✓), and whether anything [moved]. */
-    class Pressed(val state: State?, val moved: Boolean)
+    /** What a press did: the Fine move after it ([state]; null: it has ENDED, by ✓), whether anything [moved], and
+     *  what the message line then says ([said]; null: nothing) -- only ever why a CORNER did not move ([cornerStops]). */
+    class Pressed(val state: State?, val moved: Boolean, val said: Msg? = null)
+
+    /**
+     * WHAT A REFUSED CORNER NUDGE SAYS (port 63 slice Q2a; DESIGN-quad §1.3, §6 "Q2", decided by Claude): "FW1: the
+     * corner stops here. No side goes under 20 mm, and the shape cannot fold." -- one line, the side's floor from
+     * [SurveyPrep.MIN_SIZE]. Said for an arrow that would leave a side of the mark [code] shorter than that, or fold or
+     * flatten its shape ([Quad.drag] refusing): nothing moves and no ↶ step is taken, and without the line the arrow
+     * would simply seem dead. A corner DRAG says nothing -- the corner stops under the finger, which is its own answer.
+     */
+    fun cornerStops(code: String): Msg = { tx -> tx.sp_shape_corner_stops(code = code, mm = Math.round(SurveyPrep.MIN_SIZE).toString()) }
 
     private fun r1(v: Double): Double = Math.round(v * 10) / 10.0
 
@@ -232,6 +249,10 @@ object NudgePad {
      * [snapshot] is called ONCE in a Fine move, just before the first write that changes anything -- never for a press
      * that moves nothing (an arrow the part does not answer to, an item hard against the edge, a locked item, one that
      * is gone).
+     *
+     * A CORNER THE SHAPE REFUSES (port 63 slice Q2a) -- the arrow would leave a side under [SurveyPrep.MIN_SIZE], or
+     * fold or flatten the shape -- MOVES NOTHING, TAKES NO ↶ STEP, AND SAYS ONE LINE ([Pressed.said], [cornerStops]). A
+     * corner already hard against the face's edge is not refused: it moves nothing and says nothing, as any part there.
      */
     fun press(p: SurveyPrep.Prep, st: State, k: Key, a: Double, b: Double, snapshot: () -> Unit): Pressed {
         if (k == Key.DONE) return Pressed(null, false)
@@ -244,7 +265,10 @@ object NudgePad {
         if (mark != null && !SurveyPrep.isLocked(mark) && st.part in parts(p, st.id)) {
             // tried on a copy first: the one ↶ step is taken only for a nudge that changes the mark
             val t = mark.copy()
-            if (SurveyPrep.moveMark(t, mark.copy(), st.part, d[0], d[1], a, b) && !same(t, mark)) {
+            val took = SurveyPrep.moveMark(t, mark.copy(), st.part, d[0], d[1], a, b)
+            // moveMark answers false for a corner only when the shape would be refused (Quad.drag; the mark is not locked)
+            if (!took && Quad.cornerOf(st.part) != null) return Pressed(st, false, cornerStops(mark.code))
+            if (took && !same(t, mark)) {
                 step(); moved = SurveyPrep.moveMark(mark, mark.copy(), st.part, d[0], d[1], a, b)
             }
         } else if (meas != null && !SurveyPrep.isLocked(meas)) {

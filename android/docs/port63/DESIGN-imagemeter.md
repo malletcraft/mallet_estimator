@@ -2143,3 +2143,14 @@ the photo under it (Compose's sibling hit-testing, read, not run), and how the s
    about twice the gap between the other buttons.
 3. **`Fine move`, then press between the arrows and on the pad's empty corners.** Nothing should happen, and the pad
    should stay. The handle the arrows move should be filled in; with nothing pressed first, all eight are.
+
+### 23.5 Q2a — the four-corner mark's screen rules, pure (23 Nov 2026)
+
+The slice after I2 is the four-corner mark (§8.2, §8.3; §14's Q2). Its pure half is built on branch `port63-q2`, over
+`e892bb2`, and is written up where the four-corner design lives: **`DESIGN-quad.md` §11**. What it settles of THIS
+design: the closing check's sentence, "still Q2's" in §23.2 and §23.3, is written with no figure
+(`sp.measure.sides_say_x`, re-worded; §18 rule 1 holds for it — what the other sides MAKE the fourth is a figure nobody
+measured); a refused corner nudge of Fine move's pad says one line and takes no undo step (`sp.shape.corner_stops`;
+§6's pad); the panel's `Four corners` / `Rectangle` run as one pure step (`MarkSheet.shapeStep`), with `shape = false`
+still the default until the screen turns it on; and "a four-corner mark's corners are not drawn as handles yet (Q2's)"
+of §23.4 has its rule (`Quad.handles`, `NudgePad.solid` on `q0…q3`). No `:app` file changed.

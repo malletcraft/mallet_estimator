@@ -11670,6 +11670,19 @@
    "phone-text"
   ]
  },
+ "sp.measure.sides_say_x": {
+  "en": "The four sides do not agree — see the ! on the {side}. Check the readings, or the corners.",
+  "where": [
+   "S2 APK phone text · MeasureText.kt sidesSay at e892bb2+Q2a · Survey prep · a mark with four free corners (port 63 slice Q2a, 23 Nov 2026; DESIGN-quad §2.4, §11): the screen's message line while a four-corner mark's three straight sides and its sloping side do not close -- said as any of its four side readings lands or turns gold, so it names the sloping side, whose plate carries the `!`; it quotes NO figure (Amit, 16 Nov 2026: \"No foto estimation at all. It confuses user\") -- the key Q1 added under this name quoted what the other sides make (≈2466 mm) and went in slice I1b; this is its sentence re-worded · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "side": "the sloping side's own words, a measure.side_* text (bottom side; on a plan, back side)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.measure.x_to_measure": {
   "en": "{n} to measure",
   "where": [
@@ -12227,10 +12240,24 @@
    "fragment"
   ]
  },
+ "sp.shape.corner_stops": {
+  "en": "{code}: the corner stops here. No side goes under {mm} mm, and the shape cannot fold.",
+  "where": [
+   "S2 APK phone text · NudgePad.kt cornerStops at e892bb2+Q2a · Survey prep · a mark with four free corners (port 63 slice Q2a, 23 Nov 2026; DESIGN-quad §1.3, §6 Q2, §11): the screen's message line when an arrow of Fine move's pad would leave a side of the mark shorter than its floor, or fold or flatten its shape -- nothing moves and no undo step is taken; a corner DRAG says nothing · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "the mark's code",
+   "mm": "the shortest a side may run, whole mm (SurveyPrep.MIN_SIZE: 20)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.shape.drag_corners": {
   "en": "Drag a corner. A side near upright or level snaps straight.",
   "where": [
-   "S2 APK phone text · SurveyPrepScreen.kt (slice Q2) at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the screen's message line after Four corners is chosen; no reader until slice Q2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+   "S2 APK phone text · MarkSheet.kt shapeStep at e892bb2+Q2a (was: SurveyPrepScreen.kt, slice Q2, at efe8d91+Q1) · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the screen's message line after the panel's Four corners is chosen; read by MarkSheet.shapeStep since slice Q2a · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
   "flags": [

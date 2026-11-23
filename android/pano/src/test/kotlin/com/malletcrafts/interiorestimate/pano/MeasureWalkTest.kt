@@ -261,11 +261,16 @@ class MeasureWalkTest {
         val x = p.put("front", "X", 1, 1000.0, 1900.0, 300.0, 800.0)
         assertTrue(Quad.set(x, listOf(pt(1000.0, 400.0), pt(1800.0, 300.0), pt(1900.0, 700.0), pt(1200.0, 800.0))))
         assertEquals(listOf("FX1.bottom", "FX1.right", "FX1.top", "FX1.left", "FX1.diag", "FX1.l", "FX1.s"), MeasureWalk.stopsOf(p, x.id) { SurveyPrep.size(it, l, a, b) })
-        // a wished four-corner unit is not in the room: it shows its side estimates and takes no reading
+        // a wished four-corner unit is not in the room: it takes no reading, and ON THE PHOTO IT SHOWS NO FIGURE AT ALL,
+        // picked or not (DESIGN-imagemeter section 18 rule 6; port 63 slice Q2a moved this pin, which read "it shows its
+        // side estimates" -- DESIGN-quad section 3.5's line, written before Amit's "No foto estimation at all")
         val u = p.put("front", "CRP", 1, 2000.0, 3200.0, 0.0, 2100.0, mapOf(MarkLife.KEY_BORN to MarkLife.WISH, MarkLife.KEY_LIFE to MarkLife.WISH))
         assertTrue(Quad.set(u, listOf(pt(2000.0, 0.0), pt(3200.0, 0.0), pt(3200.0, 1800.0), pt(2000.0, 2100.0))))
         assertEquals(emptyList(), MeasureWalk.stopsOf(p, u.id) { SurveyPrep.size(it, l, a, b) })
         assertTrue(MeasureWalk.stops(p, "front", a, b).none { it.startsWith("FCRP1.") })
+        for (picked in listOf(false, true)) assertTrue(PhotoFigures.ofMark(com.malletcrafts.interiorestimate.pano.i18n.Tx.EN, p.actual, "front", u, a, b, picked, null).isEmpty(), "picked $picked")
+        // (the side AS DRAWN lives on in the model -- the gross guard's -- and in the level-plate form the placing rule's
+        // own tests are written in, which no screen asks: MarkDims.value)
         assertEquals(listOf("≈1200", "≈1800", "≈1237", "≈2100"), MarkDims.of("front", u, a, b).take(4).map { MarkDims.value(p.actual, "front", u, it.code, it.est, a, b).text })
     }
 }

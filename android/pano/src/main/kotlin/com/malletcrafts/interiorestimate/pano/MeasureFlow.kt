@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
@@ -19,7 +20,8 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  *  - [stay]: after a reading, the next of the same item that is still LEFT -- else the gold walks on
  *    ([MeasureWalk.next]);
  *  - [tabLeft]: the face tab's amber count, the one visible count;
- *  - [flagged] / [guardText]: whether a reading keeps its `!`, and the sentence the message line says, with no figure;
+ *  - [flagged] / [guardMsg] / [guardText]: whether a reading keeps its `!`, and the sentence the message line says,
+ *    with no figure -- the gross guard's, or a four-corner mark's four sides that do not agree;
  *  - [span] / [panTo]: the photo pans only if the gold figure is off screen.
  * The four-step route's measure bar, its walk between steps and its photo-estimate sentence went in slice I1b.
  *
@@ -146,16 +148,40 @@ object MeasureFlow {
 
     /**
      * WHAT THE MESSAGE LINE SAYS OF THE READING [code], WITH NO FIGURE (DESIGN-imagemeter §18 rule 5) -- when it lands
-     * and when its plate turns gold: [MeasureText.checkReading] while its own plate carries `!` ([flagged]), and also
-     * on any other of a four-corner mark's four side codes while that mark's closing check fails (the reading that
-     * completes the four is usually not the sloping side's). Null when there is nothing to say. Since slice I1b it is
-     * the one sentence a check says: the photo's estimate and the figure a four-corner mark's other sides make are
-     * figures nobody measured, and are never quoted.
+     * and when its plate turns gold. Null when there is nothing to say. TWO SENTENCES, and neither quotes a number: the
+     * photo's estimate and the figure a four-corner mark's other sides make are figures nobody measured.
+     *  - [MeasureText.checkReading], "This reading does not match the mark …": the reading's own plate carries `!` for
+     *    the gross guard ([flagged]; [MarkDims.guard]) -- on any mark;
+     *  - [MeasureText.sidesSay], "The four sides do not agree — see the ! on the bottom side …" (port 63 slice Q2a;
+     *    DESIGN-quad §2.4, §11): a four-corner mark's three straight sides and its sloping side do not close
+     *    ([Quad.closing]). SAID ON ANY OF THE MARK'S FOUR SIDE CODES while the check fails -- the reading that completes
+     *    the four is usually not the sloping side's (the walk reads the sloping bottom first and the left upright last)
+     *    -- and it NAMES the sloping side, the one whose plate carries the `!`.
+     * WHICH, WHEN A CODE COULD SAY BOTH (DESIGN-quad §2.4, its photo sentence now the gross guard's): on the SLOPING
+     * side's own code the closing sentence, also when that reading fails the gross guard too; on one of the other
+     * three sides the guard's sentence when THAT reading fails its own guard -- it is about the figure just read --
+     * else the closing sentence.
      */
-    fun guardText(tx: Tx, prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): String? {
-        if (flagged(prep, code, ab)) return MeasureText.checkReading(tx)
-        val open = prep.markOf(code)?.let { (_, e) -> Quad.closing(prep.actual, e)?.fails == true && code in Quad.sideCodes(e) } == true
-        return if (open) MeasureText.checkReading(tx) else null
+    fun guardMsg(prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): Msg? {
+        val own = flagged(prep, code, ab)
+        val open = prep.markOf(code)?.let { (s, e) -> Quad.closing(prep.actual, e)?.takeIf { it.fails && code in Quad.sideCodes(e) }?.let { s to it } }
+        if (open != null && (code == open.second.code || !gross(prep, code, ab))) {
+            val side = Quad.sideWhat(open.first, open.second.side)
+            return { tx -> MeasureText.sidesSay(tx, side(tx)) }
+        }
+        return if (own) { tx -> MeasureText.checkReading(tx) } else null
+    }
+
+    /** [guardMsg] in the language [tx]: what the screen says when a plate turns gold. */
+    fun guardText(tx: Tx, prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): String? = guardMsg(prep, code, ab)?.invoke(tx)
+
+    /** Whether the reading under [code] fails the GROSS GUARD by itself ([MarkDims.guard]) -- [flagged] without the
+     *  closing check's share of the `!`. */
+    private fun gross(prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): Boolean {
+        val (s, e) = prep.markOf(code) ?: return false
+        val z = ab(s)
+        val d = MarkDims.of(s, e, z[0], z[1]).firstOrNull { it.code == code } ?: return false
+        return MarkDims.guard(prep.actual, s, e, d, z[0], z[1])
     }
 
     // ------------------------------------------------------------------ the photo pans only if it must

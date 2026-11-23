@@ -18,6 +18,9 @@
 # Port 63 slice I2a (23 Nov 2026) added five: the panel that slides up (DESIGN-imagemeter §12, §23.2) -- its Fine move act and its
 # Unlock all (sp.sheet.fine_move / unlock_all), the code chip's and the panel's name for a screen reader (sp.sheet.aria.open_x), and the
 # two cells of Fine move's pad read out (sp.fine.aria.step_x / done). 29 in all.
+# Port 63 slice Q2a (23 Nov 2026) added two: the four-corner mark on the screen (DESIGN-quad §11) -- the closing check's sentence with
+# NO figure (sp.measure.sides_say_x: the key Q1 added under this name quoted an estimate and went in slice I1b; this is its sentence
+# re-worded) and what a refused corner nudge of Fine move's pad says (sp.shape.corner_stops). 31 in all.
 key	English
 measure.diagonal	diagonal, bottom-left to top-right
 measure.diagonal_plan	diagonal, back-left to front-right
@@ -40,8 +43,10 @@ sp.measure.check_reading	This reading does not match the mark. Shoot again, or �
 sp.measure.face_done_x	{face} · all {total} measured ✓
 sp.measure.not_in_room	Not in the room — a mark placed after the survey has nothing to measure
 sp.measure.room_done_x	Room measured · all {total} ✓
+sp.measure.sides_say_x	The four sides do not agree — see the ! on the {side}. Check the readings, or the corners.
 sp.measure.x_to_measure	{n} to measure
 sp.reference_shown_mark	Reference shown on 2 · Mark and 3 · 360
+sp.shape.corner_stops	{code}: the corner stops here. No side goes under {mm} mm, and the shape cannot fold.
 sp.shape.drag_corners	Drag a corner. A side near upright or level snaps straight.
 sp.shape.four_corners	Four corners
 sp.shape.rectangle	Rectangle

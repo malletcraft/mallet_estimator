@@ -4488,6 +4488,10 @@
   "mr": "Room measured · all {total} ✓",
   "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
+ "sp.measure.sides_say_x": {
+  "mr": "The four sides do not agree — see the ! on the {side}. Check the readings, or the corners.",
+  "note": "port 63 Q2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "sp.measure.x_to_measure": {
   "mr": "{n} to measure",
   "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
@@ -4703,6 +4707,10 @@
  "sp.segment": {
   "mr": "भाग ",
   "note": "fragment"
+ },
+ "sp.shape.corner_stops": {
+  "mr": "{code}: the corner stops here. No side goes under {mm} mm, and the shape cannot fold.",
+  "note": "port 63 Q2a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.shape.drag_corners": {
   "mr": "Drag a corner. A side near upright or level snaps straight.",

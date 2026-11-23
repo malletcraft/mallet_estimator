@@ -8,8 +8,8 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * one through [Tx]. The measure bar these texts were first written for went in slice I1b -- nothing under the photo
  * shows a measurement -- and its label, progress, next-face and photo-estimate lines went with it. What is left is said
  * on the screen's message line: a wall finished ([faceDone]), the room finished ([roomDone]), a reading that does not
- * match the mark ([checkReading], with no figure), a reading on the 360 ([on360]) and a figure of a mark that is not in
- * the room ([notInRoom]).
+ * match the mark ([checkReading], with no figure), a four-corner mark's four sides that do not agree ([sidesSay], with
+ * no figure either), a reading on the 360 ([on360]) and a figure of a mark that is not in the room ([notInRoom]).
  *
  * ENGLISH FIRST (Amit, 16 Nov 2026: "Let amit verify it end to end in English then only start Marathi
  * transformation"): the `sp.measure.*` keys read here are new, and their Marathi is their English for now, listed in
@@ -32,6 +32,18 @@ object MeasureText {
      * English first: its Marathi is pending (android/i18n/mr-pending.tsv).
      */
     fun checkReading(tx: Tx): String = tx.sp_measure_check_reading
+
+    /**
+     * THE CLOSING CHECK'S SENTENCE, WITH NO FIGURE (port 63 slice Q2a, 23 Nov 2026; DESIGN-quad §2.4 as §11 re-reads it
+     * against DESIGN-imagemeter §18; decided by Claude): "The four sides do not agree — see the ! on the bottom side.
+     * Check the readings, or the corners." -- what the message line says while a four-corner mark's three straight
+     * sides and its sloping side do not close ([Quad.closing]). [side]: the SLOPING side's own words, in the language
+     * ([Quad.sideWhat]: "bottom side"; on a plan "back side") -- the side whose plate carries the `!`, which is often
+     * not the one just read. It compares readings with readings, so the check stays; what the other three sides MAKE
+     * the fourth is a figure nobody measured, and Q1's sentence, which quoted it ("≈2466 mm"), went in slice I1b with
+     * every other estimate. English first: its Marathi is pending (android/i18n/mr-pending.tsv).
+     */
+    fun sidesSay(tx: Tx, side: String): String = tx.sp_measure_sides_say_x(side)
 
     /** What a laser reading that arrives on 3 · 360 says (DESIGN-imagemeter §11): "D2 1203 mm — not used: readings are
      *  taken on the wall's own tab". Nothing is measured on the 360; the reading is thrown away. */

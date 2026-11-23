@@ -709,6 +709,50 @@ object MarkSheet {
         }
     }
 
+    // ------------------------------------------------------------------ the shape acts (port 63 slice Q2a)
+
+    /**
+     * WHAT ONE OF THE TWO SHAPE ACTS DID -- everything the screen then does, with no decision left to it: its `freeId`
+     * is set to [freeId] and the part last touched to [part], whatever happened; [said] goes to the message line (null:
+     * nothing); [hold]: the mark is then HELD ([Pick.shaped], row 16: "an act that edits shape or position holds the
+     * item"), so it shows the corners or the tabs the act left it with; [changed]: the record changed -- it is saved,
+     * and ONE ↶ step was taken for it.
+     */
+    class Shaped(val freeId: String?, val part: String, val said: String?, val hold: Boolean, val changed: Boolean)
+
+    /**
+     * `FOUR CORNERS` OR `RECTANGLE` ON THE MARK [id], AS ONE STEP (DESIGN-quad §3.1; DESIGN-imagemeter §8.3) -- run after
+     * [actStep] answered [ActStep.Run] and the panel's Done closed it ([actRuns]). [freeId] and [part]: the screen's own,
+     * before the act.
+     *  - `Four corners` ([SurveyPrepEdit.SHAPE_FREE]) CHANGES NOTHING IN THE RECORD -- the shape is still its box, and
+     *    the key is stored only when it is not. It frees the mark's corners (`freeId` = [id]), makes the whole mark the
+     *    part last touched, holds it, and says `sp.shape.drag_corners`. NO ↶ STEP: [snapshot] is not called. On a mark
+     *    whose corners are free already it does the same again;
+     *  - `Rectangle` ([SurveyPrepEdit.SHAPE_BOX]) removes `quad` ([Quad.clear]) in ONE ↶ step -- [snapshot] is called
+     *    just before, and only where there is a key to remove. The box does not move: the mark becomes its bounding
+     *    rectangle. The selection goes back to the WHOLE mark ([NudgePad.BODY]: a corner as the part last touched would
+     *    free it again, [Quad.freed]) and `freeId` is cleared, so it shows its eight tabs. It says nothing;
+     *  - WHERE THE PHASE HOLDS THE MARK READ-ONLY nothing happens and the phase's own words are said
+     *    ([PhaseTools.refuseText]); ON A LOCKED MARK nothing happens and the lock's ([SurveyPrepEdit.refusal]). The
+     *    panel never offers the first and refuses the second in its own line ([acts], [actStep]); they are answered
+     *    here too, because the act runs after Done and whoever calls this must not be able to skip them;
+     *  - an id that is no mark, a mark that may not have four corners (a point, a Note), or any other act: nothing at
+     *    all -- [freeId] and [part] as they were.
+     * Nothing else is written: the mark's readings stay, also those it stops asking for (DESIGN-quad §2.6).
+     */
+    fun shapeStep(tx: Tx, p: SurveyPrep.Prep, id: String, act: String, stage: Int?, freeId: String?, part: String, snapshot: () -> Unit): Shaped {
+        val stay = Shaped(freeId, part, null, false, false)
+        if (act != SurveyPrepEdit.SHAPE_FREE && act != SurveyPrepEdit.SHAPE_BOX) return stay
+        val e = p.markById(id)?.second ?: return stay
+        if (!Quad.mayHave(e)) return stay
+        if (!PhaseTools.editable(p, id, stage)) return Shaped(freeId, part, PhaseTools.refuseText(tx, e, stage), false, false)
+        if (SurveyPrep.isLocked(e)) return Shaped(freeId, part, SurveyPrepEdit.refusal(tx, e.code), false, false)
+        if (act == SurveyPrepEdit.SHAPE_FREE) return Shaped(id, NudgePad.BODY, tx.sp_shape_drag_corners, true, false)
+        val had = Quad.KEY in e.extra
+        if (had) { snapshot(); Quad.clear(e) }
+        return Shaped(null, NudgePad.BODY, null, true, had)
+    }
+
     /** Whether the act still runs after [panelDone] answered [o]: the sheet closed and the item is there -- Done wrote
      *  ([Outcome.DONE]) or had nothing to write ([Outcome.UNCHANGED]). Not when the sheet stays open, nor when the
      *  item went with it (a new Note with no words; an item gone meanwhile). */

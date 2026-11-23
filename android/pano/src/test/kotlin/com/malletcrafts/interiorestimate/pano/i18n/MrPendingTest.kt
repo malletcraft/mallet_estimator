@@ -58,9 +58,31 @@ class MrPendingTest {
         I18n.check("mr-pending · phone texts", off, "a key waiting for its Marathi is a phone text (flag phone-text) added in English")
     }
 
+    @Test fun `port 63 slice Q2a -- the closing check's sentence without a figure and the refused corner's line are in both tables, and listed while their Marathi is their English`() {
+        // sp.measure.sides_say_x is BACK, re-worded: Q1's quoted what the other three sides make (a figure nobody measured)
+        // and went in slice I1b; the check itself compares readings with readings and stays, so its sentence names the
+        // side and quotes nothing (DESIGN-quad section 11). sp.shape.corner_stops is what a refused corner nudge says.
+        val q2 = listOf("sp.measure.sides_say_x", "sp.shape.corner_stops")
+        val off = ArrayList<String>()
+        for (k in q2) {
+            val e = en[k]?.get("en") as? String; val m = mr[k]?.get("mr") as? String
+            when {
+                e == null || m == null -> off += "$k: not in both tables"
+                m == e && k !in I18n.pending -> off += "$k: its Marathi is still its English and it is not listed"
+                "phone-text" !in ((en[k]?.get("flags") as? List<*>)?.map { it.toString() } ?: emptyList()) -> off += "$k: not flagged phone-text"
+            }
+        }
+        I18n.check("mr-pending · Q2a", off, "a key added in English for the four-corner mark on the screen is listed in android/i18n/mr-pending.tsv until its Marathi is written")
+        // NO FIGURE NOBODY MEASURED is quoted by the closing sentence: its one placeholder is the side's name
+        val say = en["sp.measure.sides_say_x"]?.get("en") as String
+        assertTrue("{side}" in say && "{est}" !in say && "≈" !in say, say)
+        assertTrue(listOf("{code}", "{mm}").all { it in (en["sp.shape.corner_stops"]?.get("en") as String) })
+    }
+
     @Test fun `port 63 slice Q1 -- each of a four-corner mark's thirteen kept keys is in both tables, and listed for as long as its Marathi is its English`() {
         // (Q1 added fourteen: sp.measure.sides_say_x, the closing check's sentence with the photo's ≈ figure, went in port 63
-        // slice I1b with its reader MeasureText.sidesSay -- no photo estimate is said, DESIGN-imagemeter §18)
+        // slice I1b with its reader MeasureText.sidesSay -- no photo estimate is said, DESIGN-imagemeter §18. It came back
+        // in slice Q2a re-worded, with no figure: the test above holds it.)
         // THE LIST IS COMPLETE FOR THE SLICE: a key added in English and left OFF the list would be read by TxRenderTest's
         // Latin scans as Marathi with English in it. Held here by name, as a property that outlives the Marathi pass: a
         // key is either still waiting (listed, its Marathi its English) or translated (its Marathi no longer its English)

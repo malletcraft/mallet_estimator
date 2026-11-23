@@ -1102,11 +1102,42 @@ words (`common.lock`, `common.unlock`, `common.duplicate`, `common.lock_all`, `c
 going: the accessors nothing calls BY NAME stay 657 (`:pano:i18nReport`) -- the four deleted each had the row as a caller
 until now, so none of them was among the 657, and no other accessor's last caller went with this slice.
 
+## Port 63 slice Q2a (23 Nov 2026): the four-corner mark's screen rules, pure -- 2 keys added, English first
+
+Slice Q2 switches the four-corner mark ON, in two commits as I1 and I2 were; Q2a is the pure rules the screen will call
+(`android/docs/port63/DESIGN-quad.md` §11), **nothing on screen and no `:app` file edited**. No new `:pano` file: the
+rules joined `pano/Quad.kt`, `pano/MarkSheet.kt`, `pano/NudgePad.kt`, `pano/MeasureFlow.kt` and `pano/MeasureText.kt`,
+all listed in `ported.txt` already, and their words are `tx.<key>` reads.
+
+**Two keys added**, each a phone text (flag `phone-text`), ENGLISH FIRST (decision 7 above): the Marathi value of each
+IS its English for now, with a note saying so, and both are listed in `mr-pending.tsv` (29 -> 31).
+
+| Key | English | Read by |
+|---|---|---|
+| `sp.measure.sides_say_x` | `The four sides do not agree — see the ! on the {side}. Check the readings, or the corners.` | `MeasureText.sidesSay` -- the message line while a four-corner mark's three straight sides and its sloping side do not close; `{side}` is the SLOPING side's own words (a `measure.side_*` text), the side whose plate carries the `!` |
+| `sp.shape.corner_stops` | `{code}: the corner stops here. No side goes under {mm} mm, and the shape cannot fold.` | `NudgePad.cornerStops` -- the message line when an arrow of Fine move's pad would break a four-corner mark's shape; `{mm}` is `SurveyPrep.MIN_SIZE`, whole mm |
+
+**`sp.measure.sides_say_x` is a name that existed before.** Slice Q1 added it as `The other sides make the {side}
+≈{est} mm. Check the readings, or the corners.`; slice I1b deleted it with its reader, because it quoted a figure nobody
+measured (Amit, 16 Nov 2026: "No foto estimation at all. It confuses user"). The CHECK compares readings with readings
+and stays, so its sentence is back RE-WORDED: it names the side and has no `{est}` (`MrPendingTest` holds that). No
+Marathi value existed for it to carry over: the old one was its English too.
+
+`sp.shape.drag_corners` (slice Q1's, "no reader yet") **has its reader**: `MarkSheet.shapeStep`, the panel's `Four
+corners` act as one step. Its `where` says so; its English and its Marathi value are untouched.
+
+Every placeholder is a description, so each is a `String` parameter. **No existing English or Marathi value is
+changed**: the diff of `strings-mr.json` is two additions.
+
+1,934 keys (1,932 + 2); Tx regenerated with `:pano:i18nGen` (1,863 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and no file is gone; `unkeyed.tsv` stays empty; the accessors nothing calls BY NAME go
+657 -> 656 (`sp.shape.drag_corners` is read now; both new keys are born read).
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,932 keys each (counted 23 Nov 2026: the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,934 keys each (counted 23 Nov 2026: the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

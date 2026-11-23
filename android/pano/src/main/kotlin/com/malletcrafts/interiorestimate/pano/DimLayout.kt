@@ -336,10 +336,11 @@ object DimLayout {
                 rank(f.gold, picked, false, f.measured), f.measured, f.text, f.state, f.check, f.gold, f.typing, span(d, toPx), outward(d, toPx))
         }
         val p = toPx(e.x0, e.y1); val q = toPx(e.x1, e.y0)
-        val tabs = picked && held && !SurveyPrep.isPoint(e.t)
-        val handles = tabs && free && Quad.mayHave(e)
-        return Mark(e.id, Box(min(p[0], q[0]), min(p[1], q[1]), max(p[0], q[0]), max(p[1], q[1])), figs, picked, tabs && !handles,
-            if (handles) Quad.corners(e).map { toPx(it[0], it[1]) } else null)
+        // WHICH HANDLES IT SHOWS is the one rule the painter and the code chip ask too (Quad.handles, port 63 slice Q2a):
+        // its eight tabs, or -- its corners free -- its four corners, which are kept clear in the tabs' place
+        val hs = Quad.handles(e, picked && held, free)
+        return Mark(e.id, Box(min(p[0], q[0]), min(p[1], q[1]), max(p[0], q[0]), max(p[1], q[1])), figs, picked, hs == Quad.Handles.TABS,
+            if (hs == Quad.Handles.CORNERS) Quad.corners(e).map { toPx(it[0], it[1]) } else null)
     }
 
     /**

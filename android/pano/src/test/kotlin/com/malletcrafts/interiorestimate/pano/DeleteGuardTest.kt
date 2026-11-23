@@ -143,6 +143,33 @@ class DeleteGuardTest {
             assertTrue(clear(ld, doneLeft, 756.0, -(MarkSheet.HEAD_LAND_DP + MarkSheet.DONE_DP) / 2.0, -(MarkSheet.HEAD_LAND_DP - MarkSheet.DONE_DP) / 2.0) >= DeleteGuard.CLEAR_DP, "$id, landscape: Done")
             assertEquals(0, MarkSheet.deleteDropDp(MarkSheet.Acts(acts.line1, acts.line2.filterNot { it.delete })), "$id: no Delete, no move")
         }
+        // WITH THE FOUR-CORNER SHAPE ROW DRAWN (port 63 slice Q2a: the switch slice Q2 turns on) NOTHING ABOUT DELETE MOVES:
+        // the row is line 2's first cell, in a column that stood empty -- on a rectangle (`Four corners`) and on a mark
+        // that carries four corners (`Rectangle`) alike. Delete is still the last act, in the same place, and still
+        // CLEAR_DP from every other act and from Done, in portrait and in landscape
+        val quad = SurveyPrep.Mark("w1", "W", "FW1", 1500.0, 2400.0, 900.0, 2100.0).also { p.surface("front").marks.add(it) }
+        assertTrue(Quad.set(quad, listOf(doubleArrayOf(1500.0, 1300.0), doubleArrayOf(2400.0, 900.0), doubleArrayOf(2400.0, 2100.0), doubleArrayOf(1500.0, 2100.0))))
+        for ((id, row) in listOf("d1" to SurveyPrepEdit.SHAPE_FREE, "w1" to SurveyPrepEdit.SHAPE_BOX)) {
+            val plain = MarkSheet.acts(Tx.EN, p, id, 0, null); val acts = MarkSheet.acts(Tx.EN, p, id, 0, null, shape = true)
+            assertEquals(plain.all.size + 1, acts.all.size, id); assertEquals(row, acts.line2.first().id, id); assertTrue(acts.all.last().delete, "$id: Delete is the last act")
+            assertEquals(MarkSheet.actsDp(plain), MarkSheet.actsDp(acts), "$id: the panel is no taller for the row"); assertEquals(2, acts.rows, id)
+            val slots = MarkSheet.slots(acts, 336.0, false); val del = slots.single { it.cell.delete }
+            val was = MarkSheet.slots(plain, 336.0, false).single { it.cell.delete }
+            assertEquals(listOf(was.row, was.l, was.r, was.t, was.b), listOf(del.row, del.l, del.r, del.t, del.b), "$id: Delete stands where it stood")
+            for (o in slots) if (o !== del) assertTrue(clear(del, o) >= DeleteGuard.CLEAR_DP - 1e-9, "$id, the shape row drawn: Delete stands ${clear(del, o)} dp from ${o.cell.text}")
+            assertTrue(clear(del, 336.0 - 70, 336.0, -(MarkSheet.HEAD_DP + MarkSheet.DONE_DP) / 2.0, -(MarkSheet.HEAD_DP - MarkSheet.DONE_DP) / 2.0) >= DeleteGuard.CLEAR_DP, "$id: Done")
+            // the shape row itself is a real button, a whole column wide, and stands under Lock -- nowhere near Delete
+            val shape = slots.single { it.cell.id == row }
+            assertEquals(1, shape.row, id); assertEquals(0.0, shape.l, 1e-9, id); assertTrue(del.l - shape.r >= 100.0, "$id: ${del.l - shape.r} dp from Delete")
+            for (wide in listOf(736.0, 756.0, 780.0)) {
+                val doneLeft = wide - 70
+                val land = MarkSheet.slots(acts, wide, true, doneLeft); val ld = land.last()
+                assertTrue(ld.cell.delete && land.all { it.row == 0 }, "$id $wide")
+                for (o in land) if (o !== ld) assertTrue(clear(ld, o) >= DeleteGuard.CLEAR_DP - 1e-9, "$id, landscape $wide, the shape row drawn: ${clear(ld, o)} dp from ${o.cell.text}")
+                assertTrue(clear(ld, doneLeft, wide, -(MarkSheet.HEAD_LAND_DP + MarkSheet.DONE_DP) / 2.0, -(MarkSheet.HEAD_LAND_DP - MarkSheet.DONE_DP) / 2.0) >= DeleteGuard.CLEAR_DP, "$id, landscape $wide: Done")
+                assertTrue(ld.r <= doneLeft - MarkSheet.DONE_CLEAR_LAND_DP + 1e-9, "$id $wide: nothing stands under Done")
+            }
+        }
         // IT TAKES NO TAP FOR ITS FIRST 300 MS: a finger that had not quite left the photo deletes nothing
         val pn = MarkSheet.openPanel(p, "d1", 10_000L, longPress = true)!!
         for (t in listOf(10_000L, 10_150L, 10_299L)) assertFalse(MarkSheet.answers(pn, t), "$t")

@@ -1368,6 +1368,7 @@ sp.measure.check_reading	sp_measure_check_reading	static	-
 sp.measure.face_done_x	sp_measure_face_done_x	template	face: String · total: String
 sp.measure.not_in_room	sp_measure_not_in_room	static	-
 sp.measure.room_done_x	sp_measure_room_done_x	template	total: String
+sp.measure.sides_say_x	sp_measure_sides_say_x	template	side: String
 sp.measure.x_to_measure	sp_measure_x_to_measure	template	n: String
 sp.measured_x_x_x	sp_measured_x_x_x	template	ta: String · A: String · tb: String · B: String · LS0: String · LS1: String
 sp.mi_a3_360_780	-	skipped	prototype-only
@@ -1433,6 +1434,7 @@ sp.room_size_l_x_2	sp_room_size_l_x_2	template	z0: String · z1: String · z2: S
 sp.save	sp_save	static	-
 sp.save.aria	sp_save_aria	static	-
 sp.segment	sp_segment	static	-
+sp.shape.corner_stops	sp_shape_corner_stops	template	code: String · mm: String
 sp.shape.drag_corners	sp_shape_drag_corners	static	-
 sp.shape.four_corners	sp_shape_four_corners	static	-
 sp.shape.rectangle	sp_shape_rectangle	static	-

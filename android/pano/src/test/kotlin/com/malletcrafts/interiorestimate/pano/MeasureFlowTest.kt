@@ -248,7 +248,81 @@ class MeasureFlowTest {
         p.actual.putAll(mapOf("FD1.w" to 400.0, "FD1.h" to 2100.0, "FD1.l" to 100.0, "FD1.p" to 230.0))
         return p
     }
-    private val SAY = "The other sides make the bottom side ≈2466 mm. Check the readings, or the corners."
+    /** THE CLOSING CHECK'S SENTENCE, WITH NO FIGURE (port 63 slice Q2a; DESIGN-quad §2.4, §11). Q1's read "The other sides
+     *  make the bottom side ≈2466 mm. Check the readings, or the corners." -- a figure nobody measured -- and went in
+     *  slice I1b with every other estimate (DESIGN-imagemeter §18). The check compares readings with readings, so it
+     *  stays; its sentence names the side and quotes nothing. */
+    private val SAY = "The four sides do not agree — see the ! on the bottom side. Check the readings, or the corners."
+    private val GUARD = "This reading does not match the mark. Shoot again, or ▸ to keep it."
+    private val TW = "id-front-W1"
+    private fun qsc(p: SurveyPrep.Prep, stage: Int? = SURVEY) = Pick.Scene(p, stage, StepRoute.MARK, ::qab)
+
+    @Test fun `the closing check's sentence names the side and quotes no figure - said when the reading that completes the four lands, and on the sloping side's plate`() {
+        val p = trapezoid()
+        fun say(code: String) = MeasureFlow.guardText(Tx.EN, p, code, ::qab)
+        // THE WALK READS THE SLOPING BOTTOM FIRST and the left upright last: until the four are in, nothing is said
+        p.actual.putAll(mapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0))
+        for (c in listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left")) assertNull(say(c), c)
+        // the left upright typed 870 for 780: the other three make the bottom 2466, it was read 2495 -- 29 apart, over 25.
+        // The sentence is said AS THE 870 LANDS, on the left side's code, and names the BOTTOM side, where the `!` is
+        p.actual["FW1.left"] = 870.0
+        assertTrue(Quad.closing(p.actual, p.markById(TW)!!.second)!!.fails)
+        assertEquals(SAY, say("FW1.left"))
+        // ... and on every one of the four side codes while it fails -- the sloping side's own plate as it turns gold
+        for (c in listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left")) assertEquals(SAY, say(c), c)
+        // NO FIGURE: not the 2466 the other sides make, not a reading, no `≈`
+        assertFalse(SAY.any { it.isDigit() }); assertFalse("≈" in SAY)
+        // the `!` is on the sloping side's plate alone; the other three are not flagged, so the gold moves on from them
+        assertEquals(listOf("FW1.bottom"), listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left").filter { MeasureFlow.flagged(p, it, ::qab) })
+        // where the mark sits, the reveal, and another mark: nothing
+        for (c in listOf("FW1.l", "FW1.s", "FW1.p", "FD1.w", "FD1.h")) assertNull(say(c), c)
+        // a Msg, rendered in the language on: its Marathi is pending, so it is its English for now
+        assertEquals(SAY, MeasureFlow.guardMsg(p, "FW1.left", ::qab)!!(Tx.MR))
+
+        // AS THE LASER'S 870 LANDS on the left side (the gold was there): one tick -- that reading passes its own guard --
+        // the note says the sentence, and the gold walks on to where the mark sits
+        val q = trapezoid(); q.actual.putAll(mapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0, "FW1.left" to 870.0))
+        val a = Landing.after(qsc(q), Pick.State(TW, false, "FW1.left"), "FW1.left", busy = false)
+        assertEquals(Landing.Haptic.TICK, a.haptic); assertEquals(SAY, a.note!!(Tx.EN)); assertEquals("FW1.l", a.state.gold); assertTrue(a.byItself)
+        // typed on the keypad and Next: the same note, and the gold moves
+        assertEquals(SAY, Landing.keyed(qsc(q), Pick.State(TW, false, "FW1.left"), "FW1.left").note!!(Tx.EN))
+        // THE SLOPING SIDE READ LAST: its own plate takes the `!` -- a double buzz, the gold stays on it, the same sentence
+        val r = trapezoid(); r.actual.putAll(mapOf("FW1.right" to 1550.0, "FW1.top" to 2370.0, "FW1.left" to 870.0, "FW1.bottom" to 2495.0))
+        val b = Landing.after(qsc(r), Pick.State(TW, false, "FW1.bottom"), "FW1.bottom", busy = false)
+        assertEquals(Landing.Haptic.DOUBLE, b.haptic); assertEquals(SAY, b.note!!(Tx.EN)); assertEquals("FW1.bottom", b.state.gold); assertFalse(b.byItself)
+        // read as 2495, 1550, 2370, 780 it closes (3 mm apart): nothing is said, and the wall's last figure says so instead
+        r.actual["FW1.left"] = 780.0
+        for (c in listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left")) assertNull(MeasureFlow.guardText(Tx.EN, r, c, ::qab), c)
+    }
+
+    @Test fun `which sentence, when a side could say two - the guard's on the reading just taken, the closing one on the sloping side's own plate`() {
+        val p = trapezoid()
+        fun say(code: String) = MeasureFlow.guardText(Tx.EN, p, code, ::qab)
+        // the left upright read 1700 where it is drawn 780: MORE THAN TWICE -- that reading fails its own guard, and the
+        // four no longer close either. On the LEFT side's code the guard's sentence: it is about the figure just read
+        p.actual.putAll(mapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0, "FW1.left" to 1700.0))
+        assertTrue(Quad.closing(p.actual, p.markById(TW)!!.second)!!.fails)
+        assertEquals(GUARD, say("FW1.left"))
+        // on the other sides, whose own readings pass: the closing sentence
+        assertEquals(SAY, say("FW1.right")); assertEquals(SAY, say("FW1.top")); assertEquals(SAY, say("FW1.bottom"))
+        // the laser's 1700 lands: a double buzz, the gold stays on the left side, and the note is the guard's
+        val a = Landing.after(qsc(p), Pick.State(TW, false, "FW1.left"), "FW1.left", busy = false)
+        assertEquals(Landing.Haptic.DOUBLE, a.haptic); assertEquals(GUARD, a.note!!(Tx.EN)); assertEquals("FW1.left", a.state.gold)
+        // ON THE SLOPING SIDE'S OWN CODE the closing sentence, also when that reading fails the guard too
+        p.actual["FW1.left"] = 870.0; p.actual["FW1.bottom"] = 6000.0
+        assertTrue(MeasureFlow.flagged(p, "FW1.bottom", ::qab)); assertEquals(SAY, say("FW1.bottom"))
+        // A RECTANGLE says what it always said: the guard's sentence, for a width read five times what is drawn
+        p.actual["FD1.w"] = 2000.0
+        assertEquals(GUARD, say("FD1.w")); assertNull(say("FD1.h"))
+        // ON THE FLOOR AND THE CEILING the bottom side is the back side
+        val f = SurveyPrep.fresh(QL, QA, QB)
+        val s = f.put("floor", "S", 1, 1000.0, 2000.0, 1000.0, 2000.0)
+        assertTrue(Quad.set(s, listOf(pt(1000.0, 1300.0), pt(2000.0, 1000.0), pt(2000.0, 2000.0), pt(1000.0, 2000.0))))
+        val c = s.code
+        f.actual.putAll(mapOf("$c.bottom" to 1100.0, "$c.right" to 1000.0, "$c.top" to 1000.0, "$c.left" to 700.0))
+        assertEquals("The four sides do not agree — see the ! on the back side. Check the readings, or the corners.", MeasureFlow.guardText(Tx.EN, f, "$c.left", ::qab))
+        assertEquals(MeasureText.sidesSay(Tx.EN, Quad.sideWhat("floor", 0)(Tx.EN)), MeasureFlow.guardText(Tx.EN, f, "$c.top", ::qab))
+    }
 
 
 

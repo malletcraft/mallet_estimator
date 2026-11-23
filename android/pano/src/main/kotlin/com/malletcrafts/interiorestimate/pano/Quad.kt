@@ -5,6 +5,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
@@ -38,7 +39,12 @@ import kotlin.math.sqrt
  * their own names, inside S5's key grammar. With exactly three straight sides the fourth is worked out from the other
  * three readings ([closing]) -- the one new check.
  *
- * Pure. NOTHING HERE IS ON SCREEN YET: slice Q2 draws and drags from it.
+ * NO FIGURE NOBODY MEASURED (port 63 slice Q2a; DESIGN-imagemeter §18; DESIGN-quad §11): a side's length corner to
+ * corner ([asked]'s `est`) is what the GROSS GUARD compares a reading with ([MarkDims.guard]) and is never shown on the
+ * phone -- an unread side shows nothing, or `?` on the picked mark ([PhotoFigures]) -- and the closing check's sentence
+ * names the side and quotes no number ([MeasureText.sidesSay]).
+ *
+ * Pure. The screen (slice Q2) draws and drags from it, and asks the rules under "on the screen" below.
  */
 object Quad {
 
@@ -141,6 +147,117 @@ object Quad {
      */
     fun free(e: SurveyPrep.Mark, freeId: String?, part: String?): Boolean =
         mayHave(e) && (of(e) != null || (freeId != null && e.id == freeId) || cornerOf(part) != null)
+
+    // ------------------------------------------------------------------ on the screen (port 63 slice Q2a, 23 Nov 2026)
+
+    /*
+     * WHAT THE SCREEN ASKS WHEN IT TURNS THE FOUR-CORNER MARK ON (DESIGN-quad §11). :app is compiled only by CI, so
+     * every rule it follows is here, pure and tested (QuadScreenTest), and :app only draws and calls.
+     */
+
+    /**
+     * HOW `freeId` LIVES (DESIGN-quad §3.1) -- the id of the mark whose corners are free with no `quad` stored, after
+     * ANY event on the screen: [freeId] before it, [picked] the item picked now ([Pick.State.picked]), [part] the part
+     * of it last touched ([NudgePad.touched]: a handle pressed, else the whole item):
+     *  - nothing picked: null;
+     *  - the part last touched is one of its CORNERS ([PARTS]): [picked] -- a grab of a corner frees the mark, so a shape
+     *    dragged or snapped back to its box keeps its four corners, also after a later press on its body;
+     *  - [freeId] is still the picked one: kept -- it was set by the panel's `Four corners` ([MarkSheet.shapeStep]) or by
+     *    an earlier corner grab;
+     *  - THE SELECTION LEFT THAT MARK: null. Only then is a shape that is its box a rectangle with eight tabs again.
+     * ONE FUNCTION, asked by the screen after every event that can move the pick or the part, on the photo and on the
+     * 360 alike (they share the screen's one `freeId`). It answers ids only: whether that mark may have four corners at
+     * all is [free]'s first test.
+     */
+    fun freed(freeId: String?, picked: String?, part: String?): String? = when {
+        picked == null -> null
+        cornerOf(part) != null -> picked
+        freeId == picked -> freeId
+        else -> null
+    }
+
+    /**
+     * [free] FOR EVERY MARK OF THE SCREEN AT ONCE: [part] is the picked part of the PICKED mark alone -- for any other
+     * mark it is null (§3.1, rule 3). The ONE value the painter, the press ([SurveyPrepTouch.Drawn.corners]), the code
+     * chip ([SurveyPrepTouch.handlesOf]), the figures' layout ([PhotoFigures.layout]'s `free`) and the 360 are handed,
+     * so no two of them can work it out differently.
+     */
+    fun freeOf(freeId: String?, picked: String?, part: String?): (SurveyPrep.Mark) -> Boolean =
+        { e -> free(e, freeId, if (e.id == picked) part else null) }
+
+    /** [freeOf] for the item [id] of [p] -- what Fine move is told as it starts ([NudgePad.start]'s `free`), by the id
+     *  the panel's act carries. False for an id that is no mark (a Tape, a Line, a chain: none has corners to free). */
+    fun freeIn(p: SurveyPrep.Prep, id: String, freeId: String?, picked: String?, part: String?): Boolean =
+        p.markById(id)?.second?.let { freeOf(freeId, picked, part)(it) } == true
+
+    /** What a mark is grabbed by. */
+    enum class Handles {
+        /** None: it is not held, it is locked, or it is a spot (a point, a Note's pin), which is grabbed whole. */
+        NONE,
+        /** Its eight resize tabs ([SurveyPrepTouch.TABS]). */
+        TABS,
+        /** Its four round corners, q0 … q3 ([PARTS]). */
+        CORNERS,
+    }
+
+    /**
+     * WHICH HANDLES THE MARK [e] SHOWS: none unless it [shows] them at all -- the caller's own condition, as built: it
+     * is the picked mark, HELD ([Pick.handles]), on the editing photo, and not locked -- and never on a spot; its four
+     * CORNERS where they are [free] ([freeOf]); else its eight TABS. The painter draws by this, the code chip keeps
+     * clear of these ([SurveyPrepTouch.handlesOf]), and the figures' layout keeps them clear ([DimLayout.markShown]).
+     */
+    fun handles(e: SurveyPrep.Mark, shows: Boolean, free: Boolean): Handles = when {
+        !shows || SurveyPrep.isSpot(e.t) -> Handles.NONE
+        free && mayHave(e) -> Handles.CORNERS
+        else -> Handles.TABS
+    }
+
+    /**
+     * THE CORNERS A PRESS AND THE CHIP ARE HANDED, mm on the surface -- q0 … q3, the box's own four on a mark with no
+     * `quad` -- when the mark's corners are [free]; null: it is pressed and kept clear of as a rectangle. The caller maps
+     * each through its own face-to-canvas function: `corners =` of [SurveyPrepTouch.Drawn] for EVERY mark of the face
+     * (a four-corner mark's body counts only inside its shape, picked or not), and the third argument of
+     * [SurveyPrepTouch.handlesOf] for the picked one.
+     */
+    fun freeCorners(e: SurveyPrep.Mark, free: Boolean): List<DoubleArray>? = if (free && mayHave(e)) corners(e) else null
+
+    /** A miter is never longer than this many times the distance grown by: a corner a few degrees wide would otherwise
+     *  throw the frame's corner across the photo. */
+    const val MITER = 4.0
+
+    /**
+     * THE OUTLINE [pts] GROWN BY [by] ON EVERY SIDE (canvas px, either winding) -- what the gold frame round the mark
+     * being measured ([MarkDims.ACTIVE_GAP_DP] outside it) and the hole in the dimmed photo round the picked mark are
+     * drawn by, ROUND THE SHAPE (DESIGN-quad §3.4; §10 note 4) where they were drawn round the box. Each side is moved
+     * [by] out, square to itself, and the corners are where the moved sides meet -- so a rectangle's four corners grown
+     * are exactly its box grown by [by], which is what a mark with no `quad` has always been framed by. A corner so
+     * sharp that the moved sides would meet more than [MITER] x [by] away is cut back to that. Fewer than three points,
+     * or an outline with no area: [pts] as given.
+     */
+    fun grown(pts: List<DoubleArray>, by: Double): List<DoubleArray> {
+        val n = pts.size
+        if (n < 3 || by == 0.0) return pts.map { it.copyOf() }
+        var area = 0.0
+        for (i in 0 until n) { val q = pts[(i + 1) % n]; area += pts[i][0] * q[1] - q[0] * pts[i][1] }
+        if (area == 0.0) return pts.map { it.copyOf() }
+        // the unit normal of the side from corner i to the next, pointing OUT of the outline
+        val sgn = if (area > 0) 1.0 else -1.0
+        val nrm = (0 until n).map { i ->
+            val p = pts[i]; val q = pts[(i + 1) % n]; val dx = q[0] - p[0]; val dy = q[1] - p[1]; val len = hypot(dx, dy)
+            if (len > 0) doubleArrayOf(sgn * dy / len, -sgn * dx / len) else null
+        }
+        return (0 until n).map { i ->
+            val a = nrm[(i + n - 1) % n] ?: nrm[i]; val b = nrm[i] ?: a
+            if (a == null || b == null) return@map pts[i].copyOf()
+            // where the two moved sides meet: by · (a + b) / (1 + a·b). |a + b| = m and 1 + a·b = m² / 2, so that point is
+            // 2 / m times [by] from the corner, along a + b -- cut back to MITER where the corner is too sharp
+            val mx = a[0] + b[0]; val my = a[1] + b[1]; val m = hypot(mx, my)
+            // (two sides folded straight back on each other have no meeting point: out across the side that arrives)
+            if (!(m > 0)) return@map doubleArrayOf(pts[i][0] + by * a[0], pts[i][1] + by * a[1])
+            val k = min(MITER, 2 / m) / m
+            doubleArrayOf(pts[i][0] + by * mx * k, pts[i][1] + by * my * k)
+        }
+    }
 
     private fun r1(v: Double): Double = Math.round(v * 10) / 10.0
     private fun r6(v: Double): Double = Math.round(v * 1e6) / 1e6
@@ -308,8 +425,9 @@ object Quad {
     /**
      * EVERYTHING A MARK ASKS (DESIGN-quad §2.1-2.3) -- [base] itself, the very list, when the mark has no `quad`
      * ([base]: its type's rectangle checklist, [SurveyPrep.measures0]'s own body). A four-corner mark asks:
-     *  - its four sides, `bottom` `right` `top` `left`, each with the distance between its two corners as the photo's
-     *    estimate -- always, also on a type whose rectangle asks only a width (Column, Curtain track) or neither (a
+     *  - its four sides, `bottom` `right` `top` `left`, each with the distance between its two corners as its `est`
+     *    (the side AS DRAWN: what the gross guard compares a reading with, and nothing a person reads on the phone --
+     *    DESIGN-imagemeter §18) -- always, also on a type whose rectangle asks only a width (Column, Curtain track) or neither (a
      *    wall's Beam);
      *  - `diag`, q0 to q2, when it has no square corner;
      *  - then everything [base] asks EXCEPT `w` and `h`, in the type's order. The position figures keep their keys and
