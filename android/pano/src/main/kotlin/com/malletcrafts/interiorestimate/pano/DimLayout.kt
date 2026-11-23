@@ -69,8 +69,9 @@ import kotlin.math.min
  * not eight tabs.
  *
  * FROM SLICE I1b THERE IS NO SCOPE (port 63 slice I1a; DESIGN-imagemeter §13, §18): the one step that marks and
- * measures hands [placeShown] only the figures the photo draws -- an unpicked mark what has been READ of its size, the
- * picked mark everything it asks, with no photo estimate anywhere ([markShown], [PhotoFigures]) -- and the HELD mark,
+ * measures hands [placeShown] only the figures the photo draws -- an unpicked mark what has been READ (since slice I1c
+ * its position too), the picked mark everything it asks, with no photo estimate anywhere ([markShown], [PhotoFigures]),
+ * every Tape, Line, area and chain figure with them ([item]), each plate TURNED ALONG ITS LINE -- and the HELD mark,
  * the one that shows its tabs, keeps them clear. [Scope], [shows], [mark] and [place] stay until the screen is switched
  * over; the placing rule itself is one function under both.
  *
@@ -253,12 +254,14 @@ object DimLayout {
      * dimension measures on the canvas, unshifted ([DimLayout.span]) -- what [onCanvas] asks; its line when not given.
      * [out]: a four-corner mark's SIDE only -- the way out of the shape across it, on the canvas ([outward]), which is
      * the side its plate steps off to first; null for every other figure.
+     * [taps] (port 63 slice I1c): whether its plate is a tap target ([Out.tags]); false only for a figure that takes
+     * no reading -- a Tape's, which IS the photo's -- placed so that nothing lies on it, and touched by nobody.
      */
     class Fig(val code: String, val role: MarkDims.Role, val line: Seg?, val at: DoubleArray?,
               val w: Double, val fs: Double, val rank: Rank, val measured: Boolean,
               val text: String = "", val state: MarkDims.State = if (measured) MarkDims.State.MEASURED else MarkDims.State.ESTIMATE,
               val check: Boolean = false, val active: Boolean = rank == Rank.ACTIVE, val typing: Boolean = false,
-              val span: Seg? = line, val out: DoubleArray? = null)
+              val span: Seg? = line, val out: DoubleArray? = null, val taps: Boolean = true)
 
     /**
      * ONE MARK'S FIGURES: its [id], its [box] as drawn on the canvas, whether it is the [picked] one, and whether it
@@ -315,8 +318,9 @@ object DimLayout {
      * THE MARK [e] ON [s] AS [placeShown] TAKES IT, WITH NO PHOTO ESTIMATE (port 63 slice I1a; DESIGN-imagemeter §18
      * rule 2; Amit, 16 Nov 2026: "No foto estimation at all. It confuses user"). Not read is shown only where it can
      * be acted on, so WHICH figures the mark has here depends on whether it is picked:
-     *  - NOT PICKED: only what has been READ of its SIZE ([isSize]) -- each read figure on its own edge, nothing at all
-     *    for an unread side, and no position figure. A wall nobody has measured is outlines and codes;
+     *  - NOT PICKED: every figure that has been READ, its size and its position alike (port 63 slice I1c, P3: "i want
+     *    to see all measurements in its units always visible") -- nothing at all for one that has not. A wall nobody
+     *    has measured is outlines and codes;
      *  - PICKED: every dimension it asks, size and position -- a read one as its figure, an unread one as the quiet `?`
      *    ([MarkDims.read], [MarkDims.plate]), each a tap target; the one being measured ([gold], a reading key) the
      *    gold plate, `▶?` until the reading lands or digits are typed ([MarkDims.figureText]; [ready] false: `▷?`);
@@ -349,6 +353,32 @@ object DimLayout {
             if (handles) Quad.corners(e).map { toPx(it[0], it[1]) } else null)
     }
 
+    /**
+     * ONE FIGURE THAT IS NOT A MARK'S, AS [placeShown] TAKES IT (port 63 slice I1c; DESIGN-imagemeter §21, P4 and P5): a
+     * Tape's, a Line's or a chain segment's figure ALONG ITS LINE from [from] to [to] (canvas px), or -- [from] alone,
+     * [to] null -- an area's perimeter or a chain's total AT that point, level. Placed with the marks' plates, so that
+     * no label lies on another: centred on its line and breaking it, turned to the line's own angle ([LabelAngle]),
+     * stepped off on a leader only when there is no room along it.
+     *
+     * [id] the item's own id (the Mark it makes); [key] the reading key a tap on it takes -- null for a figure that
+     * takes no reading (a Tape's: its plate is placed and is no tap target, [Fig.taps]); [text] the label exactly as
+     * drawn, THE NUMBER ALONE ([PhotoFigures]) -- empty: nothing to place, null. [gold] it is the one being measured
+     * (placed first, never a dot); [picked] its item is the picked one (12 dp, else 10); [measured] it is a reading.
+     * [textW] the painter's own measure of a text, [dp] px a dp.
+     */
+    fun item(id: String, key: String?, text: String, from: DoubleArray, to: DoubleArray?, picked: Boolean, gold: Boolean,
+             measured: Boolean, dp: Double, textW: (text: String, fs: Double, bold: Boolean) -> Double): Mark? {
+        if (text.isEmpty()) return null
+        val fs = textSize(picked || gold, dp)
+        val style = MarkDims.plate(if (measured) MarkDims.State.MEASURED else MarkDims.State.UNKNOWN, gold)
+        val ln = to?.let { Seg(from[0], from[1], it[0], it[1]) }
+        val f = Fig(key ?: "$id#", MarkDims.Role.ITEM, ln, if (ln == null) from else null, plateW(textW(text, fs, style.bold), dp), fs,
+            rank(gold, picked, false, measured), measured, text, if (measured) MarkDims.State.MEASURED else MarkDims.State.UNKNOWN,
+            false, gold, false, ln, null, key != null)
+        val xs = listOfNotNull(from, to)
+        return Mark(id, Box(xs.minOf { it[0] }, xs.minOf { it[1] }, xs.maxOf { it[0] }, xs.maxOf { it[1] }), listOf(f), picked)
+    }
+
     // ------------------------------------------------------------------ what comes out
 
     /** How a figure ended up. */
@@ -376,13 +406,58 @@ object DimLayout {
      * into view from outside; a dot never is, and lies off the canvas with its line.
      */
     class Plate(val fig: Fig, val markId: String, val how: How, val box: Box, val tap: Box,
-                val turned: Boolean, val leader: Seg?, val arrowsIn: Boolean, val whole: Box?, val off: Boolean = false) {
+                val turned: Boolean, val leader: Seg?, val arrowsIn: Boolean, val whole: Box?, val off: Boolean = false,
+                /** Port 63 slice I1c (P5): the turn its label is drawn at, degrees clockwise on the canvas
+                 *  ([LabelAngle]): 0 level, -90 bottom to top -- and from [placeShown] any angle its line has. [box] is
+                 *  then the turned plate's BOUNDING box and [rect] the plate itself, [pw] along its text by [ph] across. */
+                val angle: Double = if (turned) LabelAngle.UP else LabelAngle.LEVEL,
+                val pw: Double = if (turned) box.h else box.w, val ph: Double = if (turned) box.w else box.h) {
         val code: String get() = fig.code
         val role: MarkDims.Role get() = fig.role
         /** Its dimension line on the canvas; null for a `p`. */
         val line: Seg? get() = fig.line
         val measured: Boolean get() = fig.measured
         val dot: Boolean get() = how == How.DOT
+        /** The plate as drawn: [pw] by [ph] about [box]'s middle, turned by [angle] ([Turned.corners] for its outline). */
+        val rect: Turned get() = Turned((box.l + box.r) / 2, (box.t + box.b) / 2, pw / 2, ph / 2, angle)
+    }
+
+    /**
+     * A TURNED RECTANGLE ON THE CANVAS (port 63 slice I1c; DESIGN-imagemeter §21, P5): centred on ([cx], [cy]), [hw]
+     * along its text either side of the middle and [hh] across it, turned by [deg] ([LabelAngle]). What the layout
+     * keeps apart when a label runs along a slanting line: two labels turned along two close, slanting Lines lie clear
+     * of each other while their BOUNDING boxes overlap, so the bounding box is not enough at the phone's numbers (a
+     * 48 x 19 dp plate at 60° is 41 x 51 dp around) -- and it is exactly the bounding box for a level or an upright
+     * plate, so a mark's plates are kept apart exactly as before.
+     */
+    class Turned(val cx: Double, val cy: Double, val hw: Double, val hh: Double, val deg: Double) {
+        private val a = LabelAngle.along(deg); private val n = LabelAngle.across(deg)
+        /** Its four corners: along-start top, along-end top, along-end bottom, along-start bottom. */
+        fun corners(): List<DoubleArray> = listOf(-1.0 to -1.0, 1.0 to -1.0, 1.0 to 1.0, -1.0 to 1.0).map { (i, j) ->
+            doubleArrayOf(cx + a[0] * hw * i + n[0] * hh * j, cy + a[1] * hw * i + n[1] * hh * j) }
+        /** How far it reaches either side of its middle across [ax] (a unit vector). */
+        private fun reach(ax: DoubleArray): Double = hw * abs(a[0] * ax[0] + a[1] * ax[1]) + hh * abs(n[0] * ax[0] + n[1] * ax[1])
+        /** Its bounding box. */
+        val bounds: Box get() { val ex = reach(doubleArrayOf(1.0, 0.0)); val ey = reach(doubleArrayOf(0.0, 1.0)); return Box(cx - ex, cy - ey, cx + ex, cy + ey) }
+        /** Whether it lies on [o] or nearer to it than [apart] (separating axes: the two pairs of sides). Two level or
+         *  upright rectangles answer exactly what their boxes would. */
+        fun hits(o: Turned, apart: Double): Boolean {
+            for (ax in listOf(a, n, o.a, o.n)) {
+                val d = abs((o.cx - cx) * ax[0] + (o.cy - cy) * ax[1])
+                if (d >= reach(ax) + o.reach(ax) + apart) return false
+            }
+            return true
+        }
+        /** The point of it nearest ([x], [y]). */
+        fun nearest(x: Double, y: Double): DoubleArray {
+            val dx = x - cx; val dy = y - cy
+            val s = (dx * a[0] + dy * a[1]).coerceIn(-hw, hw); val t = (dx * n[0] + dy * n[1]).coerceIn(-hh, hh)
+            return doubleArrayOf(cx + a[0] * s + n[0] * t, cy + a[1] * s + n[1] * t)
+        }
+        companion object {
+            /** A box as a level rectangle. */
+            fun of(b: Box): Turned = Turned((b.l + b.r) / 2, (b.t + b.b) / 2, b.w / 2, b.h / 2, LabelAngle.LEVEL)
+        }
     }
 
     /** Where an upright plate's text starts and sits: half its padding inside the box, [UNDER_DP] above its bottom. */
@@ -393,7 +468,7 @@ object DimLayout {
     class Out(val plates: List<Plate>) {
         fun of(code: String): Plate? = plates.firstOrNull { it.code == code }
         /** The tap targets, as [SurveyPrepTouch.hit] takes them: every plate, compact half and dot under its reading key. */
-        val tags: List<SurveyPrepTouch.Tag> get() = plates.map { SurveyPrepTouch.Tag(it.code, it.tap) }
+        val tags: List<SurveyPrepTouch.Tag> get() = plates.filter { it.fig.taps }.map { SurveyPrepTouch.Tag(it.code, it.tap) }
         /** How many shrank to a dot. */
         val dots: Int get() = plates.count { it.dot }
         /** The figure being measured now, as placed; null when none is. */
@@ -450,7 +525,9 @@ object DimLayout {
         return ln.len < along(f, turns(f), dp) + SHORT_DP * dp
     }
 
-    private class Cand(val box: Box, val how: How, val turned: Boolean, val leader: Seg?)
+    /** A place a plate may go: its [box] -- with [rect], the turned plate it bounds (port 63 slice I1c) -- how it got
+     *  there, whether it is [turned], and its [leader]. */
+    private class Cand(val box: Box, val how: How, val turned: Boolean, val leader: Seg?, val rect: Turned? = null)
 
     /** The side a plate steps off its line to first: away from the mark for its size, up for a corner line, left for a
      *  floor or ceiling line. -1 or +1 along the canvas axis across the line. */
@@ -497,6 +574,87 @@ object DimLayout {
                 out += Cand(bx, How.OFF_LINE, turned, Seg(c[0], c[1], near[0], near[1]))
             }
         return out
+    }
+
+    // ------------------------------------------------------------------ every figure along its dimension (port 63 slice I1c)
+
+    /**
+     * THE TURN A FIGURE'S LABEL RUNS AT ON THE ONE STEP THAT MARKS AND MEASURES (DESIGN-imagemeter §21, P5): its own
+     * line's ([LabelAngle.of]) -- a width level, a height and every upright position line bottom to top, a four-corner
+     * mark's side and diagonal along their slope, a Line or a Tape along itself -- and LEVEL for a figure with no line
+     * (a `p`'s chip, an area's or a chain total's figure at its middle).
+     */
+    fun turnOf(f: Fig): Double = f.line?.let { LabelAngle.of(it) } ?: LabelAngle.LEVEL
+
+    /** A [pw] x [ph] plate turned by [deg], centred on ([cx], [cy]) and slid back inside the [width] x [height] canvas
+     *  ([EDGE_U] inside it) by its BOUNDING box, as [boxAt] slides a level one. */
+    private fun turnedAt(cx: Double, cy: Double, pw: Double, ph: Double, deg: Double, width: Double, height: Double, u: Double): Turned {
+        val r0 = Turned(cx, cy, pw / 2, ph / 2, deg).bounds
+        val ex = r0.w / 2; val ey = r0.h / 2; val e = EDGE_U * u
+        return Turned(max(e + ex, min(width - e - ex, cx)), max(e + ey, min(height - e - ey, cy)), pw / 2, ph / 2, deg)
+    }
+
+    private fun cand(r: Turned, how: How, leader: Seg?): Cand = Cand(r.bounds, how, r.deg != LabelAngle.LEVEL, leader, r)
+
+    /** The span is too short for a plate laid ALONG it: its width and [SHORT_DP]. */
+    private fun shortAlong(f: Fig, dp: Double): Boolean { val ln = f.line ?: return false; return ln.len < f.w + SHORT_DP * dp }
+
+    /**
+     * WHERE A FIGURE WITH A LINE MAY GO WHEN EVERY LABEL RUNS ALONG ITS DIMENSION ([placeShown]), best first -- rule 2
+     * and 3 of [place]'s header with the plate TURNED TO ITS LINE ([turnOf]): mid-span on the line, which it breaks,
+     * then ¼ and ¾ along (the whole plate within the span, half of [SHORT_DP] clear of each end); then off the line,
+     * square to it, on a leader -- half a plate height clear, either side, the first side as [place] takes it (away
+     * from the mark for its size, up or left for a position, out of the shape for a four-corner side) -- and one
+     * plate further out again. The HELD mark's `w` and `h` are anchored by hand first, clear of its tabs, as built: the
+     * width level where [SurveyPrepTouch.widthTag] puts it, the height TURNED UP from where [SurveyPrepTouch.heightTag]
+     * starts it, so it too runs along its line.
+     */
+    private fun alongCands(mk: Mark, f: Fig, hand: Boolean, width: Double, height: Double, u: Double, dp: Double): List<Cand> {
+        val ln = f.line ?: return emptyList()
+        val out = ArrayList<Cand>()
+        val ph = plateH(f.fs, dp); val pw = f.w
+        val deg = turnOf(f)
+        if (hand && f.role == MarkDims.Role.WIDTH) {
+            val a = SurveyPrepTouch.widthTag(mk.box.l, mk.box.t, mk.box.r, f.fs, u, dp, true)
+            val l = if (a.left) a.x else a.x - pw / 2; val t = a.y - f.fs - OVER_DP * dp
+            out += cand(turnedAt(l + pw / 2, t + ph / 2, pw, ph, LabelAngle.LEVEL, width, height, u), How.HAND, null)
+        }
+        if (hand && f.role == MarkDims.Role.HEIGHT) {
+            // the anchor's left edge and middle height; the plate stands up from there, ph wide and pw tall
+            val a = SurveyPrepTouch.heightTag(mk.box.t, mk.box.r, mk.box.b, f.fs, u, dp, true)
+            val l = if (a.left) a.x else a.x - pw / 2; val t = a.y - f.fs - OVER_DP * dp
+            out += cand(turnedAt(l + ph / 2, t + ph / 2, pw, ph, LabelAngle.UP, width, height, u), How.HAND, null)
+        }
+        val across = LabelAngle.across(deg); val len = ln.len
+        val ts = doubleArrayOf(0.5, 0.25, 0.75)
+        for (t in ts) {
+            if (min(t, 1 - t) * len < pw / 2 + SHORT_DP * dp / 2) continue
+            val c = ln.at(t)
+            out += cand(turnedAt(c[0], c[1], pw, ph, deg, width, height, u), How.ON_LINE, null)
+        }
+        // which way across the line is first: the side [place] steps off to, seen across this line
+        val want = f.out ?: if (ln.vertical) doubleArrayOf(side(f.role), 0.0) else doubleArrayOf(0.0, side(f.role))
+        val first = if (across[0] * want[0] + across[1] * want[1] >= 0) 1.0 else -1.0
+        for (reach in doubleArrayOf(ph, 2 * ph + APART_U * u))
+            for (t in ts) for (sd in doubleArrayOf(first, -first)) {
+                val c = ln.at(t)
+                val r = turnedAt(c[0] + across[0] * sd * reach, c[1] + across[1] * sd * reach, pw, ph, deg, width, height, u)
+                // the leader: from the line to the nearest point of the plate
+                val near = r.nearest(c[0], c[1])
+                out += cand(r, How.OFF_LINE, Seg(c[0], c[1], near[0], near[1]))
+            }
+        return out
+    }
+
+    /** Where a figure with NO line may go on the one step: a mark's `p` as [chipCands] puts it; a Tape's, a Line's or
+     *  a chain's figure that has none -- an area's perimeter, a chain's total -- centred on its point, then above it,
+     *  below it, right of it and left of it, one plate height off. Level. */
+    private fun pointCands(f: Fig, hand: Boolean, width: Double, height: Double, u: Double, dp: Double): List<Cand> {
+        if (f.role != MarkDims.Role.ITEM) return chipCands(f, hand, width, height, u, dp)
+        val at = f.at ?: return emptyList()
+        val ph = plateH(f.fs, dp); val pw = f.w
+        return listOf(0.0 to 0.0, 0.0 to -ph, 0.0 to ph, (pw / 2 + ph / 2) to 0.0, -(pw / 2 + ph / 2) to 0.0).map { (dx, dy) ->
+            cand(turnedAt(at[0] + dx, at[1] + dy, pw, ph, LabelAngle.LEVEL, width, height, u), How.CHIP, null) }
     }
 
     private fun chipCands(f: Fig, hand: Boolean, width: Double, height: Double, u: Double, dp: Double): List<Cand> {
@@ -575,7 +733,7 @@ object DimLayout {
               times: Double = 0.0): Out =
         lay(marks, width, height, keep, u, dp, times, { mk, f -> shows(scope, mk.picked, f.role) },
             // the picked mark's handles in 2 · Mark: its eight tabs, or -- its corners free -- its four corners
-            { mk -> scope == Scope.PICKED && mk.picked && (mk.tabs || mk.corners != null) })
+            { mk -> scope == Scope.PICKED && mk.picked && (mk.tabs || mk.corners != null) }, slant = false)
 
     /**
      * EVERY FIGURE HANDED IN, PLACED (port 63 slice I1a; DESIGN-imagemeter §13 and §18 "In the models"): [place]'s
@@ -588,15 +746,25 @@ object DimLayout {
      * C5): a picked mark that shows its eight tabs ([Mark.tabs]: it is HELD, [Pick]) has its `w` and `h` plates
      * anchored by hand, clear of every tab, and its tab squares -- or its four free corners ([Mark.corners]) -- kept
      * clear by every plate. A mark the walk reached is picked and shows no tabs: its plates sit on their lines.
+     *
+     * EVERY FIGURE RUNS ALONG ITS DIMENSION (port 63 slice I1c; DESIGN-imagemeter §21, P5; Amit, 23 Nov 2026: "no way
+     * to set alignment of measurements to line direction. its always horizontal which overlaps on other
+     * measurements"). Each plate is TURNED TO ITS OWN LINE ([turnOf], [LabelAngle]) -- level on a width, bottom to top
+     * on a height and on every upright position line, along the slope on a four-corner mark's side and diagonal and on
+     * a Line or a Tape ([item]) -- and is placed BY ITS TURNED RECTANGLE ([Plate.rect], [Turned.hits]): two labels
+     * turned along two close, slanting Lines sit on their lines though their bounding boxes overlap, and a label steps
+     * off its line on a leader only when there is no room ALONG it ([alongCands]). [Plate.box] is the turned plate's
+     * bounding box, [Plate.angle] its turn. A small box's compact plate and a `p`'s chip stay level, as built.
      */
     fun placeShown(marks: List<Mark>, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double,
                    times: Double = 0.0): Out =
-        lay(marks, width, height, keep, u, dp, times, { _, _ -> true }, { mk -> mk.picked && (mk.tabs || mk.corners != null) })
+        lay(marks, width, height, keep, u, dp, times, { _, _ -> true }, { mk -> mk.picked && (mk.tabs || mk.corners != null) }, slant = true)
 
     /** The placing rule itself ([place]'s header): [shows] which of a mark's figures are drawn at all, [handed]
-     *  whether the mark shows handles its plates must keep clear of. */
+     *  whether the mark shows handles its plates must keep clear of; [slant] every plate turned to its line and kept
+     *  apart by its turned rectangle ([placeShown]) -- false: [place]'s rule exactly as built. */
     private fun lay(marks: List<Mark>, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double, times: Double,
-                    shows: (Mark, Fig) -> Boolean, handed: (Mark) -> Boolean): Out {
+                    shows: (Mark, Fig) -> Boolean, handed: (Mark) -> Boolean, slant: Boolean): Out {
         class Job(val mk: Mark, val figs: List<Fig>, val rank: Rank, val order: Int, val hand: Boolean)
         val jobs = ArrayList<Job>()
         val blocked = ArrayList(keep)
@@ -614,13 +782,20 @@ object DimLayout {
         }
         val apart = APART_U * u
         val placed = ArrayList<Box>()
-        fun open(b: Box) = placed.none { overlaps(b, it, apart) }
-        fun free(b: Box) = open(b) && blocked.none { overlaps(b, it, 0.0) }
+        // on the one step every plate is kept apart by the rectangle it IS, turned or not (slant); else by its box
+        val placedR = ArrayList<Turned>()
+        val blockedR = if (slant) blocked.map { Turned.of(it) } else emptyList()
+        fun openR(r: Turned) = placedR.none { r.hits(it, apart) }
+        fun freeR(r: Turned) = openR(r) && blockedR.none { r.hits(it, 0.0) }
+        fun open(b: Box) = if (slant) openR(Turned.of(b)) else placed.none { overlaps(b, it, apart) }
+        fun free(b: Box) = if (slant) freeR(Turned.of(b)) else open(b) && blocked.none { overlaps(b, it, 0.0) }
+        fun put(b: Box, r: Turned? = null) { if (slant) placedR += (r ?: Turned.of(b)) else placed += b }
+        fun freeC(c: Cand) = if (slant) freeR(c.rect ?: Turned.of(c.box)) else free(c.box)
         val out = HashMap<String, Plate>()
         // a dot keeps the spot it found: no later plate, and no later dot, is put over it
         fun dotOf(f: Fig, mk: Mark, arrowsIn: Boolean) {
             val d = dot(f, mk, width, height, u, dp, arrowsIn, !onCanvas(f, width, height), { free(it) }, { open(it) })
-            placed += d.box; out[f.code] = d
+            put(d.box); out[f.code] = d
         }
         for (j in jobs.sortedWith(compareBy<Job> { it.rank.ordinal }.thenBy { it.order })) {
             val mk = j.mk
@@ -638,7 +813,7 @@ object DimLayout {
                     for (f in j.figs) dotOf(f, mk, true)
                     continue
                 }
-                placed += whole
+                put(whole)
                 val split = whole.l + w.w + times / 2
                 val tap = tapOf(whole, u, dp); val m = TAP_MIN_DP * dp
                 out[w.code] = Plate(w, mk.id, How.COMPACT, Box(whole.l, whole.t, whole.l + w.w, whole.b),
@@ -648,12 +823,16 @@ object DimLayout {
                 continue
             }
             val f = j.figs[0]
-            val tooShort = short(f, dp)
-            val cands = if (f.line != null) lineCands(mk, f, j.hand, width, height, u, dp) else chipCands(f, j.hand, width, height, u, dp)
-            val c = cands.firstOrNull { free(it.box) } ?: if (j.rank == Rank.ACTIVE) cands.firstOrNull() else null
+            val tooShort = if (slant) shortAlong(f, dp) else short(f, dp)
+            val cands = if (slant) { if (f.line != null) alongCands(mk, f, j.hand, width, height, u, dp) else pointCands(f, j.hand, width, height, u, dp) }
+                        else if (f.line != null) lineCands(mk, f, j.hand, width, height, u, dp) else chipCands(f, j.hand, width, height, u, dp)
+            val c = cands.firstOrNull { freeC(it) } ?: if (j.rank == Rank.ACTIVE) cands.firstOrNull() else null
             if (c == null) { dotOf(f, mk, tooShort); continue }
-            placed += c.box
-            out[f.code] = Plate(f, mk.id, c.how, c.box, tapOf(c.box, u, dp), c.turned, c.leader, tooShort, null, !onCanvas(f, width, height))
+            put(c.box, c.rect)
+            val r = c.rect
+            out[f.code] = if (r == null) Plate(f, mk.id, c.how, c.box, tapOf(c.box, u, dp), c.turned, c.leader, tooShort, null, !onCanvas(f, width, height))
+                else Plate(f, mk.id, c.how, c.box, tapOf(c.box, u, dp), c.turned, c.leader, tooShort, null, !onCanvas(f, width, height),
+                           r.deg, 2 * r.hw, 2 * r.hh)
         }
         return Out(marks.flatMap { mk -> mk.figs.mapNotNull { out[it.code] } })
     }

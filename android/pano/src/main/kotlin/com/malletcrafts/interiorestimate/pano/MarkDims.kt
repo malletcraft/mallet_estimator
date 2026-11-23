@@ -44,6 +44,10 @@ object MarkDims {
         SIDE,
         /** `diag`: a four-corner mark's diagonal, from its bottom-left corner to its top-right, inside the shape. */
         DIAG,
+        /** NOT A MARK'S (port 63 slice I1c; DESIGN-imagemeter §21, P5): the one figure of a Tape, a Line, an area or a
+         *  chain's segment or total, placed by [DimLayout.placeShown] with the marks' plates so that no two labels lie
+         *  on each other ([DimLayout.item]). Along its own line, or at an area's middle; never asked by [of]. */
+        ITEM,
     }
 
     /**

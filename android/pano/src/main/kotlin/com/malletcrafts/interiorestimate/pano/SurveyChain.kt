@@ -231,18 +231,20 @@ object SurveyChain {
     }
 
     /**
-     * The tag under the last point WITH NO PHOTO FIGURE AND NO DERIVED ONE: a READ total, "FK1 Σ 3310"; THE LASER'S,
-     * "FK1 Σ 3310 laser" -- a chain that runs wall to wall takes the room's own W, L or H, which is a reading (§18
-     * rule 7), not an estimate; a total that is only the sum of its segments, or unknown, is not shown: the code
-     * alone, "FK1", and "FK1 Σ ?" where it can be acted on ([ask]). It takes [totalTag]'s place from slice I1b on.
+     * The figure under the last point WITH NO PHOTO FIGURE AND NO DERIVED ONE, AS THE NUMBER ALONE (port 63 slices I1a
+     * and I1c; DESIGN-imagemeter §18 rule 3 and §21 P4): a READ total, `Σ 3310`; THE LASER'S, `Σ 2678` -- a chain that
+     * runs wall to wall takes the room's own W, L or H, which is a reading (§18 rule 7), not an estimate. Not "FK1 Σ
+     * 3310 laser": the chain's code is shown only where it is named ([PhotoFigures.nameOf]), and the word after it
+     * cost the line its room. `Σ` stays: it is no code and no unit, and without it the total under the last point
+     * reads as the last segment's figure. A total that is only the sum of its segments, or unknown, is not shown: "",
+     * and `Σ ?` where it can be acted on ([ask]). It takes [totalTag]'s place from slice I1b on.
      */
-    fun totalShown(tx: Tx, code: String, v: Vals, ask: Boolean): String {
+    fun totalShown(v: Vals, ask: Boolean): String {
         val t = v.total
         return when {
-            t != null && v.src == MEASURED -> "$code Σ ${r(t)}" // text:value a code, Σ and a figure
-            t != null && v.src == LASER -> "$code Σ ${r(t)}" + tx.sp_laser_suffix // text:value a code, Σ and a figure before the laser's word
-            ask -> "$code Σ " + MarkDims.ASK_TEXT // text:value a code, Σ and the not-read glyph
-            else -> code
+            t != null && (v.src == MEASURED || v.src == LASER) -> "Σ ${r(t)}" // text:value Σ and a figure
+            ask -> "Σ " + MarkDims.ASK_TEXT // text:value Σ and the not-read glyph
+            else -> ""
         }
     }
 

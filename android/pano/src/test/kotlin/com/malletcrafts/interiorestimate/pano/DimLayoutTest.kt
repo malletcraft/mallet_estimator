@@ -159,7 +159,9 @@ class DimLayoutTest {
         // ... and a four-corner mark's four sides and its diagonal ARE its size (port 63 slice Q1; DESIGN-quad §3.5): the
         // two roles join the two that were, and a rectangle's w and h show as they did
         val quad = setOf(MarkDims.Role.SIDE, MarkDims.Role.DIAG)
-        assertEquals(setOf(MarkDims.Role.WIDTH, MarkDims.Role.HEIGHT, MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DROP, MarkDims.Role.DEPTH) + quad, all.toSet())
+        // ... and ITEM, a Tape's, a Line's, an area's or a chain's figure placed with the marks' plates (port 63 slice I1c;
+        // DESIGN-imagemeter §21, P5): never a mark's dimension, never its size
+        assertEquals(setOf(MarkDims.Role.WIDTH, MarkDims.Role.HEIGHT, MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DROP, MarkDims.Role.DEPTH) + quad + MarkDims.Role.ITEM, all.toSet())
         for (r in all) {
             // 2 · Mark: the picked mark, everything; nobody else
             assertTrue(DimLayout.shows(DimLayout.Scope.PICKED, true, r)); assertFalse(DimLayout.shows(DimLayout.Scope.PICKED, false, r))
@@ -997,9 +999,16 @@ class DimLayoutTest {
             assertEquals(DimLayout.How.HAND, out.of("FD1.w")!!.how, what); assertEquals(DimLayout.How.HAND, out.of("FD1.h")!!.how, what)
             for (pl in out.plates.filter { it.markId == door.id }) for (t in tabs) assertFalse(hit(pl.whole ?: pl.box, t), "$what: ${pl.code} ${pl.box} covers a tab $t")
             r.sound(out, r.keep(els) + tabs, setOfNotNull(gold), "held door, $what")
-            // exactly where Scope.PICKED put them: the old path and the new one agree on the hand anchor
+            // exactly where Scope.PICKED put them: the old path and the new one agree on the hand anchor -- the width level
+            // as built; the height, since slice I1c (P5), TURNED UP from the same left edge and the same middle height,
+            // so it runs along its line too
             val old = r.place(r.marks(picked = door.id, active = gold, actual = actual, tabs = true, els = els), DimLayout.Scope.PICKED, r.keep(els))
-            for (k in listOf("FD1.w", "FD1.h")) { assertEquals(old.of(k)!!.box.t, out.of(k)!!.box.t, 1e-9, "$what $k"); assertEquals(old.of(k)!!.box.b, out.of(k)!!.box.b, 1e-9, "$what $k") }
+            old.of("FD1.w")!!.box.let { o -> val n = out.of("FD1.w")!!; assertEquals(o.t, n.box.t, 1e-9, what); assertEquals(o.b, n.box.b, 1e-9, what); assertEquals(0.0, n.angle) }
+            old.of("FD1.h")!!.box.let { o -> val n = out.of("FD1.h")!!
+                assertEquals(DimLayout.How.HAND, n.how); assertEquals(LabelAngle.UP, n.angle); assertTrue(n.turned, what)
+                assertEquals(o.l, n.box.l, 1e-9, what); assertEquals((o.t + o.b) / 2, (n.box.t + n.box.b) / 2, 1e-9, what)
+                // stood up: its box is the plate turned, ph wide and pw tall (its text is "?" or a reading now, no estimate)
+                assertEquals(o.h, n.box.w, 1e-9, what); assertEquals(n.pw, n.box.h, 1e-9, what) }
         }
         // A MARK THE WALK REACHED is picked and shows NO tabs: its plates sit on their lines, and no tab square is kept clear
         for (r in listOf(fit, phone)) {

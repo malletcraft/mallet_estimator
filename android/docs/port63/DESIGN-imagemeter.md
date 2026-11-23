@@ -1244,3 +1244,154 @@ in I1a: §12's "Deleted" keys and `sp.measure.photo_says_x` still have their rea
     `SurveyMeas.rowValue`, `SurveyChain.rowValue`, `DeleteGuard`'s row clearances, `SurveyPrepPalette.slots`,
     `StepRoute.MEASURE` and their tests all have `:app` callers at this commit. They go in I1b with those callers;
     after deleting each, grep `:app` AND `:camera`.
+
+---
+
+## 21. Amit's five points from 0.3.345 (23 Nov 2026)
+
+Build 0.3.345 is 0.3.341's screen (1 · Lines, 2 · Mark, 3 · Measure, the measure bar, photo estimates) on Play. Amit
+used it and sent five points. **They override §18 rule 2 and anything else they touch.** Slice I1c (this section) is
+their PURE half, in `:pano` with tests, added on top of I1a (§19) and still changing nothing `:app` calls; I1b
+switches the screen over to I1a's and I1c's rules together.
+
+### 21.1 His words, verbatim
+
+- **(P1)** "every time i open a foto, it always start from 1 - lines. its annoying. once lines are set, I dont want this
+  as default screen but i should be able to change line later on as well if required."
+- **(P2)** "Click on save always take me out to room foto. its annoying."
+- **(P3)** "When a mark type window is selected, then only its different  measurements are visible. its also annoying. i
+  want to see all measurements in its units always visible."
+- **(P4)** "Measurements on any mark type alwyas show FM1 , 2 etc. it cosumes lot of space on line."
+- **(P5)** "no way to set alignment of measurements  to line direction.  its always  horizontal which overlaps on other
+  measurements."
+
+### 21.2 Claude's reading
+
+- **P1 — open on Mark once the lines are set.** Survey prep opens a face on 2 · Mark when that face's four lines are set,
+  and on 1 · Lines only when they are not; the same rule when he switches face tab; 1 · Lines stays one tap away on the
+  strip whenever he wants to change a line.
+- **P2 — ✓ Save saves and stays.** Everything a save does today happens — the read-back save, the as-is upload queued,
+  the room size kept, the saved survey pictures rewritten, the result said — but survey prep stays open on the same face,
+  step and zoom, and the bar's saved state says it was saved; only ← leaves. Save's rule (all six surfaces bounded) is
+  unchanged. Every effect happens exactly once a press; ← after a save neither loses nor repeats anything.
+- **P3 — every read figure of every mark, always.** Every mark shows every figure that has been read — its size AND its
+  position (from the corner, from the floor or ceiling, a Beam's drop, the `⊥` depth) — picked or not. This amends §18
+  rule 2 (which showed a mark that is not picked only its read SIZE) and keeps §18's heart: no photo estimate anywhere,
+  so an unread figure shows NOTHING on a mark that is not picked, and a quiet `?` only on the picked mark; the one being
+  measured stays H1's gold `▶ ?`. A Line's, area's and chain's read figure likewise always. There is no `all` button.
+- **P4 — a figure's label is the number alone.** A Line's, an area's, a Tape's and a chain's label drops its code
+  (`F-M1`, `F-T1`, `FK1`) and its unit (`mm`): `1234`, not `F-M1 1234 mm`. An area's m² is not shown (§18 rule 3); its
+  read perimeter is the number alone. The item's code is shown only where the item is NAMED — the picked item's own
+  label (its row in I1, its chip from I2), never on the line. A mark's plates already carry the number alone. A mark's
+  CODE (FW1) on its box stays: it names the mark, it is no measurement.
+- **P5 — every figure runs along its dimension.** A Line's and a Tape's label is turned to the line's own angle, centred
+  on it and breaking it, as ImageMeter draws a length — never upside down (folded into −90° … +90°; a line within a few
+  degrees of upright reads bottom to top, as a turned height plate does); a mark's width plate lies level on its width
+  line and its height plate turned up its height line; a position figure along its own line; `DimLayout` places every
+  plate by its TURNED box, so two turned labels do not overlap, and a label is moved off its line on a leader only when
+  there is no room along it. No per-item alignment setting in this slice (ImageMeter keeps one per element; if Amit asks,
+  it belongs in the slide-up panel, I2).
+
+### 21.3 Where the code showed a reading to be wrong, and what was built instead
+
+1. **P1: "the squared frame exists" is NOT "the lines are set".** A fresh capture's four lines are the phone's own guess
+   (`SurveyPrep.fresh`) and they already close — `SurveyPrep.frameOf` answers a frame on every face of a capture nobody
+   has touched — so "open on Mark when the frame exists" would open every fresh capture on 2 · Mark before a single line
+   was placed: the opposite of "once lines are set". **Built instead:** a face's lines are set when all four are PLACED
+   by hand (`Surface.done()`, the same "bounded" ✓ Save counts) AND they close (`frameOf`): `PhaseTools.linesSet`. The
+   cost, said plainly: a face of an older capture marked without ever touching its guessed lines opens on 1 · Lines
+   until its four lines are placed once; 2 · Mark is still one tap away.
+2. **P2 on a NEW capture.** Survey prep has two callers: a kept capture's (`MainActivity.kt:546`, its `onDone` keeps the
+   room size, rewrites the pictures and closes) and a NEW capture's, straight after the shutter (`MainActivity.kt:4053`),
+   whose ✓ Save and ← BOTH call `keepWith` → `onKeep`, which files the capture (its faces, `FaceWriter.commit`, and its
+   row, `store.insert`) once. Staying there cannot run the keep on every press (it would file the capture twice), and
+   it cannot queue the upload at the press either: the upload worker refuses a capture whose row does not exist after
+   five tries (`AsIsUpload.kt:388-393`, "waiting to be filed", then "capture gone"), and staying is exactly what would
+   outlast them. **Built instead:** `SaveStay.Flow.NEW` — a press there is the read-back save alone; the keep stays on ←,
+   and ← then queues the upload the press held back, once (`SaveStay.Leave.then`). Its room size and pictures are the
+   keep's own, as today.
+3. **P4 on a chain's total:** `Σ` is kept (`Σ 3310`) — it is no code and no unit, and without it the total under the last
+   point reads as the last segment's figure — and the word ` laser` after a laser total goes with the code: it cost the
+   line its room. Chains are off (`Features.CHAINS = false`); this reaches only a room that already has one.
+4. **P5 on the held mark:** "the height plate turned up its height line (as built)" — as built, the HELD mark's
+   hand-anchored height plate (the one kept clear of its tabs) was UPRIGHT. It is now turned up too, from the same left
+   edge and the same middle height, so every height reads the same way; its width stays level where it was.
+5. **P5, the turned box: the bounding box is not enough at the phone's numbers.** A 48 × 19 dp plate turned 60° has a
+   41 × 51 dp bounding box, so two labels on two close, slanting Lines whose plates lie clear of each other would be
+   pushed apart by their boxes. The layout keeps the TURNED RECTANGLES apart (`DimLayout.Turned.hits`, separating axes);
+   for a level or an upright plate the rectangle IS its box, so a mark's plates are kept apart exactly as before
+   (`TurnedLabelsTest` pins both, and that `hits` equals the old box test on a grid of level boxes).
+
+### 21.4 What I1c built, function by function, and the `:app` call site each will replace in I1b
+
+Line numbers are `3c377c3`'s (= this commit's: no `:app` file changed). `SPS` = `SurveyPrepScreen.kt`, `SPD` =
+`SurveyPrepDraw.kt`, `SP360` = `SurveyPrep360.kt`, `MA` = `MainActivity.kt`, all under `APP/`.
+
+**P1 — the step a face opens on (`PhaseTools`; `OpenStepTest`, 7 tests)**
+
+| Function | Signature | Replaces in `:app` |
+|---|---|---|
+| `PhaseTools.linesSet` | `(prep, s, l, w, h): Boolean` — all four placed (`Surface.done`) AND `frameOf` closes; false off a face | new; asked by the two below |
+| `PhaseTools.openedStep` | `(tab, stage, linesSet): String` | the initial `modeSet = "lines"`, `SPS:285` |
+| `PhaseTools.openStep` | `(tab, from, stage, linesSet): String` — the Plan keeps `from`; on 3 · 360 a face tab keeps 360; else Mark when set, Lines when not, through `routeMode` | `showTab`, `SPS:1272-1287`: `modeSet = PhaseTools.openStep(t, mode, quoteStage, linesSet(t))` after `Pick.tab` (whose row 26 keeps the open face's own tab no change) |
+
+**P2 — ✓ Save saves and stays (`SaveStay`, new file; `SaveStayTest`, 6 tests)**
+
+| Function | Signature | Replaces in `:app` |
+|---|---|---|
+| `SaveStay.may`, `Effect`, `Flow`, `effects` | `may(bounded)`; `Effect { SAVE, UPLOAD, KEEP_SIZE, PICTURES }`; `Flow { KEPT, NEW }`; `effects(bounded, readBack: Boolean?, flow = KEPT): List<Effect>` | `saveNow`, `SPS:1445-1457`: the read-back save, `AsIsUpload.enqueue`, then a NEW callback in `onDone`'s place (`SPS:1456`) that runs `MA:546-565`'s body WITHOUT `surveyKept = null` — `keepRoomSize`, `FaceWriter.rewriteSurvey` and the result — and reports the result back; `onDone` survives only for the NEW flow's ← (`MA:4053-4054`) |
+| `SaveStay.Mem`, `OPENED`, `saved`, `written`, `notWritten` | `Mem(at, readBack, pictures, written, why, seq)`; `saved(m, rev, readBack)`; `written(m, seq, n)`; `notWritten(m, seq, why)` — an older press's answer changes nothing | new: one `remember`ed `Mem` beside `savedMsg` (`SPS:319`); `MA`'s `lastResult` lines at `:552`, `:560-561` become the callback's report |
+| `SaveStay.bar` | `(tx, m, rev, auto: Msg): String` — the save's own words until the next change, then the autosave's line | `Text(savedMsg(tx) …)`, `SPS:1475` (the keys are the room screen's own: `app.msg.survey_prep_saved_writing`, `…_saved_x`, `…_saved_not_written_x`, `sp.msg.not_saved_did_not`) |
+| `SaveStay.changedSince`, `leave`, `Leave` | `(m, rev)`; `leave(m, rev, flow = KEPT): Leave(repeats, then, changedSince)` | `back()`, `SPS:1443`: ← still calls `onCancel`; for `Flow.NEW` it then queues `then` (the held-back upload) after the keep |
+
+I1b must also SERIALISE the picture rewrite (two presses must not run `FaceWriter.rewriteSurvey` on one folder at once —
+a `Mutex` in `MA`); `SaveStay` shows only the newest press's answer, and says nothing about the files.
+
+**P3 — every read figure, always (`PhotoFigures`, `DimLayout`; `PhotoFiguresTest` rewritten, 19 tests)**
+
+| Function | Change | Replaces in `:app` |
+|---|---|---|
+| `PhotoFigures.ofMark` | an unpicked mark shows every READ figure — size and position, the `⊥` depth included — and nothing for an unread one; the picked mark every figure (`?` unread), the gold one gold | as I1a's §19.1 row: the painter's `laid`, `SPD:942-948` |
+| `DimLayout.markShown` | the same, through `ofMark` | `DimLayout.mark`, `SPD:947` |
+
+`PhotoFiguresTest` now walks every mark type on a wall, the floor and the ceiling (`SurveyPrep.TYPES` and
+`MarkTypes.typesOn`, 40-odd types): nothing read → nothing unpicked and every figure `?` picked; every other figure read
+→ exactly those unpicked, each READ; an unread figure made gold → shown gold; everything read → everything, picked or
+not, and never an estimate. §18's "no figure of any mark, in any state, reads an estimate" is kept as it was.
+
+**P4 — the number alone (`SurveyMeas`, `SurveyChain`, `PhotoFigures`)**
+
+| Function | Change | Replaces in `:app` |
+|---|---|---|
+| `SurveyMeas.shownTag` | `1240` read; `?` asked; else `""` (was `F-M1 1240 mm` / `F-M1 ?` / `F-M1`) | under `PhotoFigures.line`, as §19.1 |
+| `SurveyMeas.tapeShown` (new) | `(len): String` — `1234` | `SurveyMeas.tapeTag`, `SPD:813` and `SP360:1125` |
+| `SurveyChain.totalShown` | `(v, ask)` (no `tx`, no `code`): `Σ 3310` read or the laser's; `Σ ?` asked; else `""` | under `PhotoFigures.chainTotal` |
+| `PhotoFigures.line`, `tape` (new), `chainTotal`, `line360`, `chainTotal360` | the number alone; `chainTotal(c, v, pick, ready)` and `chainTotal360(v)` lose their `tx` | `SPD:747-757`, `SPD:813`, `SPD:896-906`; `SP360:1080-1083`, `1125`, `1186` |
+| `PhotoFigures.nameOf` (new) | `(prep, pick): String?` — the picked item's code | the held item's row label (`Pick.row`), `SPS:1891`, `1929`; the code chip from I2 |
+
+**P5 — every figure along its dimension (`LabelAngle`, new; `DimLayout`; `TurnedLabelsTest`, 11 tests)**
+
+| Function | Signature | Replaces in `:app` |
+|---|---|---|
+| `LabelAngle.of`, `fold`, `upright`, `along`, `across`, `NEAR_UPRIGHT_DEG = 5`, `LEVEL = 0`, `UP = -90` | `of(x1, y1, x2, y2): Double` degrees clockwise on the canvas, folded into (−95, 85]; exact 0 and −90 for a level and an upright line | the painter's `c.rotate(-90f, cx, cy)` in `plate`, `SPD:1028`, becomes `c.rotate(p.angle.toFloat(), cx, cy)` |
+| `DimLayout.Turned` | `(cx, cy, hw, hh, deg)`: `corners()`, `bounds`, `hits(o, apart)`, `nearest(x, y)`, `Turned.of(box)` | the plate's outline in `plate`, `SPD:1022-1049` (drawn upright about its middle at `pw` × `ph`, then turned) |
+| `DimLayout.Plate.angle`, `pw`, `ph`, `rect` | new, with defaults: an old `place` plate reads `angle` 0 or −90 as before | `val w = if (p.turned) b.h else b.w`, `SPD:1026` → `p.pw`, `p.ph` |
+| `DimLayout.placeShown` | every plate turned to its line (`turnOf`) and kept apart by its turned rectangle; on the line, ¼ / ¾ along, then off it on a leader square to the line | `DimLayout.place`, `SPD:950`, as §19.1 |
+| `DimLayout.turnOf` | `(f: Fig): Double` | — |
+| `DimLayout.item` (new), `MarkDims.Role.ITEM` (new), `Fig.taps` (new, default true) | `item(id, key, text, from, to?, picked, gold, measured, dp, textW): Mark?` — a Tape's, Line's or chain segment's figure along its line, an area's or a chain total's at its point; a Tape's is no tap target | the label and `figureTag` of `line` (`SPD:745-757`), of `tape` (`SPD:813-820`, `SurveyMeas.tapeTagAt`) and of `chain` (`SPD:883-907`) |
+| `PhotoFigures.items` (new), `PhotoFigures.layout` | `items(prep, s, a, b, pick, toPx, dp, textW, ready)`: every Line, area, Tape and chain figure of the face; `layout` now returns the marks THEN the items, one list for one `placeShown` | the same; the tap targets they add (`o.tags`, `SPD:772`) come from `Out.tags`, which skips a Tape's |
+
+`DimLayout.place` (the old path the screen still calls) is unchanged: `lay(…, slant = false)` keeps every box, test and
+answer it had; its tests are untouched but for one line (§21.5).
+
+### 21.5 Tests changed, not only added
+
+- `PhotoFiguresTest` — rewritten for P3 and P4, as above (16 → 19 tests).
+- `DimLayoutTest` — the set of `MarkDims.Role` values gains `ITEM`; I1a's "the old path and the new one agree on the
+  hand anchor" now agrees on the width exactly and on the height's left edge and middle, the height stood up.
+- `:pano` after I1c: 109 test classes, 1,549 tests, 0 failures (after I1a: 106 and 1,522).
+
+### 21.6 Texts
+
+No key is added, changed or deleted. P2's bar reuses the room screen's own four lines. `mr-pending.tsv` is
+unchanged, `unkeyed.tsv` stays empty, and the literal ratchet entered the two new files at 0.

@@ -87,6 +87,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Features.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/GestureClassifier.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LabelAngle.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Landing.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserChip.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserNote.kt	0
@@ -117,6 +118,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RenameRoute.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomCorners.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomQuad.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SaveStay.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SheetMarks.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SiteRows.kt	0

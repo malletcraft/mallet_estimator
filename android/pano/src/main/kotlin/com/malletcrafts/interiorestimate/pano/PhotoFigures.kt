@@ -23,6 +23,20 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  *     gold ([line360], [chainSeg360], [chainTotal360]).
  *
  * The Plan, the six drawings, the saved pictures and the exports are NOT this object's: they follow in slice M3.
+ *
+ * AMENDED BY AMIT'S FIVE POINTS FROM 0.3.345 (port 63 slice I1c, 23 Nov 2026; DESIGN-imagemeter §21), over rule 2 above:
+ *  - P3, "When a mark type window is selected, then only its different measurements are visible. its also annoying.
+ *    i want to see all measurements in its units always visible": EVERY MARK SHOWS EVERY FIGURE THAT HAS BEEN READ --
+ *    its size AND where it sits (from the corner, from the floor or the ceiling, a Beam's drop, the `⊥` depth) --
+ *    ALWAYS, picked or not. §18's heart stands: a figure nobody has read shows NOTHING on a mark that is not picked,
+ *    and the quiet `?` only on the picked mark; the one being measured stays H1's gold. A Line's, an area's and a
+ *    chain's read figure likewise, always.
+ *  - P4, "Measurements on any mark type alwyas show FM1 , 2 etc. it cosumes lot of space on line": A FIGURE'S LABEL IS
+ *    THE NUMBER ALONE -- `1234`, not "F-M1 1234 mm"; every figure here is millimetres. An item's code is shown only
+ *    where the item is NAMED ([nameOf]: the picked item's own label), never on its line. A mark's CODE on its box
+ *    stays: it names the mark, it is no measurement.
+ *  - P5, "no way to set alignment of measurements to line direction": every label is laid out ALONG its dimension,
+ *    marks and Lines together, by [layout] and [DimLayout.placeShown].
  */
 object PhotoFigures {
 
@@ -51,9 +65,9 @@ object PhotoFigures {
     }
 
     /**
-     * THE FIGURES THE MARK [e] ON [s] SHOWS (rule 2), in its checklist's order ([MarkDims.of]):
-     *  - not [picked]: only its READ size figures ([DimLayout.isSize]: `w`, `h`, a four-corner mark's sides and
-     *    diagonal) -- an unread side shows nothing, and so does every position figure, read or not;
+     * THE FIGURES THE MARK [e] ON [s] SHOWS (rule 2 as P3 amends it), in its checklist's order ([MarkDims.of]):
+     *  - not [picked]: EVERY figure that has been READ -- its size and its position alike, `w` `h` `l` `r` `s` `t` `d`
+     *    and the `⊥` depth, a four-corner mark's sides and diagonal -- and NOTHING for one that has not;
      *  - [picked]: every dimension it asks -- [Look.READ] with its figure, [Look.ASK] with `?`;
      *  - the dimension whose reading key is [gold]: [Look.GOLD], `▶898` or `▶?` ([ready] false: `▷`); while digits
      *    are typed on the keypad ([live], [MeasurePad.live]; null or empty: none) it reads those digits, in the
@@ -69,7 +83,7 @@ object PhotoFigures {
             val stored = MarkDims.read(actual, s, e, d, a, b)
             val on = d.code == gold
             val measured = stored.state == MarkDims.State.MEASURED
-            if (!(picked || on || (measured && DimLayout.isSize(d.role)))) return@mapNotNull null
+            if (!(picked || on || measured)) return@mapNotNull null
             val typing = on && !live.isNullOrEmpty()
             val v = if (typing) MarkDims.Value(live!!, MarkDims.State.MEASURED, false) else stored
             Figure(d, if (on) Look.GOLD else if (measured) Look.READ else Look.ASK, MarkDims.figureText(v, d.role, on, ready, d.what(tx)), v.check, measured, typing)
@@ -92,6 +106,9 @@ object PhotoFigures {
      * or, where [free] says its corners are free ([Quad.free], the one rule the painter, the press and this ask), its
      * four corners -- and its `w` and `h` plates are anchored clear of them. [toPx] face mm to canvas px, [u] the
      * drawing's unit, [dp] px a dp, [textW] the painter's own measure of a text.
+     *
+     * THEN EVERY TAPE, LINE, AREA AND CHAIN OF THE FACE ([items], port 63 slice I1c, P5), after the marks: their figures
+     * are placed with the marks' plates, so no label lies on another, each turned along its own line.
      */
     fun layout(tx: Tx, prep: SurveyPrep.Prep, s: String, a: Double, b: Double, pick: Pick.State, toPx: (Double, Double) -> DoubleArray,
                u: Double, dp: Double, textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null,
@@ -99,7 +116,53 @@ object PhotoFigures {
         (prep.surfaces[s]?.marks ?: emptyList<SurveyPrep.Mark>()).filter { !MarkLife.isNote(it) }.map { e ->
             val on = pick.picked == e.id
             DimLayout.markShown(tx, prep.actual, s, e, a, b, on, on && pick.held, pick.gold, toPx, u, dp, textW, live, free(e), ready)
+        } + items(prep, s, a, b, pick, toPx, dp, textW, ready)
+
+    /**
+     * EVERY FIGURE OF THE FACE [s] THAT IS NOT A MARK'S, as [DimLayout.placeShown] takes it ([DimLayout.item]; port 63
+     * slice I1c, P4 and P5), in drawing order -- the Lines and areas, then the Tapes, then the chains, as the painter
+     * draws them:
+     *  - a LINE: its [line] figure ALONG it, from its first point to its last;
+     *  - an AREA: its perimeter's figure at its middle (the mean of its corners), level -- it has no one line;
+     *  - a TAPE: its [tape] figure along its band, centred on it; no tap target (it takes no reading);
+     *  - a CHAIN: each segment's [chainSeg] figure along that segment, and its [chainTotal] at its last point, level.
+     * A figure that shows nothing ("", or a chain segment with none) is not handed in: it costs the layout nothing.
+     */
+    fun items(prep: SurveyPrep.Prep, s: String, a: Double, b: Double, pick: Pick.State, toPx: (Double, Double) -> DoubleArray, dp: Double,
+              textW: (text: String, fs: Double, bold: Boolean) -> Double, ready: Boolean = true): List<DimLayout.Mark> {
+        val sf = prep.surfaces[s] ?: return emptyList()
+        val out = ArrayList<DimLayout.Mark>()
+        fun px(p: DoubleArray) = toPx(p[0], p[1])
+        for (m in sf.meas) if ((m.kind == SurveyMeas.LINE || m.kind == SurveyMeas.AREA) && m.pts.isNotEmpty()) {
+            val t = line(m, prep.actual, pick, ready)
+            val key = SurveyMeas.key(m)
+            val read = key != null && prep.actual[key] != null
+            val (from, to) = if (m.kind == SurveyMeas.LINE && m.pts.size >= 2) px(m.pts.first()) to px(m.pts.last())
+                             else px(doubleArrayOf(m.pts.map { it[0] }.average(), m.pts.map { it[1] }.average())) to null
+            DimLayout.item(m.id, t.key, t.text, from, to, pick.picked == m.id, t.gold, read, dp, textW)?.let { out += it }
         }
+        for (m in sf.meas) if (m.kind == SurveyMeas.TAPE && m.pts.size == 2)
+            DimLayout.item(m.id, null, tape(m), px(m.pts[0]), px(m.pts[1]), pick.picked == m.id, false, false, dp, textW)?.let { out += it }
+        for (c in sf.chains) if (c.nodes.size >= 2) {
+            val v = SurveyChain.vals(c, prep.actual, a, b)
+            for (i in 0 until c.nodes.size - 1) chainSeg(c, v, i, pick, ready)?.let { t ->
+                DimLayout.item(c.id, t.key, t.text, px(c.nodes[i]), px(c.nodes[i + 1]), pick.picked == c.id, t.gold, v.meas.getOrNull(i) != null, dp, textW)?.let { out += it } }
+            chainTotal(c, v, pick, ready).let { t ->
+                DimLayout.item(c.id, t.key, t.text, px(c.nodes.last()), null, pick.picked == c.id, t.gold, v.src == SurveyChain.MEASURED || v.src == SurveyChain.LASER, dp, textW)?.let { out += it } }
+        }
+        return out
+    }
+
+    /**
+     * WHAT THE PICKED ITEM IS NAMED BY -- its CODE, `FW1`, `F-M1`, `F-T1`, `FK1` -- the one place an item's code is shown
+     * once its figures are the number alone (P4): the picked item's own label (its row in I1, its chip from I2). Null
+     * when nothing is picked, or what is picked is gone. A mark's code on its box is drawn as it always was, picked or
+     * not: it names the mark, it is no measurement.
+     */
+    fun nameOf(prep: SurveyPrep.Prep, pick: Pick.State): String? {
+        val id = pick.picked ?: return null
+        return prep.markById(id)?.second?.code ?: prep.measById(id)?.second?.code ?: prep.chainById(id)?.second?.code
+    }
 
     // ------------------------------------------------------------------ rule 3: a Line, an area, a chain
 
@@ -114,9 +177,9 @@ object PhotoFigures {
     private fun glyph(gold: Boolean, ready: Boolean): String = if (!gold) "" else if (ready) MarkDims.ACTIVE_GLYPH else MarkDims.WAIT_GLYPH
 
     /**
-     * A PLOTTED LINE'S OR AREA'S TAG ON ITS FACE ([SurveyMeas.shownTag]): "F-M1 1240 mm" once read; "F-M1" until then;
-     * "F-M1 ?" while it is the picked item; "▶F-M1 ?" while its reading is the gold one. An area never shows its m².
-     * A TAPE answers an empty tag here: its own is [SurveyMeas.tapeTag], as built.
+     * A PLOTTED LINE'S OR AREA'S FIGURE ON ITS FACE, THE NUMBER ALONE ([SurveyMeas.shownTag]; P4): `1240` once read --
+     * whether or not it is picked; NOTHING until then; `?` while it is the picked item; `▶?` while its reading is the
+     * gold one. An area never shows its m². A TAPE answers an empty tag here: its own is [tape].
      */
     fun line(m: SurveyPrep.Meas, actual: Map<String, Double>, pick: Pick.State, ready: Boolean = true): Tag {
         val key = SurveyMeas.key(m) ?: return Tag("", null, false)
@@ -129,7 +192,11 @@ object PhotoFigures {
      *  What the painter draws for a draft's tag. */
     const val DRAFT_TAG = ""
 
-    /** The same Line or area ON THE 360: its reading once read, else its code alone. Never `?`, never gold. */
+    /** A TAPE'S FIGURE, the number alone ([SurveyMeas.tapeShown]; P4): its length on the photo -- the one figure that
+     *  is the photo's (§18 rule 4). Placed along its band by [items], and no tap target. */
+    fun tape(m: SurveyPrep.Meas): String = if (m.kind == SurveyMeas.TAPE && m.pts.size == 2) SurveyMeas.tapeShown(SurveyMeas.plen(m.pts)) else ""
+
+    /** The same Line or area ON THE 360: its reading once read, the number alone; else nothing. Never `?`, never gold. */
     fun line360(m: SurveyPrep.Meas, actual: Map<String, Double>): String =
         SurveyMeas.key(m)?.let { SurveyMeas.shownTag(m.code, m.kind, actual[it], ask = false) } ?: ""
 
@@ -146,20 +213,21 @@ object PhotoFigures {
     }
 
     /**
-     * THE CHAIN'S TOTAL UNDER ITS LAST POINT ([SurveyChain.totalShown]): "FK1 Σ 3310" read, "FK1 Σ 3310 laser" where
-     * the laser gives it, else its code alone -- "FK1 Σ ?" while the chain is picked. It takes a tap under its key
-     * unless the laser gives it ([SurveyChain.totalReadOnly]) or it shows no figure and no `?`.
+     * THE CHAIN'S TOTAL UNDER ITS LAST POINT ([SurveyChain.totalShown]; P4): `Σ 3310` read or where the laser gives it,
+     * else nothing -- `Σ ?` while the chain is picked. It takes a tap under its key unless the laser gives it
+     * ([SurveyChain.totalReadOnly]) or it shows no figure and no `?`.
      */
-    fun chainTotal(tx: Tx, c: SurveyPrep.Chain, v: SurveyChain.Vals, pick: Pick.State, ready: Boolean = true): Tag {
+    fun chainTotal(c: SurveyPrep.Chain, v: SurveyChain.Vals, pick: Pick.State, ready: Boolean = true): Tag {
         val key = c.code + "." + SurveyChain.TOTAL
         val on = pick.gold == key; val ask = pick.picked == c.id || on
         val taps = !SurveyChain.totalReadOnly(v) && (v.src == SurveyChain.MEASURED || ask)
-        return Tag(glyph(on, ready) + SurveyChain.totalShown(tx, c.code, v, ask), key.takeIf { taps }, on, SurveyChain.totalColour(v))
+        val t = SurveyChain.totalShown(v, ask)
+        return Tag(if (t.isEmpty()) "" else glyph(on, ready) + t, key.takeIf { taps }, on, SurveyChain.totalColour(v))
     }
 
     /** Segment [i] of a chain ON THE 360: its reading, or nothing. */
     fun chainSeg360(v: SurveyChain.Vals, i: Int): Pair<String, Int>? = SurveyChain.segShown(v, i, ask = false)
 
-    /** A chain's total ON THE 360: read or the laser's, else its code alone. */
-    fun chainTotal360(tx: Tx, code: String, v: SurveyChain.Vals): String = SurveyChain.totalShown(tx, code, v, ask = false)
+    /** A chain's total ON THE 360: read or the laser's, `Σ 3310`; else nothing. */
+    fun chainTotal360(v: SurveyChain.Vals): String = SurveyChain.totalShown(v, ask = false)
 }

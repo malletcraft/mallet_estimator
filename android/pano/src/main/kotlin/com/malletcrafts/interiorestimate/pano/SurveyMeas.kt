@@ -313,20 +313,31 @@ object SurveyMeas {
     }
 
     /**
-     * A PLOTTED LINE'S OR AREA'S TAG WITH NO PHOTO FIGURE (port 63 slice I1a; DESIGN-imagemeter §18 rule 3; Amit, 16 Nov
-     * 2026: "No foto estimation at all. It confuses user"). A Line shows its reading once read, "F-M1 1240 mm"; until
-     * then its code alone, "F-M1", and `?` after it only where it can be acted on ([ask]: it is the picked item, on a
-     * face), "F-M1 ?". An AREA'S m² IS COMPUTED FROM THE PHOTO, SO IT IS NOT SHOWN: its perimeter is, once read,
-     * "F-M2 5734 mm"; until then "F-M2", or "F-M2 ?". A Line being pulled and an area being tapped ([code] null) show
-     * NOTHING: their length and m² are the photo's. The Tape is the one exception and keeps [tapeTag] (§18 rule 4).
-     * Codes and figures: byte-equal in every language. It takes [lineTag]'s place on the screen from slice I1b on.
+     * A PLOTTED LINE'S OR AREA'S FIGURE WITH NO PHOTO FIGURE, AS THE NUMBER ALONE (port 63 slices I1a and I1c;
+     * DESIGN-imagemeter §18 rule 3 and §21 P4). Amit, 16 Nov 2026: "No foto estimation at all. It confuses user" -- and,
+     * after using 0.3.345: "Measurements on any mark type alwyas show FM1 , 2 etc. it cosumes lot of space on line." So
+     * a Line shows its reading once read, `1240` -- not "F-M1 1240 mm": every figure on this screen is millimetres, and
+     * the item's code is shown only where the item is NAMED (the picked item's own label: [PhotoFigures.nameOf]),
+     * never on the line. Until it is read it shows NOTHING, and `?` only where it can be acted on ([ask]: it is the
+     * picked item, on a face). An AREA'S m² IS COMPUTED FROM THE PHOTO, SO IT IS NOT SHOWN: its perimeter is, once read,
+     * `5734`; until then nothing, or `?`. A Line being pulled and an area being tapped ([code] null) show NOTHING:
+     * their length and m² are the photo's. The Tape keeps its own figure, the number alone ([tapeShown]; §18 rule 4).
+     * Figures: byte-equal in every language. It takes [lineTag]'s place on the screen from slice I1b on.
      */
     fun shownTag(code: String?, kind: String, reading: Double?, ask: Boolean): String = when {
         code == null || (kind != LINE && kind != AREA) -> ""
-        reading != null -> "$code " + mmTxt(reading) // text:value a code and a figure
-        ask -> "$code " + MarkDims.ASK_TEXT // text:value a code and the not-read glyph
-        else -> code
+        reading != null -> reading.roundToInt().toString()
+        ask -> MarkDims.ASK_TEXT
+        else -> ""
     }
+
+    /**
+     * A TAPE'S FIGURE AS THE NUMBER ALONE (port 63 slice I1c; DESIGN-imagemeter §21 P4): its length on the photo, `1234`
+     * -- not "F-T1 1234 mm" -- plotted or while it is pulled. A Tape is the one figure that IS the photo's (§18 rule 4,
+     * asked of Amit as A7): it is a ruler he lays on the photo, and its band and ticks say so. It takes [tapeTag]'s
+     * place on the editing photo from slice I1b on, centred on the band and turned along it ([DimLayout.item]).
+     */
+    fun tapeShown(len: Double): String = len.roundToInt().toString()
 
     /** Whether that tag takes a tap under its reading key: only when it shows a figure or `?` -- the code alone is
      *  not a figure, and a tap on the Line's own body picks it (which is what puts the `?` there). */

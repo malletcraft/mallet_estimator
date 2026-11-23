@@ -250,6 +250,40 @@ object PhaseTools {
         return m
     }
 
+    /**
+     * THE STEP A FACE OPENS ON (port 63 slice I1c; DESIGN-imagemeter §21, P1). Amit, after using 0.3.345: "every time i
+     * open a foto, it always start from 1 - lines. its annoying. once lines are set, I dont want this as default screen
+     * but i should be able to change line later on as well if required." So survey prep opens a face -- when it opens,
+     * and when he switches face tab -- on 2 · MARK once that face's lines are SET ([linesSet]), and on 1 · LINES only
+     * while they are not. 1 · Lines stays one tap away on the step strip ([routeAsk] opens it whenever he asks), so a
+     * line can still be changed at any time; nothing here keeps him off it.
+     *  - [tab] not a face -- the PLAN: the step is not the Plan's to change; it is kept as [from] was
+     *    ([StepRoute.routeOf]), and the face rule applies again when he goes back to a face.
+     *  - [from] 3 · 360: a face tab TURNS THE 360 to that face and the step stays 3 · 360, as it always has.
+     *  - otherwise the face's rule, through [routeMode] -- so whatever the phase, a face whose lines are set opens on
+     *    2 · Mark (after Survey the phase decides what can be done there, not whether it opens), and any other on
+     *    1 · Lines.
+     * The open face's own tab is no change at all and is never asked here ([Pick.tab], row 26).
+     */
+    fun openStep(tab: String, from: String, stage: Int?, linesSet: Boolean): String {
+        if (!StepRoute.isFace(tab)) return StepRoute.routeOf(from)
+        if (StepRoute.routeOf(from) == StepRoute.PANO) return StepRoute.PANO
+        return routeMode(if (linesSet) StepRoute.MARK else StepRoute.LINES, stage) { linesSet }
+    }
+
+    /** The step survey prep OPENS on, on the face it opens on ([openStep] from no step at all): a fresh capture, whose
+     *  lines are set nowhere, opens on 1 · Lines; a capture whose open face's lines are set, on 2 · Mark. */
+    fun openedStep(tab: String, stage: Int?, linesSet: Boolean): String = openStep(tab, StepRoute.LINES, stage, linesSet)
+
+    /**
+     * WHETHER THE FACE [s]'S LINES ARE SET (P1): all four PLACED by hand ([SurveyPrep.Surface.done] -- the same "bounded"
+     * ✓ Save counts) AND closing into the squared frame ([SurveyPrep.frameOf] at the room size [l] x [w] x [h]). The
+     * frame alone is not the test: a fresh capture's four lines are the phone's own guess, and they already close, so
+     * "the frame exists" would open every fresh capture on 2 · Mark before a line was set. Not a face (the Plan): false.
+     */
+    fun linesSet(prep: SurveyPrep.Prep, s: String, l: Double, w: Double, h: Double): Boolean =
+        StepRoute.isFace(s) && prep.surfaces[s]?.done() == true && SurveyPrep.frameOf(s, prep, l, w, h) != null
+
     /** What asking for a step answers ([routeAsk]). */
     enum class Ask {
         /** The step opens. */
