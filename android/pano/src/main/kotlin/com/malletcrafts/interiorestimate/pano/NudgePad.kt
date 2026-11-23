@@ -229,10 +229,8 @@ object NudgePad {
 
     private fun r1(v: Double): Double = Math.round(v * 10) / 10.0
 
-    /** Whether two marks stand in the same place with the same shape: their boxes, and their four corners in mm. */
-    private fun same(x: SurveyPrep.Mark, y: SurveyPrep.Mark): Boolean =
-        x.x0 == y.x0 && x.x1 == y.x1 && x.y0 == y.y0 && x.y1 == y.y1 &&
-            Quad.corners(x).zip(Quad.corners(y)).all { (p, q) -> p[0] == q[0] && p[1] == q[1] }
+    /** Whether two marks stand in the same place with the same shape ([Quad.unmoved]: the one rule, a drag's too). */
+    private fun same(x: SurveyPrep.Mark, y: SurveyPrep.Mark): Boolean = Quad.unmoved(x, y)
 
     /** [v] moved by [d] along a face [lim] long, to 0.1 mm: kept on the face -- and a point that already stands past
      *  an edge (a tape plotted on the boundary line) is never pulled back by a nudge the other way, nor pushed further out. */
@@ -303,6 +301,25 @@ object NudgePad {
     fun after(p: SurveyPrep.Prep, st: State?, pick: Pick.State, stage: Int?): State? {
         if (st == null || pick.picked != st.id || !pick.held || !MarkSheet.fineOk(p, st.id, stage)) return null
         return if (st.part in parts(p, st.id)) st else st.copy(part = BODY)
+    }
+
+    /**
+     * THE FINE MOVE AFTER THE PANEL'S `Four corners` OR `Rectangle` RAN ON THE MARK [id] (the review of Q2, finding 1;
+     * 23 Nov 2026), [free]: whether that mark's corners are free NOW ([Quad.freeIn], the screen's one value). The pad
+     * can be up across either act -- the code chip opens the panel without ending it ([afterEvent]: a tap on the chip
+     * is no press on the item) -- and [after] keeps any part a box mark can ever have, tabs and corners alike. So this
+     * is asked once the act has run: THE PAD NEVER NUDGES A PART THE MARK NO LONGER SHOWS --
+     *  - a CORNER (q0 … q3), once the corners are not free (`Rectangle`): the whole mark. Left on the corner, the next
+     *    arrow moved that corner 1 mm and wrote `quad` straight back into the mark he had just made a rectangle;
+     *  - a TAB, once they are (`Four corners`): the whole mark -- [start]'s own rule ("the arrows never move an edge
+     *    that has no handle on screen"), for a pad that is already up.
+     * Any other part -- the whole mark, a corner of a mark that is still free -- stays, with the step, the corner the
+     * pad stands in and its one ↶ step. A pad on another item, or none: as it was.
+     */
+    fun reshaped(st: State?, id: String, free: Boolean): State? {
+        if (st == null || st.id != id) return st
+        val gone = if (free) st.part in SurveyPrepTouch.TABS else Quad.cornerOf(st.part) != null
+        return if (gone) st.copy(part = BODY) else st
     }
 
     /**

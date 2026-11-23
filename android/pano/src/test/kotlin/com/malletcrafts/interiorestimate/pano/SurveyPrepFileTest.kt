@@ -635,6 +635,16 @@ class SurveyPrepFileTest {
             assertEquals(listOf("Front wall: mark $code's four corners were unreadable, kept as its box"), d.problems.map { it(Tx.EN) }, t)
             assertFalse(Quad.KEY in d.prep.surface("front").marks.single().extra, t)
         }
+        // ... and on a Note in any other spelling -- S5's rule 5, to the token (the review of Q2, finding 5): S5 reads such
+        // a mark as words with no shape, so the phone drops the key and says so, where it used to keep it and draw four corners
+        for (t in listOf(" note ", "note", "Note", "NOTE ")) {
+            val d = SurveyPrepFile.decode(parse(quadPrep(EXAMPLE, t, "FX1")))!!
+            assertEquals(listOf("Front wall: mark FX1's four corners were unreadable, kept as its box"), d.problems.map { it(Tx.EN) }, "[$t]")
+            val e = d.prep.surface("front").marks.single()
+            assertEquals(t, e.t, "the type is kept as it came"); assertFalse(Quad.KEY in e.extra, "[$t]"); assertNull(Quad.of(e))
+        }
+        // (a type that only looks like it keeps its shape: "NOTES" is no Note on S5 either)
+        SurveyPrepFile.decode(parse(quadPrep(EXAMPLE, "NOTES", "FX1")))!!.let { d -> assertTrue(d.problems.isEmpty()); assertNotNull(Quad.of(d.prep.surface("front").marks.single())) }
         // English first: the note is its English under Marathi for now, the surface's name in the language
         val mr = SurveyPrepFile.decode(parse(quadPrep("[[0,0.5],[1,0],[1,1]]")))!!.problems.single()(Tx.MR)
         assertEquals("समोरील भिंत: mark FW1's four corners were unreadable, kept as its box", mr)

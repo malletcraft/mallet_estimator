@@ -226,9 +226,34 @@ object Pick {
         else -> Drag.PAN
     }
 
-    /** ROW 9 -- THE HELD ITEM'S BODY OR HANDLE DRAGGED: picked, held and gold are all unchanged. (What the drag does
-     *  to the item is the screen's; its figures are its readings and its `?`s, which a move does not change.) */
+    /** ROW 9 -- THE HELD ITEM'S BODY OR HANDLE DRAGGED: picked, held and gold are all unchanged WHILE THE FINGER IS
+     *  DOWN. (What the drag does to the item is the screen's; a move changes no reading. It CAN change which figures the
+     *  item asks -- [reshaped], asked when the drag ends.) */
     fun dragged(st: State): Out = Out(st)
+
+    /**
+     * THE PICKED ITEM WAS MOVED OR RESHAPED UNDER THE PICK (the review of Q2, finding 2; 23 Nov 2026) -- asked when a
+     * drag ENDS, after a nudge of Fine move's pad that moved something, and after the panel's `Rectangle`. Picked and
+     * held are unchanged. THE GOLD IS KEPT WHILE ITS FIGURE IS STILL ASKED; else it becomes the item's first unread
+     * figure, as a tap on its body would make it ([body]); else nothing is gold.
+     *
+     * Why it exists: what a mark ASKS follows its shape and its place. A corner dragged off its box stores `quad`, and
+     * the mark then asks its four sides where it asked `w` and `h` ([Quad.asked]); the panel's `Rectangle` goes the
+     * other way; and a mark carried across the middle of its wall, or onto the wall's edge, asks the other one of
+     * `l` / `r` or none ([SurveyPrep.measures]). Until this rule the gold stayed on the key the mark had stopped asking:
+     * a gold frame round the mark, no gold figure on it, and the laser's next reading refused ("tap a measurement
+     * first") -- straight after the drag that made the trapezoid.
+     *
+     * [Out.stay] when nothing changes -- every drag that leaves the asked figures as they were -- so the screen does
+     * nothing at all for it. Where the gold moves OFF a figure, what was typed for that figure on the keypad is dropped
+     * and the keypad shuts ([Pad.SHUT_DROP]): the reading it was typed for is no longer asked.
+     */
+    fun reshaped(sc: Scene, st: State): Out {
+        val id = st.picked?.takeIf { sc.prep.itemById(it) != null } ?: return Out(st, stay = true)
+        val gold = ownGold(sc, st, id) ?: firstGold(sc, id)
+        if (gold == st.gold) return Out(st, stay = true)
+        return Out(st.copy(gold = gold), pad = if (st.gold != null) Pad.SHUT_DROP else Pad.KEEP)
+    }
 
     // ------------------------------------------------------------------ a tap on empty photo (rows 10 - 13)
 

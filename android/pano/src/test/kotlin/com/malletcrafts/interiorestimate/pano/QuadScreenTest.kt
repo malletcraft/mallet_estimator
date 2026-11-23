@@ -560,4 +560,245 @@ class QuadScreenTest {
         SurveyPrep.snapMark(d, "q0", A, B); assertNull(Quad.of(d), "snapped back level: its box again")
         assertTrue(Quad.freeOf(D1, D1, "q0")(d), "and still free under the finger")
     }
+
+    // ------------------------------------------------------------------ 10. the review of Q2 (23 Nov 2026; DESIGN-quad §13)
+
+    /** The screen's own sequence, as a model: `took` as SurveyPrepScreen runs it (the pick, the part last touched,
+     *  freeId, Fine move's pad), the panel's shape act as panelAct runs it, a drag's end and a pad's press. */
+    private inner class Screen(val p: SurveyPrep.Prep) {
+        var pick = Pick.NONE; var part = NudgePad.BODY; var freeId: String? = null; var pad: NudgePad.State? = null
+        var steps = 0; var pads = ArrayList<Pick.Pad>()
+        fun took(o: Pick.Out, body: Boolean = false) {
+            if (o.stay) return
+            val before = pick; pads += o.pad
+            pick = o.state; part = NudgePad.touched(part, before, o, body); freeId = Quad.freed(freeId, pick.picked, part)
+            pad = NudgePad.afterEvent(p, pad, pick, SURVEY, o.nudge, body)
+        }
+        fun tapBody(id: String) = took(Pick.body(sc(p), pick, id), body = true)
+        fun tapHandle(h: String) = took(Pick.handle(pick, h))
+        fun chip() = took(Pick.options(pick))
+        fun fineMove(id: String) {
+            val last = part
+            took(Pick.shaped(sc(p), pick, id))
+            pad = NudgePad.start(p, id, SURVEY, last, null, PW, PH, DP, false, free = Quad.freeIn(p, id, freeId, pick.picked, last))
+        }
+        /** panelAct's branch for the two shape acts, line for line. */
+        fun shape(id: String, act: String): MarkSheet.Shaped {
+            val r = MarkSheet.shapeStep(en, p, id, act, SURVEY, freeId, part) { steps++ }
+            freeId = r.freeId; part = r.part
+            if (r.hold) took(Pick.shaped(sc(p), pick, id))
+            pad = NudgePad.reshaped(pad, id, Quad.freeIn(p, id, freeId, pick.picked, part))
+            if (r.changed) reshaped()
+            return r
+        }
+        fun reshaped() = took(Pick.reshaped(sc(p), pick))
+        /** finePress: a cell of the pad. */
+        fun press(k: Key): NudgePad.Pressed {
+            val r = NudgePad.press(p, pad!!, k, A, B) { steps++ }
+            pad = r.state
+            if (r.moved) reshaped()
+            return r
+        }
+        fun handles(e: SurveyPrep.Mark) = Quad.handles(e, Pick.handles(pick, e.id) && !SurveyPrep.isLocked(e), Quad.freeOf(freeId, pick.picked, part)(e))
+        fun route(mm: Int) = Landing.route(null, sc(p), pick, mm, 0L)
+    }
+
+    /** A Line end's snapping distance on the example wall as the Mi A3 shows it, zoomed [zoom] times: 148 mm at fit. */
+    private fun tolAt(zoom: Double = 1.0) = SurveyGuide.endTol(DP, A / CW / zoom)
+
+    @Test fun `review 1 - Rectangle or Four corners with Fine move's pad up - the pad never nudges a part the mark no longer shows`() {
+        // THE RULE: a corner once the corners are not free, a tab once they are, is the whole mark; anything else stays
+        val on = NudgePad.State(W1, "q0", NudgePad.COARSE_MM, NudgePad.Corner.LEFT, stepTaken = true)
+        assertEquals(on.copy(part = NudgePad.BODY), NudgePad.reshaped(on, W1, false), "the step, the corner it stands in and its one undo step stay")
+        for (q in Quad.PARTS) { assertEquals(NudgePad.BODY, NudgePad.reshaped(on.copy(part = q), W1, false)!!.part, q); assertEquals(q, NudgePad.reshaped(on.copy(part = q), W1, true)!!.part, q) }
+        for (t in SurveyPrepTouch.TABS) { assertEquals(NudgePad.BODY, NudgePad.reshaped(on.copy(part = t), W1, true)!!.part, t); assertEquals(t, NudgePad.reshaped(on.copy(part = t), W1, false)!!.part, t) }
+        for (free in listOf(false, true)) {
+            assertEquals(NudgePad.BODY, NudgePad.reshaped(on.copy(part = NudgePad.BODY), W1, free)!!.part)
+            // a Line's end is no tab and no corner; a pad on another item is not this act's; no pad stays none
+            assertEquals(NudgePad.pointPart(1), NudgePad.reshaped(on.copy(part = NudgePad.pointPart(1)), W1, free)!!.part)
+            assertEquals(on, NudgePad.reshaped(on, D1, free)); assertNull(NudgePad.reshaped(null, W1, free))
+        }
+
+        // THE FOUR-CORNER WINDOW, AS THE SCREEN RUNS IT: held, its corner q0 pressed, Fine move, then the chip and `Rectangle`
+        val p = wallWithDoor(); val w = mark(p, W1); val scr = Screen(p)
+        scr.tapBody(W1); scr.tapHandle("q0"); scr.fineMove(W1)
+        assertEquals("q0", scr.pad!!.part); assertEquals(Quad.Handles.CORNERS, scr.handles(w))
+        scr.chip(); assertEquals("q0", scr.pad!!.part, "a tap on the code chip opens the panel and leaves the pad up")
+        // WITHOUT THE RULE the pad would still be aimed at q0 -- which [NudgePad.after] keeps, a corner being a part of
+        // every box mark -- and its next arrow writes `quad` straight back into the mark just made a rectangle
+        val stale = p.copy().let { c ->
+            val e = c.markById(W1)!!.second; Quad.clear(e)
+            val kept = assertNotNull(NudgePad.after(c, scr.pad, scr.pick, SURVEY)); assertEquals("q0", kept.part)
+            assertTrue(NudgePad.press(c, kept, Key.UP, A, B) {}.moved); e
+        }
+        assertNotNull(Quad.of(stale), "the hazard: one arrow, and the rectangle is a four-corner mark again")
+        // WITH IT: `Rectangle` is one undo step, the mark shows its eight tabs, and the pad is the WHOLE mark's
+        val r = scr.shape(W1, SurveyPrepEdit.SHAPE_BOX)
+        assertTrue(r.changed); assertEquals(1, scr.steps); assertNull(Quad.of(w)); assertNull(scr.freeId); assertEquals(Quad.Handles.TABS, scr.handles(w))
+        assertEquals(NudgePad.BODY, scr.pad!!.part); assertEquals(W1, scr.pad!!.id)
+        for (t in SurveyPrepTouch.TABS) assertTrue(NudgePad.solid(scr.pad, W1, t), "$t: all eight solid, the whole mark moves")
+        // one arrow: the whole mark moves 1 mm, and NO `quad` is written
+        val box = boxOf(w)
+        assertTrue(scr.press(Key.RIGHT).moved)
+        assertEquals(listOf(box[0] + 1, box[1] + 1, box[2], box[3]), boxOf(w)); assertFalse(Quad.KEY in w.extra); assertEquals(Quad.Handles.TABS, scr.handles(w))
+        assertTrue(scr.press(Key.UP).moved); assertFalse(Quad.KEY in w.extra); assertEquals(listOf(box[0] + 1, box[1] + 1, box[2] + 1, box[3] + 1), boxOf(w))
+
+        // THE REVERSE: a plain door, its left tab pressed, Fine move, then the chip and `Four corners`
+        val d = mark(p, D1); val s2 = Screen(p)
+        s2.tapBody(D1); s2.tapHandle("l"); s2.fineMove(D1)
+        assertEquals("l", s2.pad!!.part); assertEquals(Quad.Handles.TABS, s2.handles(d))
+        s2.chip()
+        val f = s2.shape(D1, SurveyPrepEdit.SHAPE_FREE)
+        assertFalse(f.changed); assertEquals(0, s2.steps); assertEquals(D1, s2.freeId); assertEquals(Quad.Handles.CORNERS, s2.handles(d))
+        assertEquals(NudgePad.BODY, s2.pad!!.part, "no tab is on screen: the arrows move the whole mark")
+        for (q in Quad.PARTS) assertTrue(NudgePad.solid(s2.pad, D1, q), q)
+        for (k in listOf(Key.UP, Key.DOWN, Key.LEFT, Key.RIGHT)) assertTrue(NudgePad.live(s2.pad!!, k), "${k.name}: every arrow answers, where the left tab's took two")
+        assertTrue(s2.press(Key.LEFT).moved)
+        assertEquals(listOf(3049.0, 3449.0, 0.0, 2100.0), boxOf(d), "the whole door, not its left edge alone"); assertNull(Quad.of(d))
+        // ... and `Four corners` again on a mark already free, the pad on a corner: the corner it is
+        s2.tapHandle("q2"); assertEquals("q2", s2.pad!!.part)
+        s2.chip(); s2.shape(D1, SurveyPrepEdit.SHAPE_FREE); assertEquals("q2", s2.pad!!.part)
+        // with no pad up, neither act makes one
+        val s3 = Screen(wallWithDoor()); s3.tapBody(D1); s3.shape(D1, SurveyPrepEdit.SHAPE_FREE); assertNull(s3.pad)
+    }
+
+    @Test fun `review 2 - the gold follows what the mark asks - after the corner drag that makes the trapezoid the bottom side is gold and the laser's reading lands on it`() {
+        // A PLAIN WINDOW, tapped: held, and its first unread figure -- its width -- is gold
+        val p = SurveyPrep.fresh(L, A, B)
+        val w = SurveyPrep.Mark(W1, "W", "FW1", 600.0, 2970.0, 900.0, 2450.0).also { p.surface("front").marks.add(it) }
+        val rect = listOf("FW1.w", "FW1.h", "FW1.l", "FW1.s", "FW1.p")
+        assertEquals(rect, p.keysOf("front", w, A, B))
+        val scr = Screen(p)
+        scr.tapBody(W1); assertEquals(State(W1, true, "FW1.w"), scr.pick)
+        // `Four corners`: nothing in the record, so nothing it asks has changed -- the gold stays on the width
+        scr.shape(W1, SurveyPrepEdit.SHAPE_FREE); assertEquals(State(W1, true, "FW1.w"), scr.pick); assertEquals(rect, p.keysOf("front", w, A, B))
+        // the bottom-left corner pressed and dragged 770 mm up: the left side stays upright, and the mark asks its SIDES
+        scr.tapHandle("q0")
+        val start = w.copy()
+        assertEquals("v", assertNotNull(Quad.drag(w, start, 0, 0.0, 770.0, A, B, tolAt())).snap)
+        assertEquals(ASKED, p.keysOf("front", w, A, B)); assertFalse(MeasureFlow.takes(p, "FW1.w", SURVEY, ::ab))
+        // while the finger is down nothing of the pick changes (row 9) -- and that is the fault if it is left there: the
+        // gold is a key the mark stopped asking, no plate is gold, and the laser's next reading is thrown away
+        assertEquals(scr.pick, Pick.dragged(scr.pick).state)
+        assertIs<Landing.Route.Refused>(scr.route(2495))
+        assertTrue(PhotoFigures.ofMark(en, p.actual, "front", w, A, B, true, scr.pick.gold).none { it.gold }, "no figure of it is the gold one")
+        // THE DRAG ENDS: the gold is asked again -- its first unread figure, the bottom side -- and the reading lands on it
+        val before = scr.pick
+        val o = Pick.reshaped(sc(p), scr.pick)
+        assertFalse(o.stay); assertEquals(State(W1, true, "FW1.bottom"), o.state); assertTrue(Pick.turnedGold(before, o.state))
+        assertEquals(Pick.Pad.SHUT_DROP, o.pad, "what was typed for the width is dropped: the mark no longer asks it")
+        scr.reshaped(); assertEquals(State(W1, true, "FW1.bottom"), scr.pick); assertEquals(W1, scr.freeId); assertEquals("q0", scr.part)
+        assertEquals("FW1.bottom", assertIs<Landing.Route.Gold>(scr.route(2495)).code)
+        assertEquals(listOf("FW1.bottom"), PhotoFigures.ofMark(en, p.actual, "front", w, A, B, true, scr.pick.gold).filter { it.gold }.map { it.dim.code })
+        // ... and from there the walk is the design's: bottom, right, top, left, then the type's own
+        var st = scr.pick; val walked = ArrayList<String>()
+        for (v in listOf(2492.0, 1550.0, 2370.0, 780.0, 600.0, 900.0, 150.0)) { val g = st.gold!!; walked += g; p.actual[g] = v; st = Landing.after(sc(p), st, g, busy = false).state }
+        assertEquals(ASKED, walked); assertNull(st.gold)
+
+        // THE REVERSE, BY A DRAG: the four-corner window with a SIDE gold, its corner dragged back onto its box
+        val q = wall(); val w2 = mark(q, W1); val s2 = Screen(q)
+        s2.tapBody(W1); assertEquals("FW1.bottom", s2.pick.gold)
+        s2.took(Pick.figure(sc(q), s2.pick, "FW1.left")); assertEquals(State(W1, true, "FW1.left"), s2.pick)
+        s2.tapHandle("q0")
+        assertEquals("hv", assertNotNull(Quad.drag(w2, w2.copy(), 0, 0.0, -770.0, A, B, tolAt())).snap); assertNull(Quad.of(w2))
+        assertEquals(rect, q.keysOf("front", w2, A, B))
+        s2.reshaped(); assertEquals(State(W1, true, "FW1.w"), s2.pick); assertEquals("FW1.w", assertIs<Landing.Route.Gold>(s2.route(2370)).code)
+        assertEquals(Quad.Handles.CORNERS, s2.handles(w2), "still four corners under the finger: only the gold moved")
+        // THE REVERSE, BY THE PANEL: `Rectangle` with a side gold -- the width is gold when the panel has closed
+        val r = wall(); val s3 = Screen(r)
+        s3.tapBody(W1); assertEquals("FW1.bottom", s3.pick.gold)
+        assertTrue(s3.shape(W1, SurveyPrepEdit.SHAPE_BOX).changed)
+        assertEquals(State(W1, true, "FW1.w"), s3.pick); assertEquals("FW1.w", assertIs<Landing.Route.Gold>(s3.route(2370)).code)
+        // BY FINE MOVE: a freed door's corner nudged 1 mm off its box stores its shape -- the gold moves to its bottom side
+        val d = wallWithDoor(); val s4 = Screen(d); val door = mark(d, D1)
+        s4.tapBody(D1); assertEquals("FD1.w", s4.pick.gold)
+        s4.shape(D1, SurveyPrepEdit.SHAPE_FREE); s4.tapHandle("q3"); s4.fineMove(D1); assertEquals("q3", s4.pad!!.part)
+        assertTrue(s4.press(Key.RIGHT).moved); assertNotNull(Quad.of(door))
+        assertEquals(State(D1, true, "FD1.bottom"), s4.pick); assertEquals("q3", s4.pad!!.part, "the pad stays up, on its corner")
+
+        // NOTHING CHANGES AT ALL (Out.stay) WHERE THE ASKED FIGURES ARE AS THEY WERE: a body move, a read figure that is
+        // gold, a Line, nothing picked, an item that is gone
+        val t = wallWithDoor(); val tw = mark(t, W1)
+        val held = State(W1, true, "FW1.s")
+        assertTrue(SurveyPrep.moveMark(tw, tw.copy(), NudgePad.BODY, 40.0, 25.0, A, B))
+        Pick.reshaped(sc(t), held).let { assertTrue(it.stay); assertEquals(held, it.state); assertEquals(Pick.Pad.KEEP, it.pad) }
+        t.actual["FW1.bottom"] = 2492.0
+        assertTrue(Pick.reshaped(sc(t), State(W1, true, "FW1.bottom")).stay, "a read figure he chose stays gold while it is asked")
+        assertTrue(Pick.reshaped(sc(t), Pick.NONE).stay); assertTrue(Pick.reshaped(sc(t), State("gone", true, null)).stay)
+        val line = SurveyPrep.Meas("m1", SurveyMeas.LINE, "F-M1", mutableListOf(pt(200.0, 300.0), pt(1400.0, 300.0))).also { t.surface("front").meas.add(it) }
+        assertTrue(Pick.reshaped(sc(t), State("m1", true, t.keysOf(line).first())).stay)
+        // nothing is ever gold on the 360, nor after Survey: nothing turns gold there, whatever moved
+        assertTrue(Pick.reshaped(sc(t, step = StepRoute.PANO), State(W1, true, null)).stay); assertTrue(Pick.reshaped(sc(t, 1), State(W1, true, null)).stay)
+        // a held mark with NOTHING gold and figures unread takes its first unread one, as a tap on its body gives it --
+        // and nothing typed is dropped, there being no figure it was typed for
+        Pick.reshaped(sc(t), State(W1, true, null)).let { assertEquals(State(W1, true, "FW1.right"), it.state); assertEquals(Pick.Pad.KEEP, it.pad) }
+        assertEquals(Pick.body(sc(t), State(W1, true, null), W1).state, Pick.reshaped(sc(t), State(W1, true, null)).state)
+        // held is never changed by it: a mark the walk reached stays without handles
+        assertEquals(State(W1, false, "FW1.right"), Pick.reshaped(sc(t), State(W1, false, "FW1.w")).state)
+        // (the 40 mm it was carried put it nearer the RIGHT corner: it asks `r` where it asked `l` -- a move changes
+        // what is asked, with no shape in it)
+        assertEquals(SIDES + listOf("FW1.r", "FW1.s", "FW1.p"), t.keysOf("front", tw, A, B))
+        assertEquals(State(W1, true, "FW1.right"), Pick.reshaped(sc(t), State(W1, true, "FW1.l")).state)
+        // every figure read and the gold on a key it stopped asking: nothing is gold
+        for (k in t.keysOf("front", tw, A, B)) t.actual[k] = 1000.0
+        Pick.reshaped(sc(t), State(W1, true, "FW1.w")).let { assertEquals(State(W1, true, null), it.state); assertEquals(Pick.Pad.SHUT_DROP, it.pad) }
+
+        // NOT ONLY A SHAPE: a door carried onto the wall's edge stops asking its distance from that corner (the rule is as
+        // old as the checklist) -- the gold left on it was refused the same way, and follows now
+        val e = wallWithDoor(); val ed = mark(e, D1)
+        assertTrue("FD1.r" in e.keysOf("front", ed, A, B))
+        assertTrue(SurveyPrep.moveMark(ed, ed.copy(), NudgePad.BODY, 150.0, 0.0, A, B)); assertEquals(A, ed.x1)
+        assertFalse("FD1.r" in e.keysOf("front", ed, A, B))
+        assertEquals(State(D1, true, "FD1.w"), Pick.reshaped(sc(e), State(D1, true, "FD1.r")).state)
+    }
+
+    @Test fun `review 4 - a corner let go where it started is unmoved - its drag takes the undo step back`() {
+        val p = wallWithDoor(); val w = mark(p, W1); val d = mark(p, D1)
+        // a mark is unmoved against itself and its copy; any move of its box or of one corner is a move
+        assertTrue(Quad.unmoved(w, w)); assertTrue(Quad.unmoved(w, w.copy())); assertTrue(Quad.unmoved(d, d.copy()))
+        for (part in listOf(NudgePad.BODY, "l", "rt", "q1")) {
+            val m = w.copy(); assertTrue(SurveyPrep.moveMark(m, w.copy(), part, 7.0, 7.0, A, B), part); assertFalse(Quad.unmoved(m, w), part)
+        }
+        // the SHAPE counts, not only the box: the window against its own bounding rectangle
+        assertFalse(Quad.unmoved(w.copy().also { Quad.clear(it) }, w))
+        // nothing else is looked at: a drag writes no other key, and no reading
+        assertTrue(Quad.unmoved(w.copy().also { it.extra = SurveyPrep.withKey(it.extra, SurveyPrep.LOCKED, true) }, w))
+
+        // THE COMMON CASE ON THE PHONE: a slope smaller than the snapping distance at this zoom. At fit on the example
+        // wall that is 148 mm -- the bottom-left corner of the window as a plain rectangle, dragged up 50, 100, 140 mm,
+        // snaps back level, no `quad` is stored, and the mark is exactly as it was: UNMOVED, so the drag's undo step goes
+        // and nothing is saved
+        val r = SurveyPrep.Mark("w9", "W", "FW9", 600.0, 2970.0, 900.0, 2450.0)
+        assertEquals(148.0, Math.floor(tolAt()))
+        for (up in listOf(50.0, 100.0, 140.0)) {
+            val start = r.copy()
+            assertEquals("hv", assertNotNull(Quad.drag(r, start, 0, 0.0, up, A, B, tolAt()), "$up: the drag itself is taken").snap, "$up")
+            assertNull(Quad.of(r)); assertTrue(Quad.unmoved(r, start), "$up")
+        }
+        // 160 mm is the first slope that stays: moved, its step kept
+        r.copy().let { start -> val m = r.copy(); assertEquals("v", Quad.drag(m, start, 0, 0.0, 160.0, A, B, tolAt())!!.snap); assertNotNull(Quad.of(m)); assertFalse(Quad.unmoved(m, start)) }
+        // zoomed in four times the limit is 37 mm, eight times the 25 mm floor: a small slope is drawn zoomed in
+        for ((zoom, back, stays) in listOf(Triple(4.0, 30.0, 40.0), Triple(8.0, 20.0, 30.0))) {
+            val start = r.copy()
+            val a = r.copy(); assertNotNull(Quad.drag(a, start, 0, 0.0, back, A, B, tolAt(zoom))); assertTrue(Quad.unmoved(a, start), "$zoom x, $back mm")
+            val b = r.copy(); assertNotNull(Quad.drag(b, start, 0, 0.0, stays, A, B, tolAt(zoom))); assertFalse(Quad.unmoved(b, start), "$zoom x, $stays mm")
+        }
+        // (a side snaps only within 5 degrees too: on the 400 mm door the limit is 35 mm at any zoom that allows more)
+        d.copy().let { start ->
+            val a = d.copy(); assertEquals("hv", Quad.drag(a, start, 3, 0.0, -30.0, A, B, tolAt())!!.snap); assertTrue(Quad.unmoved(a, start))
+            val b = d.copy(); assertEquals("v", Quad.drag(b, start, 3, 0.0, -50.0, A, B, tolAt())!!.snap); assertFalse(Quad.unmoved(b, start))
+        }
+        // dragged far out and BACK in one gesture (every move is from the mark as it was at the press): unmoved again
+        val start = w.copy()
+        assertNotNull(Quad.drag(w, start, 2, -400.0, -300.0, A, B, tolAt())); assertFalse(Quad.unmoved(w, start))
+        assertNotNull(Quad.drag(w, start, 2, 0.0, 0.0, A, B, tolAt())); assertTrue(Quad.unmoved(w, start))
+        // a four-corner mark's corner dragged a little along its sloping side and let go off its lines: moved
+        assertNotNull(Quad.drag(w, start, 0, 0.0, 300.0, A, B, tolAt())); assertFalse(Quad.unmoved(w, start))
+        // it is the nudge's own test too (NudgePad.press takes its step only for a nudge that changes the mark): a corner
+        // hard against the face's edge moves nothing and takes none
+        val low = SurveyPrep.Mark("d3", "D", "FD3", 0.0, 400.0, 0.0, 2100.0).also { p.surface("front").marks.add(it) }
+        var steps = 0
+        assertFalse(NudgePad.press(p, NudgePad.start(p, "d3", SURVEY, "q0", null, PW, PH, DP)!!, Key.LEFT, A, B) { steps++ }.moved); assertEquals(0, steps)
+        assertTrue(Quad.unmoved(low, SurveyPrep.Mark("d3", "D", "FD3", 0.0, 400.0, 0.0, 2100.0)))
+    }
 }

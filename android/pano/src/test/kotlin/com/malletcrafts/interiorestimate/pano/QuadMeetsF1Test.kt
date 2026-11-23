@@ -373,6 +373,13 @@ class QuadMeetsF1Test {
         assertEquals(1, count(act, "if (r.hold) took(Pick.shaped(scene(), pick, pn.id))")); assertEquals(1, count(act, "if (r.changed) changed()"))
         // ... after freeId and the part are set, so the hold keeps them (Quad.freed(id, id, BODY) is id)
         assertTrue(act.indexOf("freeId = r.freeId; part = r.part") in 0 until act.indexOf("if (r.hold) took("))
+        // THE REVIEW OF Q2 (DESIGN-quad section 13), findings 1 and 2: once the act has run and the mark is held, Fine
+        // move's pad -- which can be up across the act -- is asked again by the screen's one free, and after `Rectangle`
+        // the gold is asked again. Both AFTER the hold: NudgePad.afterEvent runs inside took and keeps a corner
+        assertEquals(1, count(act, "pad = NudgePad.reshaped(pad, pn.id, Quad.freeIn(prep, pn.id, freeId, pick.picked, part))")); assertEquals(1, count(screen, "NudgePad.reshaped("))
+        assertEquals(1, count(act, "if (r.changed) reshaped()"))
+        assertTrue(act.indexOf("if (r.hold) took(") in 0 until act.indexOf("pad = NudgePad.reshaped("))
+        assertTrue(act.indexOf("pad = NudgePad.reshaped(") in 0 until act.indexOf("if (r.changed) reshaped()"))
         // the shape's act asks no phase and no lock of its own: MarkSheet.shapeStep answers both (PhaseToolsTest's count of 2 stands)
         assertEquals(1, count(screen, "MarkSheet.shapeStep(")); assertEquals(0, count(screen, "Quad.clear(")); assertEquals(0, count(screen, "Quad.set("))
 
@@ -406,12 +413,28 @@ class QuadMeetsF1Test {
         // and the guide goes off however the gesture ends. A refused drag (null) says nothing.
         assertEquals(1, count(screen, "val ci = Quad.cornerOf(part)"))
         assertEquals(1, count(screen, "Quad.drag(e, start, ci, sq.mmX(jx) - c0[0], sq.mmY(jy) - c0[1], ab[0], ab[1], tol)?.let { went -> onEndGuideS(Quad.guide(s, went)) }"))
-        assertEquals(1, count(screen, "cancel = { onEndGuideS(null) }, gate = true) { jx, jy ->"))
+        assertEquals(1, count(screen, "cancel = { onEndGuideS(null) }, gate = true, same = { Quad.unmoved(e, start) }) { jx, jy ->"))
         assertEquals(1, count(screen, "if (g.locked == null && Quad.cornerOf(pt) != null) cornerGrabbed = true")); assertEquals(1, count(screen, "if (cornerGrabbed) onEndGuideS(null)"))
         assertEquals(1, count(screen, "Quad.drag("))
         // FINE MOVE: told whether the corners are free; a refused corner nudge says its line
         assertEquals(1, count(screen, "free = Quad.freeIn(prep, mid, freeId, pick.picked, last))"))
         assertEquals(1, count(screen, "val r = NudgePad.press(prep, st, key, a[0], a[1]) { snapshot() }\n        pad = r.state\n        r.said?.let { m -> say(m(tx)) }"))
+
+        // THE REVIEW OF Q2, finding 2 -- THE GOLD FOLLOWS WHAT THE MARK ASKS: ONE function of the screen, Pick.reshaped
+        // through took, asked wherever the picked item can have moved or changed shape -- the photo's drag end, a nudge
+        // of Fine move's pad that moved something, the 360's drag end, and the panel's `Rectangle` (above)
+        assertEquals(1, count(screen, "fun reshaped() = took(Pick.reshaped(scene(), pick))")); assertEquals(1, count(screen, "Pick.reshaped("))
+        assertEquals(1, count(screen, "onChanged = { changed(); reshaped() },"), "the photo's drag end"); assertEquals(0, count(screen, "onChanged = { changed() }"))
+        assertEquals(1, count(screen, "if (r.moved) { changed(); reshaped() } else rev++"), "Fine move's pad")
+        assertEquals(1, count(screen, "changed = { changed(); reshaped() },"), "the 360's drag end"); assertEquals(0, count(screen, "changed = { changed() }"))
+        assertEquals(4, count(screen, "reshaped() }") + count(screen, "if (r.changed) reshaped()"), "those four, and no other")
+        // THE REVIEW OF Q2, finding 4 -- A CORNER LET GO WHERE IT STARTED TAKES ITS UNDO STEP BACK: the corner's grab says
+        // whether its mark is unmoved (Quad.unmoved, against the mark as it was at the press), the gesture keeps that
+        // answer with cornerGrabbed, and asks it once, when the gesture ends, BEFORE it reports a change
+        assertEquals(1, count(screen, "cancel = { onEndGuideS(null) }, gate = true, same = { Quad.unmoved(e, start) }) { jx, jy ->")); assertEquals(1, count(screen, "Quad.unmoved("))
+        assertEquals(1, count(screen, "val same: (() -> Boolean)? = null,")); assertEquals(1, count(screen, "same = {"), "only a corner's grab says it")
+        assertEquals(1, count(screen, "if (cornerGrabbed) cornerSame = g.same"))
+        assertEquals(1, count(screen, "if (moved && cornerSame?.invoke() == true) { onRevertS(); moved = false }\n                    if (moved) onChangedS() else tick++"))
 
         // THE PAINTER: which handles is Quad.handles'; the chip keeps clear of the free corners; the outline, the gold frame
         // and the hole go round the shape (Quad.of / corners / grown); the plates are handed the one free
@@ -449,7 +472,8 @@ class QuadMeetsF1Test {
             Regex("""\bQuad\.(\w+)""").findAll(text).forEach { named += it.groupValues[1] }
             if (name !in setOf("SurveyPrepScreen.kt", "SurveyPrepDraw.kt", "SurveyPrep360.kt")) assertFalse(text.contains("Quad."), "$name names Quad")
         }
-        assertEquals(sortedSetOf("Handles", "PARTS", "cornerOf", "corners", "drag", "freeCorners", "freeIn", "freeOf", "freed", "grown", "guide", "handles", "of"), named)
+        // (`unmoved` joined in the review of Q2: it READS two marks, for the end of a corner's drag -- still no write)
+        assertEquals(sortedSetOf("Handles", "PARTS", "cornerOf", "corners", "drag", "freeCorners", "freeIn", "freeOf", "freed", "grown", "guide", "handles", "of", "unmoved"), named)
     }
 
     // ---------------------------------------------------------------- the design names what pins Q2's lines
@@ -477,7 +501,13 @@ class QuadMeetsF1Test {
                 "freeId = Quad.freed(freeId, pick.picked, part)",
                 "free = Quad.freeIn(prep, mid, freeId, pick.picked, last))",
                 "corners = Quad.freeCorners(e, freeS(e))",
-                "MarkSheet.shapeStep(tx, prep, pn.id, step.act, quoteStage, freeId, part) { snapshot() }"),
+                "MarkSheet.shapeStep(tx, prep, pn.id, step.act, quoteStage, freeId, part) { snapshot() }",
+                // ... and the lines its review wrote (DESIGN-quad section 13)
+                "pad = NudgePad.reshaped(pad, pn.id, Quad.freeIn(prep, pn.id, freeId, pick.picked, part))",
+                "fun reshaped() = took(Pick.reshaped(scene(), pick))",
+                "onChanged = { changed(); reshaped() },",
+                "same = { Quad.unmoved(e, start) }",
+                "if (moved && cornerSame?.invoke() == true) { onRevertS(); moved = false }"),
             "SurveyPrepDraw.kt" to listOf(
                 "SurveyPrepTouch.handlesOf(bb, spot, freeAt)",
                 "Quad.handles(e, sel && o.mode == \"main\" && !locked && o.tabs, o.free(e))",

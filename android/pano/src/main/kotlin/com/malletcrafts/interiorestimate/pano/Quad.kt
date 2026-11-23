@@ -73,9 +73,25 @@ object Quad {
 
     // ------------------------------------------------------------------ the record
 
-    /** Whether a mark of type [t] may have a `quad`: every mark that is not a spot (a point, or a Note's pin). */
-    fun mayHave(t: String): Boolean = !SurveyPrep.isSpot(t)
+    /**
+     * Whether a mark of type [t] may have a `quad` (rule 5 of DESIGN-quad §1.2): every mark that is not a spot (a point,
+     * or a Note's pin) -- AND NOT A NOTE IN ANY OTHER SPELLING ([noteToken]; the review of Q2, finding 5). The phone
+     * knows a Note by its exact token ([MarkTypes.isPin], [MarkLife.isNote]); S5 knows one in any capitals and with
+     * white space round the token (`asis_view.js` `isNote`: `e.t.trim().toUpperCase() === 'NOTE'`, the server's rule of
+     * what is only words), and reads such a mark's `quad` as no shape. The five tests are ONE rule on the phone, S5 and
+     * S4, so the phone refuses the same types. No build writes such a type: this changes nothing for a record a phone
+     * wrote, and only what the phone reads from a file something else wrote.
+     */
+    fun mayHave(t: String): Boolean = !SurveyPrep.isSpot(t) && !noteToken(t)
     fun mayHave(e: SurveyPrep.Mark): Boolean = mayHave(e.t)
+
+    /** The white space JavaScript's `String.prototype.trim` removes, exactly (ECMAScript WhiteSpace and
+     *  LineTerminator): Kotlin's own `trim` differs from it on U+001C … U+001F and on U+FEFF. */
+    private fun jsSpace(c: Char): Boolean = c in '\u0009'..'\u000d' || c == ' ' || c == '\u00a0' || c == '\u1680' || c in '\u2000'..'\u200a' ||
+        c == '\u2028' || c == '\u2029' || c == '\u202f' || c == '\u205f' || c == '\u3000' || c == '\ufeff'
+
+    /** Whether [t] is the Note's token as S5 reads it: trimmed as JavaScript trims, in any capitals. */
+    fun noteToken(t: String): Boolean = t.trim(::jsSpace).uppercase() == MarkTypes.NOTE
 
     /** One part: a JSON NUMBER, finite, from 0 to 1. NEVER text that looks like one -- S5's reader tests
      *  `typeof v === 'number'` and S4's `is_a?(Numeric)`, and the three must read one file one way. */
@@ -278,6 +294,18 @@ object Quad {
         }
         return true
     }
+
+    /**
+     * WHETHER THE MARK [e] IS WHERE AND HOW [o] IS: the same box, and the same four corners in mm. What a nudge asks
+     * before it takes its ↶ step ([NudgePad.press]), and what THE END OF A CORNER DRAG asks of the mark as it was when
+     * the drag began (the review of Q2, finding 4): a corner let go where it started -- it snapped back onto its own
+     * two lines, which every drag shorter than the snapping distance at that zoom does -- changed nothing, so the drag
+     * takes its ↶ step back and there is nothing to save, as a press on a handle that lifts as a tap does
+     * ([SurveyGuide.revertOnTap]). Readings and every other key are not looked at: a drag writes none of them.
+     */
+    fun unmoved(e: SurveyPrep.Mark, o: SurveyPrep.Mark): Boolean =
+        e.x0 == o.x0 && e.x1 == o.x1 && e.y0 == o.y0 && e.y1 == o.y1 &&
+            corners(e).zip(corners(o)).all { (p, q) -> p[0] == q[0] && p[1] == q[1] }
 
     /** [set], answering the corners as placed (0.1 mm) when the shape was taken; null, and [e] untouched, when refused. */
     private fun place(e: SurveyPrep.Mark, mm: List<DoubleArray>): List<DoubleArray>? {

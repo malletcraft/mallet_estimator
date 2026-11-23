@@ -698,6 +698,15 @@ internal fun SurveyPrepDialog(
         goldTurned(before)
         rev++
     }
+    /**
+     * THE PICKED ITEM WAS MOVED OR RESHAPED UNDER THE PICK (the review of Q2, finding 2): what it asks may have changed
+     * -- a corner dragged off its box asks its four sides where it asked `w` and `h`, `Rectangle` the other way, a mark
+     * carried to the wall's edge or across its middle another of `l` / `r` -- so the gold is asked again (Pick.reshaped:
+     * kept while its figure is still asked, else the item's first unread one). Asked when a drag ends, after a nudge
+     * that moved something, and after the panel's `Rectangle`; it changes nothing at all for a move that left the asked
+     * figures as they were (Pick.Out.stay).
+     */
+    fun reshaped() = took(Pick.reshaped(scene(), pick))
     /** WHAT FOLLOWS A READING THAT IS IN (Landing.After), DONE: the keypad, picked / held / gold, what the hand feels,
      *  the note, the plate that rings, and the pan if the gold moved by itself. */
     fun landed(a: Landing.After) {
@@ -1288,7 +1297,8 @@ internal fun SurveyPrepDialog(
         pad = r.state
         // a corner the shape refuses moved nothing and took no ↶ step: it says its one line (port 63 slice Q2; decision 4)
         r.said?.let { m -> say(m(tx)) }
-        if (r.moved) changed() else rev++
+        // a nudge that moved something may have changed what the mark asks (a corner's first mm stores its shape)
+        if (r.moved) { changed(); reshaped() } else rev++
     }
     /**
      * ONE OF THE PANEL'S ACTS TAPPED (DESIGN-imagemeter §6: "An act is Done followed by the act ... except Delete, which
@@ -1332,6 +1342,13 @@ internal fun SurveyPrepDialog(
                             r.said?.let { t -> say(t) }
                             if (r.hold) took(Pick.shaped(scene(), pick, pn.id))
                             if (r.changed) changed()
+                            // FINE MOVE'S PAD CAN BE UP ACROSS THE ACT (the code chip opens the panel without ending it):
+                            // it never nudges a part the mark no longer shows -- a corner after `Rectangle`, whose next
+                            // arrow would write the shape straight back, or a tab after `Four corners` (the review of
+                            // Q2, finding 1; NudgePad.reshaped, by the screen's one free)
+                            pad = NudgePad.reshaped(pad, pn.id, Quad.freeIn(prep, pn.id, freeId, pick.picked, part))
+                            // ... and after `Rectangle` the mark asks `w` and `h` again: the gold follows (finding 2)
+                            if (r.changed) reshaped()
                         }
                         else -> Unit
                     }
@@ -1536,7 +1553,8 @@ internal fun SurveyPrepDialog(
         focus = { s -> if (tab != s) { tab = s; rev++ } },
         before = { snapshot() },
         moved = { rev++ },
-        changed = { changed() },
+        // (the one rule at every drag's end; nothing is ever gold on the 360, so there it changes nothing)
+        changed = { changed(); reshaped() },
         revert = { revertPress() },
         // a tap on empty 360 lets the picked item go (Pick.empty: nothing is ever gold on the 360)
         deselect = { touched(); lineSel = null; took(Pick.empty(pick)) },
@@ -1853,7 +1871,8 @@ internal fun SurveyPrepDialog(
                     onLineGrab = { g -> lineSel = g; rev++ },
                     onBeforeChange = { snapshot() },
                     onMoved = { rev++ },
-                    onChanged = { changed() },
+                    // a drag that ended may have changed what the picked item asks: the gold follows (Pick.reshaped)
+                    onChanged = { changed(); reshaped() },
                     stepAt = { x, y -> routeS(x, y) },
                     onStep = { k -> goStepS(k) },
                     tool = tool,
@@ -2459,6 +2478,10 @@ private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSl
                       *  finger is Pick.BODY_SLOP_DP from where it went down (it moved from the first pixel), so a press
                       *  that lifts as a tap never nudged the item it tapped. */
                      val slop: Boolean = false,
+                     /** Port 63 slice Q2, its review (finding 4): whether the item is where and how it was when this grab
+                      *  began (Quad.unmoved) -- a corner's grab says it, so a corner let go where it started takes its
+                      *  undo step back. Null: the grab does not say, and its step stays. */
+                     val same: (() -> Boolean)? = null,
                      val move: (Double, Double) -> Unit)
 
 /** A press on the selected Line's or tape's end (or an area's corner), v52 slice 10: with Select on, [grab] moves it;
@@ -2969,7 +2992,7 @@ private fun SpPhoto(
                             val s = tab
                             SpGrab(px, py, SpSel(tab, id = e.id, part = part), null,
                                 focus = { Quad.corners(e)[ci].let { q -> doubleArrayOf(sq.x(q[0]), sq.y(q[1])) } },
-                                cancel = { onEndGuideS(null) }, gate = true) { jx, jy ->
+                                cancel = { onEndGuideS(null) }, gate = true, same = { Quad.unmoved(e, start) }) { jx, jy ->
                                 Quad.drag(e, start, ci, sq.mmX(jx) - c0[0], sq.mmY(jy) - c0[1], ab[0], ab[1], tol)?.let { went -> onEndGuideS(Quad.guide(s, went)) }
                             }
                         }
@@ -3162,6 +3185,8 @@ private fun SpPhoto(
                 var endGrabbed = false
                 // port 63 slice Q2: the press grabbed a CORNER of the held mark -- its guide goes off when the gesture ends
                 var cornerGrabbed = false
+                // ... and whether that mark is where and how it was when the corner was grabbed (SpGrab.same)
+                var cornerSame: (() -> Boolean)? = null
                 // the grab moves only past the dead zone: an end's (slice 10) or a chain's point (slice 11, SpGrab.gate)
                 var gated = false
                 // v52 slice 10 review: an end moves only once the finger has left the touch slop (4 dp at least), so a
@@ -3225,6 +3250,7 @@ private fun SpPhoto(
                                     // a handle of the held item pressed: that part is the one last touched (Pick.handle)
                                     val pt = g.sel.part
                                     if (g.locked == null && Quad.cornerOf(pt) != null) cornerGrabbed = true
+                                    if (cornerGrabbed) cornerSame = g.same
                                     if (g.locked == null && pt != "body") onHandleS(pt)
                                     else if (h is SurveyPrepTouch.Hit.Node && g.locked == null) onHandleS(Pick.nodePart(h.i))
                                 }
@@ -3439,6 +3465,11 @@ private fun SpPhoto(
                     // ... and a corner's, the same (port 63 slice Q2)
                     if (cornerGrabbed) onEndGuideS(null)
                     loupe = null
+                    // A CORNER LET GO WHERE IT STARTED (the review of Q2, finding 4): it snapped back onto its own two
+                    // lines -- every drag shorter than the snapping distance at this zoom does -- so the mark is exactly
+                    // as it was (Quad.unmoved). The drag's undo step is taken back off, as for a handle whose press
+                    // lifts as a tap: no ↶ entry that does nothing, and nothing new to save
+                    if (moved && cornerSame?.invoke() == true) { onRevertS(); moved = false }
                     if (moved) onChangedS() else tick++
                     onBusyS(false)
                 }

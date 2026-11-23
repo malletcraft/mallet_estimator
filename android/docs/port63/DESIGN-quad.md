@@ -114,7 +114,11 @@ A `quad` is read only when all of these hold. They are tested on the parts, so t
    every device.
 4. It is convex and uncrossed: at every corner the turn from one side to the next is to the left
    (`cross(q[i+1] − q[i], q[i+2] − q[i+1]) > 0` for all four, the indices taken round the four).
-5. The mark may have one: it is not a point (E P F PLB LV) and not a Note (`!SurveyPrep.isSpot(t)`).
+5. The mark may have one: it is not a point (E P F PLB LV) and not a Note (`!SurveyPrep.isSpot(t)`). **A Note is
+   known here as S5 knows it — its token in any capitals, with white space round it** (`Quad.noteToken`; S5's
+   `isNote` is `e.t.trim().toUpperCase() === 'NOTE'`), though the phone draws a Note only for the exact token. No
+   build writes another spelling; the rule is S5's to the token so that a file something else wrote is read one way
+   (the review of Q2, finding 5: §13).
 
 Anything else is not a shape:
 
@@ -1257,7 +1261,9 @@ Pick a window, tap its `FW1 ▾` chip, `Four corners`, drag a corner (a side nea
 read its four sides: each figure stands on its own side, `?` until it is read. `Fine move` moves a corner by 1 mm.
 `Rectangle` in the same place puts it back. Use a project at Survey, or one only on the phone. **One line more: an
 exported `-survey.jpg` picture of a four-corner mark shows its outline and no side figures yet — for a picture to
-send before the next build, keep the four Lines.**
+send before the next build, keep the four Lines.** *(Made exact in the review, §13 finding 3: the picture's corner and
+sill figures are drawn to the mark's BOUNDING BOX, not to the corner they are measured to. §12.4 has the line as it
+goes to him.)*
 
 ## 12. Q2 as built (23 Nov 2026)
 
@@ -1287,7 +1293,9 @@ Line numbers are this commit's. `SPS` = `app/SurveyPrepScreen.kt`, `SPD` = `app/
    drawn bold (both on a square corner). A side within 5° of upright or level snaps straight when the corner is within
    a Line end's snapping distance of it (25 mm, or 14 dp at the zoom he is at — zoom in to draw a small run-out). **A
    corner that would break the shape simply stops**: no side under 20 mm, no fold, nothing said. A tap on a handle
-   moves nothing. A second finger puts the corner back. One ↶ step per drag.
+   moves nothing. A second finger puts the corner back. One ↶ step per drag — and NONE for a drag that leaves the mark
+   exactly as it was (the corner let go where it started: it snapped back onto its own lines, or never left them;
+   §13, finding 4).
 5. **Everything follows the SHAPE**: the outline (in the type's colour, or its state's line; a Dropped mark's red
    stroke from its bottom-left corner to its top-right), the hole in the dimmed photo, the gold frame round the mark
    being measured, the magnifier's thin copy, and the press — a tap in the empty corner of its bounding box no longer
@@ -1298,14 +1306,17 @@ Line numbers are this commit's. `SPS` = `app/SurveyPrepScreen.kt`, `SPD` = `app/
    gold `▶ ?`. Not picked, an unread side shows nothing. No `≈` anywhere (decision 2). The diagonal, where it is asked
    (no square corner), lies inside the shape.
 7. **The gold walk and `▸`** go bottom, right, top, left, the diagonal if asked, then the type's own figures (from the
-   left corner, the sill, the reveal …). A reading from the D2 or the keypad lands on the gold side.
+   left corner, the sill, the reveal …). A reading from the D2 or the keypad lands on the gold side. **When the drag
+   that makes the shape ends, the bottom side is gold by itself** — the mark stopped asking the width that was gold —
+   and when `Rectangle` puts it back, its width is (`Pick.reshaped`; §13, finding 2).
 8. **The closing check**: when three straight sides and the fourth do not agree, an amber `!` stands on the sloping
    side's plate and the note says "The four sides do not agree — see the ! on the bottom side. Check the readings, or
    the corners." — no figure in it (decision 3). A reading more than twice or less than half its side as drawn gets
    the gross guard's sentence, as any figure does.
 9. **Fine move** (the panel's act): the pad nudges the corner last touched by 1 mm (or 5 mm), that corner drawn
    solid; a tap on another corner re-aims it; with no corner touched, all four are solid and the arrows move the whole
-   mark. An arrow the shape refuses moves nothing, takes no ↶ step and says "FW1: the corner stops here. No side goes
+   mark. **`Rectangle` or `Four corners` tapped while the pad is up leaves it up, moving the whole mark** — never a
+   corner or an edge the mark no longer shows (`NudgePad.reshaped`; §13, finding 1). An arrow the shape refuses moves nothing, takes no ↶ step and says "FW1: the corner stops here. No side goes
    under 20 mm, and the shape cannot fold." (decision 4).
 10. **`Rectangle`** — the same cell of the panel, on a mark that has a shape — puts it back to its bounding rectangle
     in ONE ↶ step; the eight tabs return. Its side readings are kept (§2.6).
@@ -1342,10 +1353,12 @@ pad) and `Quad.clear` inside `MarkSheet.shapeStep`. `QuadMeetsF1Test` holds the 
    finger's miss of the handle (up to 16 dp) never jumps the corner at the first move.
 3. **`cornerGrabbed` is its own flag, not the end's `endGrabbed`.** `endGrabbed` also makes a tap "the end's own"
    (it skips `Pick.tap`); a tap on a corner stays `Pick.tap`'s handle event (row 8), which is what re-aims Fine move.
-4. **A corner drag refused from its first movement still leaves one ↶ step that changes nothing** — exactly what a
-   tab dragged against the mark's minimum size leaves today (the gesture takes its step before it asks the model).
-   Decision 4's "no undo step" is the NUDGE's, where the model is asked first. Closing it for drags means the grab
-   reporting whether it moved anything — the same change for tabs, ends and bodies — and is left for its own slice.
+4. ~~A corner drag refused from its first movement still leaves one ↶ step that changes nothing~~ — **CLOSED FOR A
+   CORNER in the review (§13, finding 4):** a corner's grab now reports whether its mark is as it was at the press
+   (`Quad.unmoved`), and a drag that ends that way — refused from its first movement, or snapped back onto its own
+   lines, which is the commoner case — takes its step back and saves nothing. What is left as it was: a TAB dragged
+   against the mark's minimum size, an end or a body that ends where it began (the same change for those grabs is
+   its own slice), and a corner on the 360, whose gesture is its own.
 5. **A mark whose corners are free but which has no shape yet is outlined, holed and framed as its box**
    (`shapeOf` asks `Quad.of`, not `free`): its four corners ARE the box's, so there is one drawing for it, the
    rectangle's, byte for byte.
@@ -1366,12 +1379,15 @@ Three things to try first, on a project at Survey (or one only on the phone):
 1. **Make one.** Tap a window, tap its `FW1 ▾` chip, `Four corners`, and drag one bottom corner up. Does the corner
    follow the finger, does the upright side stay straight, and are the four round handles easy to tell from tabs?
 2. **Measure it.** With the window picked, laser its four sides. Does the gold `▶ ?` walk bottom, right, top, left,
-   and does each number land on its own side, turned along the sloping one?
+   and does each number land on its own side, turned along the sloping one? *(True as written since the review, §13
+   finding 2: the bottom side turns gold when the drag ends; before it the first shot was refused.)*
 3. **Fine move and back.** Panel → `Fine move`, nudge a corner 1 mm at a time, tap another corner and nudge that; then
    panel → `Rectangle`, and ↶ once — the shape should return.
 
 **One line more: an exported `-survey.jpg` picture of a four-corner mark shows its true outline, its code and its
-position figures, and no side figures yet — for a picture to send before the next build, keep the four Lines.**
+position figures, and no side figures yet — and on such a mark the picture's corner and sill figures are drawn to its
+bounding box, not to the corner they are measured to (the screen draws them to the corner) — so for a picture to send
+before the next build, keep the four Lines.**
 
 ### 12.5 The lines of `:app` Q2 wrote that a `:pano` test pins
 
@@ -1390,6 +1406,9 @@ these lines as `:app` has them and fails when a test that pins one is not named 
 | `Quad.handles(e, sel && o.mode == "main" && !locked && o.tabs, o.free(e))` (`SPD`) | `QuadMeetsF1Test` |
 | `PhotoFigures.layout(…, o.live, o.ready, free = o.free, ask = o.ask)` (`SPD`) | `MeasureScreenTest`; `QuadMeetsF1Test` |
 | `Pano360.tabsOf(e, free(e))` (`SP360`, twice) | `QuadMeetsF1Test` |
+| *the review's lines (§13):* `pad = NudgePad.reshaped(pad, pn.id, Quad.freeIn(prep, pn.id, freeId, pick.picked, part))` (`SPS`) | `QuadMeetsF1Test`; `QuadScreenTest` runs the same sequence as a model |
+| `fun reshaped() = took(Pick.reshaped(scene(), pick))` and its four callers — `onChanged = { changed(); reshaped() },`, `changed = { changed(); reshaped() },`, `if (r.moved) { changed(); reshaped() } else rev++`, `if (r.changed) reshaped()` (`SPS`) | `QuadMeetsF1Test` |
+| `same = { Quad.unmoved(e, start) }`, `if (cornerGrabbed) cornerSame = g.same`, `if (moved && cornerSame?.invoke() == true) { onRevertS(); moved = false }` (`SPS`) | `QuadMeetsF1Test` |
 
 **The pins this commit moved, each with its reason written beside it in the test:** `DeleteGuardTest` (the two panel
 calls), `FeaturesTest` (both), `MarkSheetTest` (the drawing call), `PhaseToolsTest` (both), `MeasureScreenTest` (the
@@ -1438,9 +1457,101 @@ guide's rays, the 360.
 
 ### 12.8 What Q2 does not do
 
-- The saved `-survey.jpg` pictures' side figures: slice M3, with the pictures' "measured figures only" (§3.9).
+- The saved `-survey.jpg` pictures' side figures: slice M3, with the pictures' "measured figures only" (§3.9) — and,
+  with them, **the position lines ended on the corner they are measured to** (`Quad.touch`, as the screen's
+  `MarkDims.quad` ends them): until M3 `dims` runs them to the bounding box (§13, finding 3).
 - S4 MDT's "Room from survey": slice Q4, another session's; it still cuts the bounding box (§4.2).
 - A corner's guide and a Line end's snapping distance on the 360; a solid corner there under Fine move (12.3, 6).
-- An empty ↶ step after a corner drag that was refused from the start (12.3, 4).
+- ~~An empty ↶ step after a corner drag that was refused from the start (12.3, 4).~~ Closed on the photo in the review
+  (§13, finding 4); on the 360, and for a tab, an end or a body, it stands.
 - Curved tops, more than four corners, a square-but-out-of-true opening as anything but a rectangle (decision 6).
 - A button outside the panel (decision 1). The Marathi of the fifteen four-corner texts (English first).
+
+## 13. The review of Q2 (23 Nov 2026)
+
+Three reviewers read Q2a (`198c9a2`) and Q2b (`0090462`) and reported six findings. Each was confirmed in the code
+before anything was changed; **all six are confirmed, none is declined**, and one commit fixes them. `:pano` after it:
+**112 test classes, 1,594 tests, 0 failures, 0 errors, 0 skipped** (the totals of `pano/build/test-results/test`;
+before: 112 and 1,591 — three tests added to `QuadScreenTest`, the others grew in place). **`:app` is compiled only
+by CI, and nothing of this has been seen on a phone.** No text was added or re-worded: 1,934 keys, `Tx` regenerated
+with no difference, the ratchet lowered nothing, `unkeyed.tsv` stays empty, `mr-pending.tsv` stays at 31.
+
+### 13.1 The findings
+
+| # | Finding | Verdict | The fix, and the test that fails without it |
+|---|---|---|---|
+| 1 | **major** — `Rectangle` (or `Four corners`) tapped with Fine move's pad up leaves the pad aimed at a part the mark no longer shows; the next arrow writes `quad` straight back | **Confirmed.** A tap on the code chip is `Pick.options` → `took` → `NudgePad.afterEvent(nudge = null, body = false)`, which keeps the pad; `NudgePad.after` keeps ANY part in `parts()`, which lists the eight tabs and `q0…q3` for every box mark, free or not; and `panelAct`'s shape branch set `freeId` and `part` and never `pad`. `NudgePad.start` already had the rule (`free`), for a pad that is starting — not for one already up | **new** `NudgePad.reshaped(st: State?, id: String, free: Boolean): State?` — a corner once the corners are not free, a tab once they are, is the whole mark; the step, the pad's corner and its one ↶ step stay. `panelAct`'s branch asks it after the hold, by the screen's one free: `pad = NudgePad.reshaped(pad, pn.id, Quad.freeIn(prep, pn.id, freeId, pick.picked, part))`. `QuadScreenTest`, "review 1 …": the screen's own sequence as a model — the window held, `q0` pressed, Fine move, the chip, `Rectangle`, one arrow: the whole mark moves 1 mm and NO `quad` is written (and, on a copy, what the stale pad did); the door with its left tab, `Four corners`, one arrow: the whole door moves. `QuadMeetsF1Test` pins the line and its place after the hold |
+| 2 | **major** — after the corner drag that makes the trapezoid no side is gold and the first D2 shot is refused | **Confirmed.** Tapping a plain window makes `FW1.w` gold; `Four corners` changes nothing; the drag stores `quad`, and the mark then asks its four sides (`Quad.asked`) — but nothing asked the gold again: the drag's end called only `changed()`, and `Pick.dragged`'s comment said a move does not change the figures. `MeasureFlow.takes(FW1.w)` is false, no plate is gold, `Landing.route` answers Refused. **And it is older than Q2 in one form:** a rectangle carried onto the wall's edge, or across its middle, stops asking `l` or `r` — the gold left on that key was refused the same way | **new** `Pick.reshaped(sc: Scene, st: State): Out` — picked and held unchanged; the gold kept while its figure is still asked, else the item's first unread figure (as `Pick.body` gives), else none; `Out.stay` when nothing changes; `Pad.SHUT_DROP` when the gold leaves a figure (what was typed for it is no longer asked). The screen has ONE `fun reshaped() = took(Pick.reshaped(scene(), pick))`, called where the picked item can have moved or changed shape: the photo's drag end, a pad nudge that moved something, the 360's drag end (a no-op there by rule: nothing is ever gold on the 360), and after the panel's `Rectangle`. `QuadScreenTest`, "review 2 …": the reviewer's walk — rectangle, `Four corners`, `q0` dragged 770 mm with `Quad.drag` at the Mi A3's fit tolerance, refused before, `Gold(FW1.bottom)` after, then the whole walk; the reverse by a drag and by `Rectangle`; by Fine move's first mm; every case that must NOT change anything; the wall-edge case |
+| 3 | minor — a saved `-survey.jpg` draws a four-corner mark's position figures to its bounding box, not to the corner | **Confirmed from the code** (not seen on a picture): `dims` runs `l` to the box's left edge at mid-height plus 2.6 text sizes and `s` down from the box's bottom at mid-width minus 1.6 — for the example the sill line starts about 385 mm under the sloping side | **`dims` is not touched** (decision 5 stands). The build note says it (§11.9, §12.4), and the corner-ended lines are on slice M3's list with the side figures (§12.8; `DESIGN-port63.md`, M3) |
+| 4 | minor — a corner drag that snaps back to where it started still takes an undo step that does nothing | **Confirmed**, with one correction to the figures: a side snaps straight only within the snapping distance AND within 5°, so on the example window (2,370 wide) the limit at fit is the 148 mm the review gives, but on a 400 mm door it is 35 mm at fit, and never more. `Quad.drag` answers a `Drag` for these, the gesture had already taken its step, and the record ended exactly as it was | **new** `Quad.unmoved(e: Mark, o: Mark): Boolean` — the same box and the same four corners in mm (the rule `NudgePad.press` already kept privately, now one function). `SpGrab` gains `same: (() -> Boolean)? = null`; a corner's grab hands `same = { Quad.unmoved(e, start) }`; the gesture keeps it with `cornerGrabbed` and asks once, as it ends: `if (moved && cornerSame?.invoke() == true) { onRevertS(); moved = false }` — `revertPress`, the path a handle whose press lifts as a tap already takes, so no ↶ entry and no new save. This also closes §12.3's item 4 for a corner (a drag refused from its first movement). `QuadScreenTest`, "review 4 …": 50, 100, 140 mm at fit unmoved and 160 moved; 4× and 8×; out and back in one gesture; the 5° limit on the door |
+| 5 | minor — rule 5 is not one rule: a mark whose type is a Note in another spelling is read four-cornered by the phone and as a Note by S5 | **Confirmed**, on S5's own test vector (`' note '`). `Quad.mayHave` went through `SurveyPrep.isSpot` → `MarkTypes.isPin`, the exact token; S5's `isNote` trims and upper-cases. **The phone moves to S5's rule** (S5 is on stage and is right: it is its server's rule of what is only words) | `Quad.mayHave(t)` is `!SurveyPrep.isSpot(t) && !noteToken(t)`; **new** `Quad.noteToken(t)` trims as JAVASCRIPT trims — its 25 white-space code units, which differ from Kotlin's `trim` on U+001C…U+001F and U+FEFF (checked against node with S5's own expression, over all 65,536 code units) — and upper-cases. `QuadTest`'s rule-5 block: S5's vector and six more are refused everywhere (`of`, `set`, `drag`, `free`, `handles`), every code unit is tried on both ends, and "NOTES" keeps its shape; `SurveyPrepFileTest`: decode drops such a `quad` with its problem, the type kept as it came. Nothing changes for a record a phone wrote. NOT moved: `MarkLife.isNote` and `MarkTypes.isPin` — the phone still DRAWS a Note only for the exact token; that difference is older than the four-corner mark and no phone-written record reaches it |
+| 6 | minor, not of these two commits — `SheetMarks`' comment says S5's list ends in `sub`, which S5 withholds | **Confirmed**: S5's `SEEN_MARK` is `id t code x0 x1 y0 y1 locked quad` since RD's review of 11 Nov | The comment is corrected and says that the phone's sheets keep `sub` where S5 withholds it. No code: whether the sheets for others drop `sub` is the as-surveyed question already waiting on Amit (`DESIGN-port62` Q-list 7) |
+
+Each `:pano` fix was proven to be what its test holds: five faults planted one at a time in the fixed functions
+(`NudgePad.reshaped` keeping the part; `Pick.reshaped` always staying; `Quad.unmoved` comparing boxes only;
+`mayHave` without the Note's token; `noteToken` with Kotlin's `trim`) and three in `:app` (the pad's line, the drag
+end's `reshaped()`, the gesture's revert line removed) each turned a test red.
+
+### 13.2 Decided by Claude in the review — each can be turned round by Amit
+
+1. **The gold is asked again at EVERY drag's end, not only a corner's** (finding 2). One rule, and it also mends the
+   older case of a mark carried to the wall's edge. For a move that leaves the asked figures as they were it does
+   nothing at all. One consequence to know: a HELD mark with nothing gold and figures unread turns its first unread
+   figure gold when a drag ends, as a tap on its body would — reachable only after readings were pulled from the web
+   under the pick.
+2. **What was typed on the keypad for a figure the mark stopped asking is dropped**, and the keypad shuts — the
+   figure it was typed for is gone from the checklist. A reading already STORED under `w` or `h` is kept, as before
+   (§2.6).
+3. **The pad stays up across `Rectangle` and `Four corners`** and moves the whole mark; it is not closed. He asked for
+   the act with the pad up; ✓ is still one tap away.
+4. **An unmoved corner drag is undone by `revertPress`**, which writes the room once more (the 800 ms save may have
+   written the half-dragged shape while the finger was down) — one write, no ↶ entry.
+5. **The 360 keeps its empty ↶ step** for a corner let go where it started: its gesture is its own code, and the
+   finding was the photo's.
+
+### 13.3 The `:app` lines the review wrote — and where to look first if CI's compile is red
+
+Every name each line uses was checked to be in scope where it is written, and every call against its declaration.
+All in `SurveyPrepScreen.kt`; most likely first.
+
+1. `SpGrab`'s new parameter `val same: (() -> Boolean)? = null,` stands BEFORE `val move`, the trailing lambda of
+   every one of the 18 `SpGrab(…)` calls: each of them passes `move` as its trailing lambda and every argument after
+   the fifth by name, so none shifts. The corner's call names it: `…, gate = true, same = { Quad.unmoved(e, start) })
+   { jx, jy ->` — `e` and `start` are the `val`s of that branch.
+2. The gesture's `finally`: `if (moved && cornerSame?.invoke() == true) { onRevertS(); moved = false }` — `moved` and
+   `cornerSame` are `var`s of the gesture block, declared above `act`; `onRevertS` is `SpPhoto`'s
+   `rememberUpdatedState`. `if (cornerGrabbed) cornerSame = g.same` sits where `g` is the non-null `val g`.
+3. `fun reshaped() = took(Pick.reshaped(scene(), pick))` — a local function with an expression body, declared
+   directly under `took` and above its four callers (`finePress`, `panelAct`, `p3Actions`, the `SpPhoto(…)` call);
+   `scene()` is declared above `took`.
+4. `changed = { changed(); reshaped() },` inside `P3Actions(…)`: `changed =` is the parameter's label, `changed()`
+   the screen's function, as the line was before.
+5. `pad = NudgePad.reshaped(pad, pn.id, Quad.freeIn(prep, pn.id, freeId, pick.picked, part))` — `pad` is the
+   screen's `NudgePad.State?`, `pn` the branch's `val pn = panel ?: return`.
+
+Type-checked as §12.7: kotlinc 2.0.21, the real `:pano` classes of this commit, the same stand-ins. The eight survey
+files give the same 192 stand-in errors as Q2b, message for message, none in `SurveyPrepScreen.kt`. Seven errors
+planted on the review's own lines in a copy (a name not in scope; two arguments swapped; a function compared where
+its answer is wanted; a parameter that does not exist; a `Boolean` assigned to the function-typed `var`; an argument
+too many; a field that does not exist) are each reported. **Not proven:** what the Compose compiler plugin or lint
+adds, the real `android.graphics` and Compose signatures, and everything about a phone — above all whether the
+corner let go where it started FEELS right with no ↶ entry, and the gold turning to the bottom side as the finger
+lifts.
+
+### 13.4 The build note for Amit, as it stands after the review
+
+Three things to try first, on a project at Survey (or one only on the phone):
+
+1. **Make one and measure it.** Tap a window, tap its `FW1 ▾` chip, `Four corners`, and drag one bottom corner up
+   (well up: a small slope snaps back level — zoom in to draw a small one). When the finger lifts, is the BOTTOM side
+   the gold `▶ ?` by itself? Laser the four sides: does the gold walk bottom, right, top, left, each number on its own
+   side, turned along the sloping one?
+2. **Fine move, then `Rectangle` with the pad still up.** Panel → `Fine move`, nudge a corner 1 mm at a time, tap
+   another corner and nudge that. Then tap the chip → `Rectangle` WITHOUT pressing ✓: the eight tabs return, all
+   solid, and the arrows now move the whole window — it must stay a rectangle. ↶ once: the shape returns.
+3. **A corner dragged a little and let go.** Drag a corner a few millimetres so that it snaps back where it was: ↶
+   must NOT have gained a step that does nothing.
+
+**The saved-picture line: an exported `-survey.jpg` picture of a four-corner mark shows its true outline, its code
+and its position figures, and no side figures yet; its corner and sill figures are drawn to the mark's bounding box,
+not to the corner they are measured to — so for a picture to send before the next build, keep the four Lines.**

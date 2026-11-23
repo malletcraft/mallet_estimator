@@ -774,6 +774,9 @@ the gallery pictures are unchanged.
 
 - The saved `-survey.jpg` pictures follow question 1's answer. They stay English and the room as surveyed.
 - The old `vtag`, `Marks.show` and the both-figures code are deleted with their last caller.
+- A four-corner mark (port 63 slice Q2; `DESIGN-quad.md` §3.9, §12.8, §13 finding 3): its SIDES are printed where
+  read, and its position lines END ON THE CORNER they are measured to (`Quad.touch`, as the screen draws them) — the
+  old painter runs them to the bounding box, off the shape.
 
 ### M4 · the 360 (S)
 

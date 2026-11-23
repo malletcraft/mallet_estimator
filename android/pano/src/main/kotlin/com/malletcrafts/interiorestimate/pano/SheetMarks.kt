@@ -44,8 +44,13 @@ object SheetMarks {
 
     /**
      * The keys of a mark a sheet for others keeps besides its box: the lock, which moves nothing and says nothing, and
-     * the sub-kind, which is what the thing IS. S5's own list for a caller who is not staff (slice RD): id, t, code,
-     * x0, x1, y0, y1, locked, sub.
+     * the sub-kind, which is what the thing IS. S5's own list for a caller who is not staff (slice RD, as it stands
+     * on stage: `SEEN_MARK` in `functions/_lib/asis.js`) is id, t, code, x0, x1, y0, y1, locked, quad -- WITHOUT `sub`,
+     * which the review of RD took out on 11 Nov 2026 (office-only on S5 until Amit rules on what a vendor and a client
+     * see of the wish round). So the phone's sheets keep `sub` where S5 withholds it: the one key on which the two
+     * differ. Whether the sheets for others should drop it too is that same open question (DESIGN-port62 Q-list 7),
+     * not a slice's to decide. (Corrected in the review of Q2, 23 Nov 2026: this comment still gave S5's list as
+     * ending in `sub`.)
      *
      * AND ITS FOUR CORNERS (port 63 slice Q1; DESIGN-quad §3.8, decided by Claude): a surveyed opening's SHAPE is the
      * room as surveyed, as its box is, so the A4 sheet and the saved pictures draw it in its real shape. Nothing of the

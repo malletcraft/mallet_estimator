@@ -148,6 +148,29 @@ class QuadTest {
             assertFalse(Quad.set(pt, MM), t); assertNull(Quad.drag(pt, pt.copy(), 0, 10.0, 10.0, A, B, 25.0), t)
             assertFalse(Quad.free(pt, pt.id, "q0"), "$t is never free, whatever the three rules say")
         }
+        // RULE 5 IS S5's, TO THE TOKEN (the review of Q2, finding 5). S5 knows a Note in any capitals and with white space
+        // round its token (asis_view.js isNote: `e.t.trim().toUpperCase() === 'NOTE'`; its own test vector is " note "),
+        // and reads such a mark's `quad` as no shape -- so the phone does, though it draws a Note only for the exact token
+        for (t in listOf(" note ", "note", "Note", "NOTE ", "\tNoTe\n", "\ufeffnote", "\u00a0NOTE\u3000")) {
+            val odd = mark(t, "FX1", extra = mapOf(Quad.KEY to PARTS))
+            assertTrue(Quad.noteToken(t), "[$t]"); assertFalse(SurveyPrep.isSpot(t), "[$t] is no pin on the phone: only its shape is refused")
+            assertFalse(Quad.mayHave(odd), "[$t]"); assertNull(Quad.of(odd), "[$t]"); assertEquals(BOX, box(odd), "[$t] is its box")
+            assertFalse(Quad.set(odd, MM), "[$t]"); assertNull(Quad.drag(odd, odd.copy(), 0, 10.0, 10.0, A, B, 25.0), "[$t]")
+            assertFalse(Quad.free(odd, odd.id, "q0"), "[$t]"); assertEquals(Quad.Handles.TABS, Quad.handles(odd, true, true), "[$t]")
+        }
+        // ... trimmed as JAVASCRIPT trims, exactly: its WhiteSpace and LineTerminator, of which Kotlin's own trim has
+        // U+001C … U+001F too many and U+FEFF too few. Every one of the 65,536 code units is tried on both ends
+        val jsSpace = "\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+        assertEquals(25, jsSpace.toSet().size)
+        for (c in Char.MIN_VALUE..Char.MAX_VALUE) {
+            assertEquals(c in jsSpace, Quad.noteToken(c + "note"), "U+%04X before".format(c.code))
+            assertEquals(c in jsSpace, Quad.noteToken("Note$c"), "U+%04X after".format(c.code))
+        }
+        // and nothing else is a Note: a longer word, a space inside, no type at all -- each may have a shape, as before
+        for (t in listOf("NOTES", "N OTE", "NOT", "", " ", "X", "\u001cNOTE", "NOTE\u200b")) {
+            assertFalse(Quad.noteToken(t), "[$t]"); assertTrue(Quad.mayHave(t), "[$t]")
+            assertNotNull(Quad.of(mark(t, "FX1", extra = mapOf(Quad.KEY to PARTS))), "[$t]")
+        }
         // every other type of every kind of surface may: sixteen tokens, the seventeen box types (S is a wall's Switch
         // plate and the floor's Step)
         val may = SurveyPrep.SURFACES.flatMap { s -> SurveyPrep.types(s).map { it.letter } }.toSet().filter { Quad.mayHave(it) }.toSet()
