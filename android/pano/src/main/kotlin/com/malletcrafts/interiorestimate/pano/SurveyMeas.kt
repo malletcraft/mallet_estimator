@@ -259,11 +259,28 @@ object SurveyMeas {
         return out
     }
 
+    /** The mode the photo's painter is handed for A SAVED PICTURE -- a list picture, or one written to the gallery
+     *  (FaceWriter). Its other modes are the screen's: the editing photo, and its magnifier. */
+    const val SAVED_MODE = "sheet" // text:value the painter's mode for a saved picture, never shown
+
+    /**
+     * WHETHER THE PHOTO'S PAINTER, IN [mode], IS DRAWING ON THE SCREEN (the review of port 63 slice F3, finding 1;
+     * DESIGN-imagemeter §24.8): EVERY MODE BUT A SAVED PICTURE'S ([SAVED_MODE]) -- the editing photo, ITS MAGNIFIER,
+     * and any mode a later build adds, which is the screen's until this rule names it a picture. It is the `screen`
+     * the painter hands [ticksOf], and what decides between a Tape's saved tag ([tapeTag]) and nothing measured from
+     * the photo ([tapeFigure]). Slice F3b asked `mode == "main"` there, which called the magnifier a saved picture:
+     * the magnifier draws no Line, Tape or chain at all today (it shows the photo under the finger), so nothing
+     * leaked -- but the day it draws them, a Tape in it would have carried its ticks and `F-T1 1234 mm` at three
+     * times the size. ONE rule says which painter is the screen's, and it fails towards showing no photo figure.
+     */
+    fun onScreen(mode: String): Boolean = mode != SAVED_MODE
+
     /**
      * THE GRADUATIONS A PAINTER DRAWS ON A TAPE [len] mm long (port 63 slice F3, 23 Nov 2026). Amit, with build 0.3.350
      * on his phone: "does tape tool make any sense now? as we don't want any foto measured dimensions on fone." A tick
      * every 100 mm from the hook, and "500", "1000" beside the long ones, are figures measured from the photo as much
-     * as the length at its end is. So ON THE SCREEN'S OWN PAINTERS ([screen]: the editing photo and the 360) A TAPE A
+     * as the length at its end is. So ON THE SCREEN'S OWN PAINTERS ([screen]: the 360, and the photo's painter in
+     * every mode but a saved picture's -- [onScreen]: the editing photo and its magnifier) A TAPE A
      * ROOM ALREADY HAS IS ITS PLAIN BAND while [tapes] is off ([Features.TAPES]): no tick, no figure. A SAVED
      * PICTURE'S old painter ([screen] false) keeps [tapeTicks] as they were, whichever way the switch stands: it goes
      * with the saved pictures' own slice (M3). With [tapes] on, [tapeTicks] everywhere, as before.

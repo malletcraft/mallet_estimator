@@ -893,7 +893,10 @@ internal object SurveyPrepDraw {
         // number alone, placed along its line with every other figure (PhotoFigures.items, drawn by drawPlates); a Line
         // being pulled and an area being tapped show no figure (their length and m² are the photo's), a Tape being pulled
         // its length alone. A saved picture's tag is what it always was.
-        val quiet = o.mode == "main"
+        // WHICH PAINTER IS THE SCREEN'S IS THE RULE'S (the review of port 63 slice F3, finding 1; SurveyMeas.onScreen):
+        // every mode but a saved picture's -- so the magnifier, which draws none of this today (drawMarks keeps drawMeas
+        // out of the loupe), could never show a Tape's ticks or its photo length if it ever did
+        val quiet = SurveyMeas.onScreen(o.mode)
         for (q in sf.meas) if (q.kind == SurveyMeas.LINE || q.kind == SurveyMeas.AREA)
             line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ::toS, hd,
                 figure = if (o.mode == "main") SurveyMeas.key(q) else null, o = o, u = u, quiet = quiet,
@@ -970,7 +973,8 @@ internal object SurveyPrepDraw {
      * it can be seen and tapped -- ringed white when picked, graduated from its start (a tick every 100 mm, a longer
      * one with its figure every 500 mm: SurveyMeas.tapeTicks), and its tag at the far end: "1234 mm" while it is
      * pulled, "F-T1 1234 mm" once plotted, kept on the canvas -- moved to the side of the band when the end is at an edge.
-     * THAT IS A SAVED PICTURE'S TAPE, still (slice M3's). ON THE EDITING PHOTO (`quiet`), SINCE THE TAPE TOOL WENT OFF
+     * THAT IS A SAVED PICTURE'S TAPE, still (slice M3's). ON THE SCREEN (`quiet`: every mode but a saved picture's,
+     * SurveyMeas.onScreen -- the editing photo, and its magnifier were it ever to draw one), SINCE THE TAPE TOOL WENT OFF
      * (port 63 slice F3b; Features.TAPES, asked through SurveyMeas.ticksOf and the figures' layout): A PLAIN BAND -- no
      * graduation, no length -- with its code along it (PhotoFigures.tapeLabel, placed with every other label by
      * drawPlates), or on its chip while it is the picked item.
@@ -994,7 +998,7 @@ internal object SurveyPrepDraw {
             if (sel) c.drawPath(band, stroke(argb(0xffffff), 5f * dp).apply { strokeJoin = Paint.Join.ROUND })
             c.drawPath(band, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(col, if (draft) 0xc8 else 0xf0) })
             c.drawPath(band, stroke(argb(0x3b2f00), 1f * dp))
-            // ITS GRADUATIONS ARE THE RULE'S (port 63 slice F3b; SurveyMeas.ticksOf): on the editing photo (`quiet`) a Tape
+            // ITS GRADUATIONS ARE THE RULE'S (port 63 slice F3b; SurveyMeas.ticksOf): on the screen (`quiet`) a Tape
             // a room already has is its PLAIN BAND while the Tape tool is off -- a tick every 100 mm and "500" beside it
             // are figures measured from the photo as much as its length is; a saved picture keeps them (slice M3's)
             for (tk in SurveyMeas.ticksOf(len, screen = quiet)) {

@@ -957,9 +957,38 @@ class FeaturesTest {
             // figures whatever the switch says
             for (old in listOf("tapeTicks(", "tapeShown(", "tapeName(", "tapeLabel(")) assertEquals(0, count(code(rel), old), "$rel asks $old by itself")
         }
-        // ... and what it hands the rules are the screen's own: the photo's painter is the editing photo's exactly while
-        // it is `quiet` (the saved pictures' old `dims` painter is not), and a plotted Tape there returns before any tag
-        assertEquals(1, count(draw, "val quiet = o.mode == "), "one place says which painter is the screen's")
+        // ... and what it hands the rules are the screen's own: the photo's painter is the SCREEN's exactly while it is
+        // `quiet` (the saved pictures' old `dims` painter is not), and a plotted Tape there returns before any tag.
+        // (THE REVIEW OF F3, finding 1, MOVED this pin. F3b had `val quiet = o.mode == "main"` here: the editing photo
+        // alone, which called the photo's MAGNIFIER a saved picture -- a Tape drawn in it would carry its ticks, `500`
+        // and `F-T1 1234 mm` at three times the size. It draws none today: the painter keeps every Line, Tape and chain
+        // out of the loupe, pinned below. But the answer was one deleted condition from the photo's length on the
+        // phone, so WHICH PAINTER IS THE SCREEN'S is a rule now -- every mode but a saved picture's.)
+        assertEquals(1, count(draw, "val quiet = SurveyMeas.onScreen(o.mode)"), "one place says which painter is the screen's, and it asks the rule")
+        assertEquals(0, count(draw, "val quiet = o.mode"), "... with no answer of its own")
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepDraw.kt") 1 else 0, count(code(rel), "onScreen("), "$rel: which painter is the screen's")
+        assertTrue(SurveyMeas.onScreen("main")); assertTrue(SurveyMeas.onScreen("loupe"), "the magnifier is the screen"); assertFalse(SurveyMeas.onScreen("sheet"), "a saved picture is not")
+        assertEquals("sheet", SurveyMeas.SAVED_MODE); assertTrue(SurveyMeas.onScreen(""), "a mode nobody named is the screen's: it fails towards no photo figure")
+        // so in EVERY mode but a saved picture's a Tape has no graduation and no length; in a saved picture, its old ones
+        val tlen = 1234.0
+        for (mode in listOf("main", "loupe", "anything a later build adds")) {
+            assertTrue(SurveyMeas.ticksOf(tlen, screen = SurveyMeas.onScreen(mode)).isEmpty(), "$mode: no tick")
+            assertEquals("", if (SurveyMeas.onScreen(mode)) SurveyMeas.tapeFigure(tlen) else SurveyMeas.tapeTag("F-T1", tlen), "$mode: no length")
+        }
+        assertEquals(SurveyMeas.tapeTicks(tlen).size, SurveyMeas.ticksOf(tlen, screen = SurveyMeas.onScreen(SurveyMeas.SAVED_MODE)).size)
+        assertEquals("F-T1 1234 mm", if (SurveyMeas.onScreen(SurveyMeas.SAVED_MODE)) SurveyMeas.tapeFigure(tlen) else SurveyMeas.tapeTag("F-T1", tlen), "a saved picture: slice M3's")
+        // THE MODES ARE THE PAINTER'S OWN WORDS, read as written (:app is compiled only by CI): a saved picture is handed
+        // "sheet" by the one writer of pictures, the screen hands "main" and "loupe" -- and THE MAGNIFIER DRAWS NO LINE,
+        // TAPE OR CHAIN AT ALL, which is what kept the photo's length out of it before this rule did
+        val drawText = I18n.android.resolve(app + "SurveyPrepDraw.kt").readText()
+        val screenText = I18n.android.resolve(app + "SurveyPrepScreen.kt").readText()
+        val writerText = I18n.android.resolve(app + "FaceWriter.kt").readText()
+        assertEquals(1, count(drawText, "if (o.mode != \"loupe\") drawMeas(c, s, o, m, u)")); assertEquals(1, count(drawText, "drawMeas(c, s, o, m, u)"), "drawMeas is called in one place, behind that")
+        assertEquals(1, count(drawText, "if (o.mode != \"loupe\") drawChains(c, tx, s, o, m, u)"))
+        assertEquals(1, count(drawText, "/** \"main\" (the editing photo), \"loupe\" (thin), or \"sheet\" (a list picture / a saved one). */"))
+        assertEquals(1, count(writerText, "SurveyPrepDraw.Marks(prep, size[0], size[1], sq, \"sheet\", true,"), "the saved pictures' writer")
+        assertEquals(1, count(screenText, "overlay(nc, m, \"main\")")); assertEquals(1, count(screenText, "}, \"loupe\")"), "the magnifier")
+        for (rel in apps) if (rel != app + "FaceWriter.kt") assertEquals(0, count(I18n.android.resolve(rel).readText(), "\"sheet\", true,"), "$rel writes a saved picture")
         // NOTHING OF THE TAPE WAS DELETED: its model, its file's reader and writer, its drag, its graduations and its
         // tags, its drawing on the photo and the 360, its icon, its hint, and its own tests
         val kept = mapOf(

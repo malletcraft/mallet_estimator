@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -2713,9 +2714,10 @@ private fun SpPhoto(
     val viewKey: Any = if (mode == "lines") "lines:$tab" else img
     var view by remember(viewKey) { mutableStateOf(SurveyPrep.PhotoView()) }
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
-    // TWO FINGERS ARE ON THE PHOTO -- a pinch (port 63 slice F3b): the panel's grip is not shown meanwhile, so a pinch
-    // that has one finger on the grip can never pull the panel up. Set by the gesture as the pinch begins, cleared
-    // when the gesture ends however it ends.
+    // A SECOND FINGER IS ON THE PHOTO IN THIS TOUCH -- a pinch (port 63 slice F3b, and its review, finding 4): the
+    // panel's grip is not shown meanwhile, and a press already on it is lost (PanelGrip.press), WHICHEVER finger went
+    // down first. It is kept by ONE counter of the fingers on the photo's box, the grip's own among them (below, over
+    // the gesture; PanelGrip.twoDown) -- not by the gesture, which never starts while the first finger is the grip's.
     var pinching by remember { mutableStateOf(false) }
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
@@ -2978,8 +2980,8 @@ private fun SpPhoto(
         is SurveyPrepTouch.Hit.Body -> pickS.picked
         // the picked item's code chip: the picked item's -- a long press on it is a long press on the item; and the
         // panel's grip at the photo's foot is the picked item's too (PanelGrip; port 63 slice F3: this branch is the
-        // sealed class's -- the grip is laid OVER the photo with a press of its own (SpPanelGrip), markHit hands
-        // SurveyPrepTouch.hit no grip, and so no press of the photo's own gesture is ever a Hit.Grip)
+        // sealed class's -- the grip is laid OVER the photo with a press of its own (SpPanelGrip), SurveyPrepTouch.hit
+        // never answers Hit.Grip, and so no press of the photo's own gesture is ever one)
         is SurveyPrepTouch.Hit.Code, is SurveyPrepTouch.Hit.Grip -> pickS.picked
         is SurveyPrepTouch.Hit.Tag -> prepS.ownerOf(h.code)?.id
         null -> line
@@ -3146,8 +3148,8 @@ private fun SpPhoto(
     // should be a simple pull out dash which will let me pull up those optios." Whether it is there and where it stands
     // along the foot is ONE question of :pano (PanelGrip.onPhoto: an item picked on this face in 2 · Mark, no tool on,
     // no panel, keypad or Fine move's pad up, nothing being dragged -- the magnifier is up exactly while a grab moves --
-    // and no pinch under way, and a place 16 dp clear of every handle of the picked item, as the painter's own mapping
-    // puts them). It is asked
+    // and no second finger on the photo, and a place 16 dp clear of every handle the picked item SHOWS -- a held
+    // item's, as the painter's own mapping puts them; one that is not held shows none). It is asked
     // HERE, before the photo is drawn, so it follows the zoom, the pan and the pick in the same frame; the painter is
     // then handed its touch box as one more box the code chip and every plate keep off (figKeep, below).
     val gripAt: PanelGrip.Place? = rect?.let { r ->
@@ -3164,6 +3166,19 @@ private fun SpPhoto(
     Box(Modifier.fillMaxSize().offset { IntOffset(0, -liftPx()) }.background(Color.Black)
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .onGloballyPositioned { photoAt = it.positionInRoot() }
+        // EVERY FINGER ON THE PHOTO IS COUNTED HERE, the grip's own among them (the review of port 63 slice F3, finding
+        // 4): the grip is this box's child, so a finger on it is in this box's events as well, while the gesture below
+        // never starts for it (the grip took its press). It only looks -- it takes no press and changes none -- and it
+        // looks on the way DOWN to the children, so the grip reads this event's answer, not the last one's. What the
+        // count means is PanelGrip.twoDown: two fingers hide the grip and lose a press on it, until every finger is up.
+        .pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val ev = awaitPointerEvent(PointerEventPass.Initial)
+                    pinching = PanelGrip.twoDown(pinching, ev.changes.count { it.pressed })
+                }
+            }
+        }
         // NOT KEYED ON THE PICTURE (review): in 1 · Lines a wider cut of the same wall is a new bitmap, and a restart
         // under a held finger dropped the drag; the gesture reads the picture through States instead. Off 1 · Lines a new
         // squaring is a new face (its rect), as before; in 1 · Lines the rect is not read, so it restarts nothing.
@@ -3473,7 +3488,6 @@ private fun SpPhoto(
                         val down = ev.changes.filter { it.pressed }
                         if (down.size >= 2) {
                             secondFinger = true
-                            pinching = true
                             act(gc.move(down[0].position.x.toDouble(), down[0].position.y.toDouble(), t, down.size))
                             // PINCH AND PAN, as before: zoom about where the fingers started, follow their midpoint
                             val a = down[0].position; val b = down[1].position
@@ -3518,7 +3532,6 @@ private fun SpPhoto(
                     // ... and a corner's, the same (port 63 slice Q2)
                     if (cornerGrabbed) onEndGuideS(null)
                     loupe = null
-                    pinching = false
                     // A CORNER LET GO WHERE IT STARTED (the review of Q2, finding 4): it snapped back onto its own two
                     // lines -- every drag shorter than the snapping distance at this zoom does -- so the mark is exactly
                     // as it was (Quad.unmoved). The drag's undo step is taken back off, as for a handle whose press
@@ -3694,8 +3707,9 @@ private fun SpPhoto(
         // A tap or a pull up on it is handed to onTap as Hit.Grip: Pick.tap answers Pick.options for it, as for the code
         // chip, and the dialog then opens the panel by the chip's own line. NO SECOND WAY IN. A screen reader calls it
         // what it calls the panel it opens, "Options for FW1" (PanelGrip.said: MarkSheet.optionsLabel of the item's code).
+        // It is told whether a second finger is on the photo (`pinching`, the counter's): its press is lost then.
         gripAt?.let { g ->
-            SpPanelGrip(g, PanelGrip.said(tx, prep, pick),
+            SpPanelGrip(PanelGrip.said(tx, prep, pick), { pinching },
                 Modifier.offset { IntOffset(g.touch.l.roundToInt(), g.touch.t.roundToInt()) }) { onTap(SurveyPrepTouch.Hit.Grip, null) }
         }
     }
@@ -3709,16 +3723,23 @@ private fun SpPhoto(
  * and in it, at its bottom centre, the dark tab with its top corners round (TAB_W_DP x TAB_H_DP, TAB_RADIUS_DP) and the
  * light dash in the tab's middle (DASH_W_DP x DASH_H_DP) -- where Place.tab and Place.dash are. No word and no figure.
  * ITS PRESS IS ITS OWN, AND NOTHING OF IT IS THE PHOTO'S: it takes the finger as it goes down and every move of it
- * after, so the photo under it neither pans, nor picks, nor lets the pick go, and a pinch never starts from it. What
- * the press comes to is PanelGrip.press, asked at every move and at the lift against the box it stood in when the
- * finger went down: a pull up of 12 dp opens AT ONCE, the finger still down; a lift inside the box is a tap and opens;
- * a slip off it does nothing; a system cancel (every pointer up, already consumed) is no lift and opens nothing.
- * [onOpen] is the tap's own function -- the caller hands it Hit.Grip -- so this file has no second way to open the
- * panel. A screen reader finds it as a button named [said], and its activation is the same [onOpen].
+ * after, so the photo under it neither pans, nor picks, nor lets the pick go. What the press comes to is
+ * PanelGrip.press, asked at every move and at the lift. IT IS JUDGED BY HOW FAR THE FINGER HAS MOVED SINCE IT WENT DOWN
+ * (the review of F3, finding 3): the sum of the finger's own moves, each the place it is at less the place it was at
+ * as THIS control stands now -- which is the finger's move and nothing else, wherever the control is put meanwhile. The
+ * grip is re-placed under a resting finger when a note line or the snackbar comes or goes; a place read against where
+ * the grip stood at the press took that for the finger moving. A rise of 12 dp opens AT ONCE, the finger still down; a
+ * lift on the box as it stood at the press is a tap and opens; a slip off it does nothing; A SECOND FINGER ON THE PHOTO
+ * ([second], finding 4) loses the press; a system cancel (every pointer up, already consumed) is no lift and opens
+ * nothing. IT TAKES ONLY A PRESS THAT WENT DOWN ON ITS BOX (PanelGrip.onBox): one the system hands it from the few dp
+ * over a control this low is left untouched, and is the photo's -- so the touch box is the rule's 96 x 32 dp, which is
+ * what the handles, the code chip and every plate are kept clear of. [onOpen] is the tap's own function -- the caller
+ * hands it Hit.Grip -- so this file has no second way to open the panel. A screen reader finds it as a button named
+ * [said], and its activation is the same [onOpen].
  */
 @Composable
-private fun SpPanelGrip(g: PanelGrip.Place, said: String, modifier: Modifier, onOpen: () -> Unit) {
-    val gS by rememberUpdatedState(g)
+private fun SpPanelGrip(said: String, second: () -> Boolean, modifier: Modifier, onOpen: () -> Unit) {
+    val secondS by rememberUpdatedState(second)
     val onOpenS by rememberUpdatedState(onOpen)
     val pxPerDp = LocalDensity.current.density.toDouble()
     Box(modifier.width(PanelGrip.TOUCH_W_DP.toFloat().dp).height(PanelGrip.TOUCH_H_DP.toFloat().dp)
@@ -3726,10 +3747,12 @@ private fun SpPanelGrip(g: PanelGrip.Place, said: String, modifier: Modifier, on
         .pointerInput(Unit) {
             awaitEachGesture {
                 val first = awaitFirstDown()
+                // a press the system hands this control from just outside its box (a control this low is given the few dp
+                // over it) is NOT the grip's: left untouched, it is the photo's (PanelGrip.onBox)
+                if (!PanelGrip.onBox(first.position.x.toDouble(), first.position.y.toDouble(), pxPerDp)) return@awaitEachGesture
                 first.consume()
-                // where the grip stands as the finger goes down: the whole press is judged against that box
-                val at = gS
-                val downY = at.touch.t + first.position.y
+                // how far the finger has moved since it went down: the sum of its own moves, never a place on the pane
+                var moved = Offset.Zero
                 var out = PanelGrip.Press.WAIT
                 while (out == PanelGrip.Press.WAIT) {
                     val ev = awaitPointerEvent()
@@ -3737,8 +3760,9 @@ private fun SpPanelGrip(g: PanelGrip.Place, said: String, modifier: Modifier, on
                     val lifted = !ch.pressed
                     // a system cancel arrives as the pointer up AND already consumed: it is no lift, so no tap
                     if (lifted && ch.isConsumed) break
+                    moved += ch.position - ch.previousPosition
                     ch.consume()
-                    out = PanelGrip.press(at, downY, at.touch.l + ch.position.x, at.touch.t + ch.position.y, lifted, pxPerDp)
+                    out = PanelGrip.press(first.position.x.toDouble(), first.position.y.toDouble(), moved.x.toDouble(), moved.y.toDouble(), lifted, secondS(), pxPerDp)
                     if (lifted) break
                 }
                 if (out == PanelGrip.Press.OPEN) onOpenS()
