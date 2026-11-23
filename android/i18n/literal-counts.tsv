@@ -143,6 +143,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TourMachine.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TourPlace.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Trades.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TreeKeep.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TreeNav.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/UploadNote.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Viewport.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WallCorners.kt	2

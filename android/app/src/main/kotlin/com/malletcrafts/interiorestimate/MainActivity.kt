@@ -93,6 +93,7 @@ import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.TourFlows
 import com.malletcrafts.interiorestimate.pano.TourMachine
 import com.malletcrafts.interiorestimate.pano.TreeKeep
+import com.malletcrafts.interiorestimate.pano.TreeNav
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import com.malletcrafts.interiorestimate.pano.WishList
 import com.malletcrafts.interiorestimate.pano.i18n.LangRow
@@ -789,6 +790,33 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // ONE parse per data change, not one per row per frame. Keyed on both
     // masters (what the server sent) and dataTick (what was typed here).
     val cs = remember(masters, dataTick) { cat.snapshot(masters) }
+    // The tree's projects as :pano's navigation reads them (TreeNav, port 63 slice F4d): key, client, site, title.
+    val treePs = remember(cs) { cs.projects.map { TreeNav.P(it.key, it.client, it.site, it.title) } }
+    // THE OPEN PLACE FOLLOWS THE TREE (port 63 slice F4d; android/docs/port63/DESIGN-tree.md §8). The place is two
+    // names and a COPY of the project as it was when opened, and nothing re-read them: a project whose site S5
+    // renamed, or that a sync re-keyed, kept its old crumb, and Back from it showed the old site's list, empty. So
+    // whenever the tree changes the place is found again in it (TreeNav.settle): the open project by its key, else
+    // by its client and title, under the site the TREE lists it under now; a site or a client that is no longer
+    // there steps up one level. Held here, above every early return, so it runs whichever screen is drawn.
+    LaunchedEffect(cs) {
+        val at = TreeNav.At(navClient, navSite, navProject?.key)
+        val open = navProject?.let { TreeNav.P(it.key, it.client, it.site, it.title) }
+        val to = TreeNav.settle(at, open, cs.clients, { c -> cs.sitesOf(c).map { it.name } }, treePs)
+        val now = to.project?.let { k -> cs.projects.firstOrNull { it.key == k } }
+        if (to != at || now != navProject) {
+            // a room is a room OF a project: where no project is open any more, its room, capture and face close with it
+            if (now == null) { navRoom = null; navCapture = null; navFace = null }
+            // The wish list open on the project stays open on it under the key it has NOW: it is held by the project's
+            // key, and a phone-only project takes S5's key at the sync that lists it. (Before this slice the stale
+            // copy kept its old key, which is what kept the list open across that sync.) The album, held the same way,
+            // is left to close: it opens from its tile alone (FeaturesTest's inventory), and site progress is off.
+            val oldKey = navProject?.key
+            if (now != null && oldKey != null && oldKey != now.key && wishFor == oldKey) wishFor = now.key
+            navClient = to.client
+            navSite = to.site
+            navProject = now
+        }
+    }
 
     // S5's QUOTE stage (v52 item 16), read ONCE per project open: ONE GET of the caller's
     // list, cached for every project this phone knows, and the line drawn from that cache.
@@ -802,8 +830,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val id = navProject?.serverId
         if (id.isNullOrBlank()) return@LaunchedEffect
         val known = cs.projects.map { it.serverId } + id
+        // S5's name for each project's site, as held just before this read: the read below hears them too (S5Sites)
+        val was = withContext(Dispatchers.IO) { S5Sites.all(context) }
         val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
         if (read) quoteTick += 1
+        // THE TREE IS RE-READ WHEN THIS READ TOOK A NEW SITE NAME (port 63 slice F4d; V10). The tree is drawn from
+        // those names, and only the quote line was redrawn: a site S5 had just named or renamed showed at the next
+        // reload, whenever that came, and the open project kept its old crumb until then. reload() redraws the tree,
+        // and the place then follows the project to its site (TreeNav.settle, above).
+        if (read && Renames.namesChanged(was, withContext(Dispatchers.IO) { S5Sites.all(context) })) reload()
         // THE ALBUM MIRROR (port 61c slice QV), beside the read of the list: at Client approved the quote view's
         // role, scope and stamp, and each work's state at its base, into the one store; at Revisions (QM2) S5's
         // role for this person, which decides the panel's Approve the estimate ▸, and the scope as stored -- the
@@ -1487,6 +1522,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             siteChoices = moveSites,
             moveShut = moveShut.orEmpty(),
             moveWhy = moveWhy?.invoke(tx),
+            moveTo = t.moveTo,
             onMoveEdit = { moveWhy = null },
             onMove = if (moving == null) null else ({ to: String -> moveProject(t, to) }),
             line = Renames.line(opened),
@@ -1697,21 +1733,43 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // ---- the folder tree ------------------------------------------------
     if (showNewSite) {
         NewSiteDialog(
-            client = navClient.orEmpty(),
-            site = navSite.orEmpty(),
+            // Prefilled from the open place -- but never with a bucket's name (TreeNav.prefill): "(no site)" and
+            // "(no client)" are where a project with no site or no client is filed, not names anybody typed, and a
+            // project made from inside one used to carry the bucket's name as its own for good.
+            client = TreeNav.prefill(navClient),
+            site = TreeNav.prefill(navSite),
             jobTypes = cat.jobTypes(masters),
             siteTypes = cat.siteTypes(masters),
             onDismiss = { showNewSite = false },
             onSave = { client, site, proj, jobType, siteType, address ->
-                cat.addLocal(client, site, proj, siteType = siteType,
-                    jobType = jobType, address = address)
-                reload()          // the rule: it is on screen before this returns
                 showNewSite = false
-                navClient = client
-                navSite = site
-                navProject = Catalogue.Project(
-                    client = client, site = site, siteId = "", title = proj,
-                    serverId = "", jobType = jobType, local = true)
+                // A PROJECT THE TREE ALREADY LISTS IS OPENED AS ITSELF, NEVER TWINNED (port 63 slice F4d; V8). The
+                // tree hides the phone's own row behind a listed project of the same client and title at any site,
+                // so a "new" one of that client and title was a project built here by hand that was no row of the
+                // tree: it showed the real one's photos under the site just typed, and Back left it for good.
+                val was = TreeNav.existing(client, proj, treePs)
+                val real = was?.let { w -> cs.projects.firstOrNull { it.key == w.key } }
+                if (real != null) {
+                    navClient = real.client
+                    navSite = real.site
+                    navProject = real
+                    navRoom = null
+                    // ...and another site typed for it is a MOVE, offered as one: its dialog opens on its Site row
+                    // with the site typed standing in the field (slice F4c's row), one tap from done or from Cancel.
+                    if (TreeNav.offersMove(site, real.site))
+                        renaming = RenameTarget("project", real.title, real.client, real.site, real.title, real.serverId,
+                            serverKnown = !real.local, moveTo = site.trim())
+                } else {
+                    // a site's own name, else the default -- never the bucket's (TreeNav.siteTyped)
+                    val at = TreeNav.siteTyped(site, Catalogue.DEFAULT_SITE)
+                    cat.addLocal(client, at, proj, siteType = siteType,
+                        jobType = jobType, address = address)
+                    reload()          // the rule: it is on screen before this returns
+                    navClient = client
+                    navSite = at
+                    // the new project as the TREE lists it, never a copy built by hand
+                    navProject = cat.projectOf(store.masters(), "", client, at, proj)
+                }
             })
     }
 
@@ -1904,37 +1962,31 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val site = navSite
         val scopeDrawer = rememberCoroutineScope()
 
+        // EVERY MOVE THROUGH THE TREE IS :pano's (TreeNav, port 63 slice F4d): the place it answers is applied
+        // here, the project read from the tree by its key -- never a copy built or kept by hand.
+        fun go(to: TreeNav.At) {
+            navClient = to.client
+            navSite = to.site
+            navProject = to.project?.let { k -> cs.projects.firstOrNull { it.key == k } }
+        }
         // Descending through a single child is a level nobody chose from, so
         // it is filled in rather than presented — and Back skips it again on
-        // the way out, or the two directions disagree.
-        fun openClient(c: String) {
-            navClient = c; navSite = null; navProject = null
-            val ss = cs.sitesOf(c)
-            if (ss.size == 1) openSiteInto(cat, masters, ss[0].name) { s2, p2 ->
-                navSite = s2; navProject = p2
-            }
-        }
+        // the way out, or the two directions disagree. A SITE IS OPENED INSIDE
+        // ITS OWN CLIENT: this used to find a one-site client's site by NAME
+        // across every client (audit R12), so a client whose only site was
+        // called what an earlier client's was opened the other one's project.
+        fun openClient(c: String) = go(TreeNav.openClient(c, cs.sitesOf(c).map { it.name }, treePs))
+        // A site row's tap and the site crumb's switch descend through a single
+        // project exactly as a client's tap does, so Back -- which never stops
+        // at a list of one -- retraces the way in. Before, a tapped site showed
+        // its one-project list and Back from the project skipped it.
+        fun openSite(c: String, s: String) = go(TreeNav.openSite(c, s, treePs))
 
         // System back unwinds the tree, and skips exactly the levels the way
         // DOWN skipped. Without this, back exits the app from four levels
         // deep — which on a phone reads as the app crashing.
         BackHandler(enabled = client != null) {
-            when {
-                proj != null -> {
-                    val siblings = cs.projectsOf(client ?: "", site ?: "")
-                    if (siblings.size == 1) {
-                        if (cs.siteCount(client ?: "") == 1) {
-                            navClient = null; navSite = null
-                        } else navSite = null
-                        navProject = null
-                    } else navProject = null
-                }
-                site != null ->
-                    if (cs.siteCount(client ?: "") == 1) {
-                        navClient = null; navSite = null
-                    } else navSite = null
-                else -> navClient = null
-            }
+            go(TreeNav.back(TreeNav.At(client, site, proj?.key), { c -> cs.sitesOf(c).map { it.name } }, treePs))
         }
 
         // The project's rooms as its grid shows them: the APPLIES TO chips of the wish list
@@ -2267,7 +2319,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 label = Masters.site_name(tx, site),
                 siblings = cs.sitesOf(client).map { it.name to Masters.site_name(tx, it.name) },
                 onUp = { navProject = null },
-                onSibling = { navSite = it; navProject = null }))
+                onSibling = { openSite(client, it) }))
             if (proj != null) add(Crumb(
                 label = proj.title,
                 siblings = cs.projectsOf(client ?: "", site ?: "")
@@ -2489,7 +2541,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             projectCount = { st ->
                                 cs.projectsOf(client, st.name).size
                             },
-                            onOpen = { navSite = it.name },
+                            onOpen = { openSite(client, it.name) },
                             onNew = { showNewSite = true })
                         else -> ClientsScreen(
                             onRename = { c -> renaming = RenameTarget(
@@ -3708,6 +3760,10 @@ data class RenameTarget(
      *  is a local row, no id but KNOWN is this app failing to match a record
      *  it was sent, and the two must never take the same branch. */
     val serverKnown: Boolean = false,
+    /** For a project: a site its dialog OFFERS at once -- the Site row opens unfolded with this name in its field.
+     *  Set where New site was given a client and a title the tree already lists with another site typed (port 63
+     *  slice F4d): the project is opened as itself and the move is offered, never made. Blank otherwise. */
+    val moveTo: String = "",
 )
 
 @Composable
@@ -3811,8 +3867,10 @@ private fun NewSiteDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    // the site AS TYPED, blank when none was: the caller files a new project under the default
+                    // site, and must be able to tell "no site typed" from one typed (TreeNav.siteTyped, offersMove)
                     onSave(clientName.trim(),
-                        siteName.trim().ifEmpty { Catalogue.DEFAULT_SITE },
+                        siteName.trim(),
                         projectName.trim(), jobType, siteType, address.trim())
                 },
                 enabled = clientName.isNotBlank() && projectName.isNotBlank(),
@@ -3829,19 +3887,6 @@ private fun shortName(full: String): String {
     val parts = full.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
     if (parts.size < 2) return full
     return parts[0] + " " + parts.last().first() + "."
-}
-
-/** Descend into a site, and through it if that site has exactly one project.
- *  Skipping a level nobody chose from is what keeps four levels walkable. */
-private fun openSiteInto(
-    cat: Catalogue,
-    masters: JSONObject?,
-    site: String,
-    apply: (String, Catalogue.Project?) -> Unit,
-) {
-    val client = cat.projects(masters).firstOrNull { it.site.equals(site, true) }?.client
-    val ps = if (client == null) emptyList() else cat.projectsOf(masters, client, site)
-    apply(site, if (ps.size == 1) ps[0] else null)
 }
 
 /** The installed versionName, read from the package rather than from

@@ -690,6 +690,12 @@ fun RenameDialog(
     moveShut: String = "",
     /** Why the last move did not happen, or null. Drawn under the Site row. */
     moveWhy: String? = null,
+    /** A site this dialog OFFERS at once (port 63 slice F4d): the picker opens
+     *  unfolded with this name in its field, under a line saying why. New
+     *  site was given a client and a title the tree already lists, with
+     *  another site typed: the project is opened as itself and the move is
+     *  one tap from done -- or from Cancel. Blank otherwise. */
+    moveTo: String = "",
     /** Another site was typed: the reason goes. */
     onMoveEdit: () -> Unit = {},
     /** A site was picked, or typed and confirmed: give the project that site. */
@@ -720,8 +726,8 @@ fun RenameDialog(
     val scroll = rememberScrollState()
     LaunchedEffect(whyTick) { if (why != null) scroll.scrollTo(0) }
     // The Site row's picker, folded until the row is tapped; and the name typed for a site the client does not have yet.
-    var pickSite by remember(current, site) { mutableStateOf(false) }
-    var newSite by remember(current, site) { mutableStateOf("") }
+    var pickSite by remember(current, site) { mutableStateOf(moveTo.isNotBlank()) }
+    var newSite by remember(current, site) { mutableStateOf(moveTo) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         // The name is wrong HERE and the thing is unwanted HERE. Sending a
@@ -807,6 +813,10 @@ fun RenameDialog(
                             modifier = Modifier.size(18.dp))
                     }
                     if (!canMove) Text(moveShut, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // offered from New site: why this dialog opened, and what the button below does
+                    if (canMove && moveTo.isNotBlank()) Text(tx.app_project_exists_use_site,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (moveWhy != null) Text(
                         moveWhy,

@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,6 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.malletcrafts.interiorestimate.pano.TreeNav
 
 /**
  * The breadcrumb rail.
@@ -29,6 +31,13 @@ import androidx.compose.ui.unit.dp
  *  - The current crumb is not a dead label the way it is on the web. It
  *    carries a chevron and opens the sibling switcher, so MB → KIT is one
  *    tap instead of four (up, up, down, down).
+ *  - THE CHEVRON IS DRAWN ONLY WHERE A TAP SWITCHES (port 63 slice F4d;
+ *    TreeNav.switches). It used to be drawn on the current crumb always,
+ *    while the switcher opened only with a sibling to switch to -- so a
+ *    project that is the only one of its site carried a chevron with
+ *    nothing behind it. Amit, 23 Nov 2026, with build 0.3.350: "site
+ *    switch is not happening correctly." And the switcher's rows scroll:
+ *    a long list of clients ran off the bottom of the sheet.
  *  - Every crumb is a 36dp pill inside a 48dp rail, so the touch target
  *    clears 44dp even where the text is two characters.
  */
@@ -68,14 +77,16 @@ fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
         shown.forEachIndexed { pos, idx ->
             if (pos > 0) Separator()
             if (collapse && pos == 1 && hidden.isNotEmpty()) {
-                CrumbPill("…", current = false) { showHidden = true } // text:value glyph
+                CrumbPill("…", current = false, chevron = false) { showHidden = true } // text:value glyph
                 Separator()
             }
             val c = crumbs[idx]
             val isLast = idx == crumbs.size - 1
-            CrumbPill(c.label, current = isLast) {
+            // whether a tap on this crumb opens the switcher: the one rule the chevron and the tap both read
+            val switches = TreeNav.switches(isLast, c.siblings.size)
+            CrumbPill(c.label, current = isLast, chevron = switches) {
                 if (isLast) {
-                    if (c.siblings.size > 1) sheetFor = idx
+                    if (switches) sheetFor = idx
                 } else c.onUp?.invoke()
             }
         }
@@ -86,17 +97,20 @@ fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
         ModalBottomSheet(onDismissRequest = { sheetFor = null }) {
             // The prototype's key for its switcher's title is the one "Switch" it has (type.s.short, v53 app.js:590)
             SheetTitle(tx.type_s_short)
-            c.siblings.forEach { (key, label) ->
-                ListItem(
-                    headlineContent = { Text(label) },
-                    colors = if (label == c.label)
-                        ListItemDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                    else ListItemDefaults.colors(),
-                    modifier = Modifier.clickableRow {
-                        sheetFor = null
-                        c.onSibling?.invoke(key)
-                    })
+            // the rows scroll, capped as the app's other sheets cap theirs (TreeShell's WorkSheet)
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                c.siblings.forEach { (key, label) ->
+                    ListItem(
+                        headlineContent = { Text(label) },
+                        colors = if (label == c.label)
+                            ListItemDefaults.colors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                        else ListItemDefaults.colors(),
+                        modifier = Modifier.clickableRow {
+                            sheetFor = null
+                            c.onSibling?.invoke(key)
+                        })
+                }
             }
             Spacer(Modifier.height(12.dp))
         }
@@ -126,7 +140,7 @@ private fun Separator() {
 }
 
 @Composable
-private fun CrumbPill(label: String, current: Boolean, onClick: () -> Unit) {
+private fun CrumbPill(label: String, current: Boolean, chevron: Boolean, onClick: () -> Unit) {
     val tx = LocalTx.current
     Surface(
         onClick = onClick,
@@ -140,7 +154,7 @@ private fun CrumbPill(label: String, current: Boolean, onClick: () -> Unit) {
             Text(label, style = MaterialTheme.typography.labelLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 180.dp))
-            if (current) {
+            if (chevron) {
                 Icon(painterResource(R.drawable.ic_mcft_down), contentDescription = tx.type_s_short,
                     modifier = Modifier.size(18.dp))
             }

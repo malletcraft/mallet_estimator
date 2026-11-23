@@ -1219,11 +1219,34 @@ says they read wrongly.
 656 -> 655 (`app.move_project` is read now; all four new keys are born read). One new literal is marked
 `// text:value`: the wire kind `project`, compared where `MainActivity.kt` opens a project's dialog.
 
+## Port 63 slice F4d (23 Nov 2026): navigation in the tree -- 1 key added, English first
+
+The plan's Slice 3 (`android/docs/port63/DESIGN-tree.md` §8): every move through client > site > project is a pure rule
+(`pano/TreeNav.kt`, new, which shows no text and joined `ported.txt`; `literal-counts.tsv` gained its row, 0).
+
+**One key**, a phone text (flag `phone-text`), ENGLISH FIRST (decision 7 above), listed in `mr-pending.tsv` (41 -> 42):
+
+| Key | English | Read by |
+|---|---|---|
+| `app.project_exists_use_site` | `This client already has this project. To move it to the site you typed, tap Use this site.` | `TreeShell.kt` `RenameDialog` -- under a project's Site row, when the dialog was opened by New site / New project for a client and a title the tree already lists, with another site typed: the project is opened as itself and the move is offered, the site typed standing in the field |
+
+**It quotes a button.** "Use this site" is `app.use_site`, the button under the field. Its Marathi, when written, must
+quote that key's Marathi (`ही साइट वापरा`) exactly, or the sentence names a button that is not on screen. `TreeNavTest`
+holds the English to it.
+
+**No existing English or Marathi value is changed.** The breadcrumb's "Switch" (`type.s.short`) is unchanged; what
+changed is where its chevron is drawn.
+
+1,945 keys (1,944 + 1); Tx regenerated with `:pano:i18nGen` (1,874 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and added `TreeNav.kt 0`; `unkeyed.tsv` stays empty; the accessors nothing calls BY NAME
+stay at 655 (the new key is born read). One new literal is marked `// text:value`: the client bucket's stored value
+`(no client)` in `pano/TreeNav.kt`, pinned equal to `S5Masters.NO_CLIENT`.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,944 keys each (counted 23 Nov 2026: the 1,940 of port 63 slice F4b and the 4 of its slice F4c; that 1,940 is the 1,934 of port 63 slice Q2b and the 6 of slice F4b; that 1,934 is the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,945 keys each (counted 23 Nov 2026: the 1,944 of port 63 slice F4c and the 1 of its slice F4d; that 1,944 is the 1,940 of port 63 slice F4b and the 4 of slice F4c; that 1,940 is the 1,934 of port 63 slice Q2b and the 6 of slice F4b; that 1,934 is the 1,931 of port 63 slice I1b and 5 in its slice I2a, less the 4 its slice I2b deleted with their last reader, plus the 2 of its slice Q2a; that 1,931 is the 1,945 below less the 14 slice I1b deleted with their last readers -- the one key the review of I1 added, port 63 P2N deleted again; each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1, 14 in its slice Q1 and 7 in its slice I1a): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 153 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise) and 7 in its slice I1a (`sp.laser.off` / `ready` / `on_360_x`, `sp.measure.aria.next_x` / `keep`, `sp.measure.check_reading` and `sp.reference_shown_mark`, pending likewise). 324 of the 1,945 carry the flag `phone-text` (the card's 171 and these 153). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

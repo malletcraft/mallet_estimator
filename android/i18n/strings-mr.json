@@ -1006,6 +1006,10 @@
   "mr": "A photo of this project has not reached S5 yet — move it once it has; not moved",
   "note": "port 63 F4c: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
+ "app.project_exists_use_site": {
+  "mr": "This client already has this project. To move it to the site you typed, tap Use this site.",
+  "note": "port 63 F4d: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.project_has_no_skus": {
   "mr": "या प्रोजेक्टमध्ये अजून SKU नाहीत. ऑफिस ते अंदाजपत्रकातून जोडते, आणि पुढच्या सिंकला ते येतात."
  },

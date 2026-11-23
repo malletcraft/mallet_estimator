@@ -327,6 +327,7 @@ app.photos	app_photos	static	-
 app.pick_360_gallery	app_pick_360_gallery	static	-
 app.pinch_zoom_double_tap	app_pinch_zoom_double_tap	static	-
 app.project_capture_on_way_not_moved	app_project_capture_on_way_not_moved	static	-
+app.project_exists_use_site	app_project_exists_use_site	static	-
 app.project_has_no_skus	app_project_has_no_skus	static	-
 app.project_is_at	app_project_is_at	static	-
 app.project_office_record_renamed	app_project_office_record_renamed	static	-

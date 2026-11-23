@@ -533,6 +533,17 @@ object Renames {
      */
     fun takes(stored: Held?, copy: Held): Boolean = stored == null || copy.at >= stored.at
 
+    /**
+     * Whether S5's names for the projects' sites CHANGED between two readings of what the phone holds ([before] and
+     * [after]: S5Sites.all, just before and just after a read of S5's list) -- for the read made when a project is
+     * opened (port 63 slice F4d; the verifying pass's V10). The tree is drawn from these names, and that read redrew
+     * only the quote line: a site S5 had just named or renamed showed at the next reload, whenever that came. A name
+     * that differs is a change, a first name included. NOT a change: a project heard for the first time with no name
+     * ('' where nothing was held), and a newer stamp on the same name.
+     */
+    fun namesChanged(before: Map<String, Held>, after: Map<String, Held>): Boolean =
+        after.any { (project, now) -> before[project]?.site.orEmpty() != now.site }
+
     // ---- the site's chosen rooms follow the name S5 gives it (audit R7; the A2 review, finding 2) ------------
 
     /** One project as the tree lists it: its S5 project id ('' for a row only this phone holds), its client, and the site it is listed under. */

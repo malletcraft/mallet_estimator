@@ -35,9 +35,10 @@ His two answers on the selector that followed (~22:15 IST):
 
 The fix is four slices and a fifth that needs his yes (§5). This file is written with them, each its own commit:
 **F4a** (the plan's Slice 1: what the phone lists, §2), **F4b** (the plan's Slice 4: a rename that cannot work says
-so before Save, and never forks, §3) and **F4c** (the plan's Slice 2: one project, one site, §7). Sections 1 to 6 are
-the first writer's record of F4a and F4b and are kept as written, but for §5, where a slice built since points to its
-own section.
+so before Save, and never forks, §3), **F4c** (the plan's Slice 2: one project, one site, §7) and **F4d** (the
+plan's Slice 3: navigation, the "site switch", §8). §9 is one question checked with them and not fixed. Sections 1
+to 6 are the first writer's record of F4a and F4b and are kept as written, but for §5, where a slice built since
+points to its own section.
 
 A third sentence of the same message is the one F4c answers. It names one of his projects and the flat it belongs
 to, so it is in the session's notes and not here; what it says is that the project belongs to that flat and no
@@ -333,11 +334,8 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
 - **Slice 2 — one project, one site** (V1): **built, F4c — §7.** The data that prompted it (a project of his on S5
   with no site name) was written on S5 stage the same evening, so his phone lists it under the flat's name at its
   next list read; the control he lacked is the project's Site row.
-- **Slice 3 — navigation, the "site switch"** (V9, V10, V11, and V8's twin). A chevron drawn on a crumb whose tap
-  does nothing; only the last crumb opens "Switch"; Back skips a project list he walked through; the open place is
-  held as names and a stale `Project` copy that nothing re-reads; a one-site client is opened by site NAME across all
-  clients (audit R12); the New site dialog with an existing project's client and title builds a twin that is not a
-  row of the tree. A pure `TreeNav` (openClient, openSite, back, settle, existing, switches).
+- **Slice 3 — navigation, the "site switch"** (V9, V10, V11, and V8's twin): **built, F4d — §8.** Left as the plan
+  leaves it: only the LAST crumb opens "Switch" (the site crumb goes up when a project is open), and rotation.
 - **Slice 5 — S5 keeps the client's name** (V4, V16; S5 QUOTE first, then S2 APK; needs Amit's yes). The client of a
   project made on the phone exists only on that phone: S5 holds customer "" for it, so a reinstall or a second phone
   files it under "(no client)". A `client_name` on the S5 project (first value from the upload while blank, a guarded
@@ -367,6 +365,22 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
     ambiguity (photos joined by title), not a new one.
   - *A bench rename (live pair) re-keys nothing on the phone* — V18, unchanged: `Renames.rekey` is called on the Local
     route only.
+- **Found while building F4c and F4d, and left:**
+  - *A project S5 no longer lists cannot be removed from the phone* — §9, with the rule proposed.
+  - *The project's dialog has one way in, a long press on its row* — and since F4d the row of a site's ONLY project
+    is reached through the site's name in the crumb rail (§8.5, 1). A visible way from inside the project (the Site
+    line on the project's own sheet, say) is a screen change and was not made.
+  - *`QuoteStageSync.refresh` reads S5's list but adds no project to the masters*; only `S5Masters.fetch` does (the
+    app's start, a sync's S5 leg, a rename's or a move's read-first). So a project made on the phone stays the
+    phone's own row in the tree — shut as "on S5, or on its way there" — until one of those runs after its upload.
+    The move's read-first is the one place that reads on demand; opening the project does not, because a phone's own
+    row carries no id to read S5 with.
+  - *A move through S5 on a phone with a live pair* leaves the bench's site link as it was, and `SiteRows.listed`
+    then lists the bench's row under S5's name when every project linked to it moved (V12's shape). No phone holds a
+    live pair.
+  - *The site rename's lines are a move's too* (`refuse.site.signed_out`, `refuse.site.offline`): "not saved", and
+    "Save again" where a move has no Save.
+  - *Search's pick and the Work tab's Resume* set the place themselves and are not asked of `TreeNav`.
 - **Not the phone's to fix.** V3 on a phone that bootstraps (the bench sends every Mallet Site: a filter in
   `bootstrap()`, a bench deploy, not worth it while no phone holds a live pair). V18 (the bench's client rename edits
   the customer's name and not its docname, and leaves the phone's rows; needs a live pair). The old test project on
@@ -588,3 +602,214 @@ Reused, with their Marathi: `common.site`, `common.new_site`, `app.use_site`, `a
   list, as it did; nothing else opens it.
 - **A live-pair phone** moves a project S5 lists through S5 as well, and the bench's own site link is not told
   (the plan's "does not fix"). No phone holds a live pair.
+
+## 8. Slice F4d as built — navigation, the "site switch"
+
+The plan's Slice 3, its own commit over F4c. Closes V9, V10, V11 and V8.
+
+### 8.1 What was wrong
+
+The place the app is at was four loose values in the screen — two NAMES, a COPY of the project taken the moment it
+was opened, and a room — moved by rules written inline, each a little different.
+
+| # | The fault | Closed by |
+|---|---|---|
+| V11 (audit R12) | Opening a client with one site looked that site up BY NAME ACROSS EVERY CLIENT: the first project in the whole tree at a site of that name decided whose it was. A client whose only site was called what an earlier client's was opened the other client's project, under his own crumbs — and a photo taken there was filed to the other client. | `TreeNav.openSite` asks that client's projects alone; the cross-client function is deleted |
+| V9 | Opening a client went down through a single site and a single project; tapping a site row did not; Back skipped a one-project list either way — so Back skipped a list he had just walked through. The breadcrumb's last pill always drew a chevron, though a tap opens "Switch" only with a sibling to switch to: on a site holding one project, a chevron with nothing behind it. The Switch sheet's rows did not scroll. | `TreeNav.openSite` / `back` are one rule read both ways; `TreeNav.switches`; a scrolling column |
+| V10 | Nothing re-read the place when the tree changed under it: a project whose site S5 renamed, or that a sync re-keyed, kept its old crumb, and Back from it showed the old site's list, empty. And the read made when a project is opened heard S5's site names but redrew only the quote line. | `TreeNav.settle`, in one effect keyed on the tree; `Renames.namesChanged`, then `reload()` |
+| V8 | "New site" with the client and title of a project the tree already lists built a second project BY HAND that was no row of the tree: it showed the real one's photos under the site just typed, its phase strip took no tap, and Back left it for good. The row it left on the phone gave the real project's next upload the wrong site. Opened from inside a bucket, the dialog was prefilled with "(no site)" as though it were a name. | `TreeNav.existing`, `prefill`, `siteTyped`, `offersMove`; the project is read from the tree |
+
+### 8.2 The rules
+
+`pano/TreeNav.kt` (new), pure, tested by `TreeNavTest` (new):
+
+```kotlin
+object TreeNav {
+    data class P(val key: String, val client: String, val site: String, val title: String)
+    data class At(val client: String?, val site: String?, val project: String?)
+    val ROOT: At
+    const val NO_CLIENT = "(no client)"
+    fun openSite(client: String, site: String, projects: List<P>): At
+    fun openClient(client: String, sites: List<String>, projects: List<P>): At
+    fun back(at: At, sitesOf: (String) -> List<String>, projects: List<P>): At
+    fun settle(at: At, open: P?, clients: List<String>, sitesOf: (String) -> List<String>, projects: List<P>): At
+    fun existing(client: String, title: String, projects: List<P>): P?
+    fun switches(isLast: Boolean, siblings: Int): Boolean
+    fun prefill(name: String?): String
+    fun siteTyped(typed: String, fallback: String): String
+    fun offersMove(typed: String, at: String): Boolean
+}
+```
+
+and in `pano/RenameRoute.kt`: `Renames.namesChanged(before: Map<String, Held>, after: Map<String, Held>): Boolean`.
+
+- **Down.** `openSite`: the site, and through it into its project when it holds exactly one — asked of THAT client's
+  projects only. `openClient`: the client's sites, or straight through a single site.
+- **Back** is the same rule read upwards: from a project to its site's list unless that list is this project alone;
+  from a site to the client's sites unless the client has one site; from a client to the clients. So
+  `back(open(x))` is where `open` started, and Back never stops at a list of one.
+- **Settle** — the place found again in the tree as it is now. A project open: by its key; else by the client and
+  title of the project as it was opened (the phone's own row took S5's key at a sync; or its key was its names and
+  its site changed), at its old site if more than one matches. Found: its client, SITE and key as the tree lists
+  them now. Not found: one level up. A site open: it stays while the client still has a site of that name, else the
+  client's sites. A client open: it stays while the tree lists it, else the clients. A name that still matches is
+  given in the tree's own spelling.
+- **`existing`**: the project a typed client and title already is, at whatever site — as the tree itself hides the
+  phone's own row behind a listed project of the same client and title at ANY site, and a capture joins its project
+  by those two.
+- **`switches`**: the last crumb, with another of its level to switch to.
+- **`prefill`**: the open client's or site's own name, and nothing for "(no site)" or "(no client)". **`siteTyped`**:
+  the site a NEW project is filed under — the name typed when it is a site's own, else the default. **`offersMove`**:
+  a site was typed, it is a site's own name, and it is not the site the project is at.
+- **`namesChanged`**: some project's site name differs between two readings of what the phone holds of S5's names.
+  Not a change: a project heard for the first time with no name, and a newer stamp on the same name.
+
+### 8.3 Where `:app` asks them
+
+| Site | What changed |
+|---|---|
+| `app/MainActivity.kt`, beside `cs` | `treePs` = the tree's projects as `TreeNav.P`. **`LaunchedEffect(cs)`**: `TreeNav.settle` of the open place; where it differs, or the project object does, the client, site and project are replaced — the project by the TREE's object, so a copy that still says the old site goes even where the key stands. No project any more: its room, capture and face close with it. A wish list open on a project that took a new key follows it to that key. Composed above every early return (the search overlay, the tabs, the rename dialog). |
+| `app/MainActivity.kt` `LaunchedEffect(navProject?.serverId)` | S5's names are read before the list read (`S5Sites.all`) and compared after: `if (read && Renames.namesChanged(…)) reload()`. |
+| `app/MainActivity.kt`, the tree branch | `go(to: TreeNav.At)` applies a place, the project read from the tree by its key. `openClient(c)` and the new `openSite(c, s)` are one line each over `TreeNav`; the `BackHandler` is `go(TreeNav.back(…))`. The site row's `onOpen` and the site crumb's `onSibling` call `openSite`. The inline skip rule and `openSiteInto` are deleted. |
+| `app/MainActivity.kt`, the New site dialog | Prefilled through `TreeNav.prefill`. `onSave`: `TreeNav.existing(client, proj, treePs)` first. A project the tree lists is opened as itself — nothing is added to the phone's rows — and where `TreeNav.offersMove(site, real.site)`, its dialog is opened with `moveTo` = the site typed. Otherwise the new row is added under `TreeNav.siteTyped(site, DEFAULT_SITE)` and `navProject` is read back from the tree (`cat.projectOf`). The dialog now hands back the site AS TYPED (blank when none), so "no site typed" can be told from one typed. |
+| `app/MainActivity.kt` `RenameTarget` | `moveTo: String = ""`. |
+| `app/TreeShell.kt` `RenameDialog` | `moveTo: String = ""`: the Site row's picker opens unfolded with that name in its field, under the line `app.project_exists_use_site`. |
+| `app/Crumbs.kt` `CrumbRail`, `CrumbPill` | `val switches = TreeNav.switches(isLast, c.siblings.size)` is read by the tap and handed to the pill as `chevron`; the pill draws the chevron `if (chevron)`, no longer `if (current)`. The Switch sheet's rows are in `Column(Modifier.heightIn(max = 460.dp).verticalScroll(…))`, as the app's other sheets are. |
+
+### 8.4 What Amit sees
+
+- **A client never opens another client's project.**
+- **Tapping a site that holds one project opens the project**, as tapping a one-site client always did. Back from
+  it goes to the list he tapped in — never past it, and there is no one-row list in between.
+- **No dead chevron.** The last crumb carries one only where a tap opens "Switch". The only project of its site
+  has none.
+- **A project whose site changed while he was in it** — S5's own answer to a move from another phone or the web,
+  heard when he opened the project or at a sync — keeps him in the project, the crumb says the site it is at now,
+  and Back lists that site.
+- **A site that was renamed or emptied while its list was open** is not left on screen as an empty list under a
+  name that is gone: he is at the client's sites, where it stands under its new name.
+- **Typing an existing project into New site opens the real one.** If he typed another site for it, its dialog is
+  open on the Site row with that site in the field, and says: "This client already has this project. To move it to
+  the site you typed, tap Use this site." One tap moves it; Cancel leaves him in the project where it is.
+- **New project from inside "(no site)"** starts with the site blank, and is filed under "Main site" if he types
+  none — never under a site called "(no site)".
+- **A long list of clients in Switch scrolls.**
+
+### 8.5 Decided by Claude, not by Amit
+
+1. **A site row's tap descends through a single project.** The plan's rule ("openSite … descends through a single
+   project", "back is the exact inverse"); the other way to make the two directions agree — Back remembering how he
+   came — needs a history that a re-read of the tree would then have to settle too. **What it costs, and the first
+   thing to judge on the phone:** the project LIST of a one-project site is no longer what a tap on the site shows.
+   It is reached by the site's name in the crumb rail, from inside the project — and that list is where a project is
+   long-pressed for its dialog (rename, the Site row, delete) and where "New project" stands. A one-site client's
+   project was already reached that way.
+2. **`back(open(x))` is "where open started" with a list of one never a stop.** A place reached by the crumb — the
+   one-row list above — goes back as if it had been passed through.
+3. **Settle steps up; it never guesses a site.** With only a site open and its name gone, he is at the client's
+   sites — not carried to "the site that is probably the same one". With a project open he is carried, because the
+   project's key says which one it is.
+4. **No project open, no room open.** Where the settled place has no project, the room, the capture and the face
+   close with it. Survey prep is not closed by this: it is its own window over the tree and holds what it was
+   opened with.
+5. **An open wish list follows its project to a new key; an open album closes.** Both are held by the project's key.
+   The wish list is carried so that the sync which first lists a phone-made project does not close it under his
+   hand (the stale copy used to keep it open). The album is not: `FeaturesTest` pins that it is opened in one place
+   and left in one, site progress is off, and a third write of its key was not worth moving that pin for.
+6. **An existing project is found by client and title at ANY site** — the tree's own rule for hiding a row, and the
+   upload's for choosing a project. So two real projects of one client with one title at two sites cannot be made
+   from New site; the second opens the first. That is V15 (photos joined by title), unchanged and now said.
+7. **The move from New site is offered, never made.** He typed a site for a project that exists somewhere else; the
+   app does not decide that he meant to move it.
+8. **A blank site in New site is "Main site" for a new project and "no site typed" for an existing one.** The dialog
+   used to hand back "Main site" for a blank field, which would have offered to move every existing project there.
+9. **`Renames.namesChanged` is its own rule**, one line: what counts as a change of the TREE is stated and tested,
+   not left to a map comparison that a newer stamp on the same name would trip.
+10. **The one new sentence** (§8.6), and that it quotes the button's own words.
+
+### 8.6 The new text
+
+One key, a phone text, English first (`mr-pending.tsv` 41 → 42). No existing text changed.
+
+| Key | English |
+|---|---|
+| `app.project_exists_use_site` | This client already has this project. To move it to the site you typed, tap Use this site. |
+
+### 8.7 Tests
+
+`:pano` 115 classes, 1,659 tests → **116 classes, 1,675 tests**, all green.
+
+- `TreeNavTest` (new, 16): the way down; **two clients, one site name** — the fixture is the fault's (another
+  client's project comes first under that name), and no client or site of the tree opens a project that is not its
+  own, in either order of the tree; `back(open(x))` for every node of a made-up tree; Back never stops at a list of
+  one and reaches the clients in at most three strictly higher steps from every place; settle — no change (every
+  place, and the tree's spelling), a renamed site with a project open and with only the site open, one project
+  moved, a key that changed (the phone's row that became S5's, a row whose site moved, a twin, two rows of one
+  title, never another client's project), what is no longer in the tree (a project, a site, a client), and that
+  whatever it is given the answer is a place of the tree; `existing` and `offersMove`; `prefill` and `siteTyped`,
+  with `NO_CLIENT` pinned to `:app`'s; `switches`; `namesChanged`; and four source tests of `:app` (the moves; the
+  settle and the read on project open; New site; the breadcrumb).
+- No existing pin moved.
+
+### 8.8 What is not proven (F4d)
+
+- **Nothing was seen on a phone** and `:app` was not compiled. The harness ran `MainActivity`'s navigation mirrored
+  statement for statement over the real `Catalogue.Snapshot` and `TreeNav`: the old cross-client rule reproduced on
+  a made-up tree and the new one opening the right project; Back from each kind of place; the chevron's answer; a
+  project moved by the office while he was in it (the list read, `namesChanged`, the re-read, the place following
+  it, Back listing the site it is really at); a site renamed while its list was open; New site with an existing
+  project (opened as itself, no row added, the move offered and then made by one more call); a new project from
+  inside the bucket; a phone-only site whose last project was removed.
+- **What stood in for a compiler, for F4c and F4d alike.** Beyond the mirrored run, the EXACT text of every handler
+  these two slices added to `MainActivity.kt` — the four move handlers, the dialog's three values and its new
+  arguments, the settle, `go` / `openClient` / `openSite` / Back, New site's `onSave`, the read on project open —
+  was cut from the file by a script and compiled against the real `Catalogue`, `S5Sites`, `S5Session`,
+  `CaptureStore`, `SiteRename` and the real `:pano` jar, with stand-ins only for Compose's state, `remember`,
+  `scope.launch` and `withContext`; and the Site row's exact text was compiled over stand-ins for the Compose calls
+  it makes. Both came out clean. Neither is CI: Compose's own signatures, the imports of `TreeShell.kt` and
+  `Crumbs.kt`, and how the pieces sit in composition are CI's to say. The least sure lines are `TreeShell.kt`'s
+  Site row (a `Row` whose modifier is an `if` … `else` expression followed by `.heightIn`) and `Crumbs.kt`'s
+  scrolling `Column` with its new `verticalScroll` import.
+- **The settle runs in a `LaunchedEffect`**, one frame after the tree changes: for that frame the screen draws the
+  old place over the new tree, as it did for good before this slice.
+- **Rotation and process death** still reset the tree to Clients (V19); nothing here keeps the place across them.
+- **The site crumb still goes up** when it is not the last crumb, as the plan leaves it; only the last crumb
+  switches.
+- **Search's pick and the Work tab's Resume** still set the place themselves, from a hit or a recent that names a
+  project of the tree by its key. A place they set wrongly would be settled at the tree's next change, not at once.
+
+## 9. Checked, not fixed: a project made on this phone that S5 no longer lists
+
+Asked with this build: a project made on a phone, uploaded, and since removed from S5 by the office (S5 has no
+project delete; the office removes one by a guarded one-off fix of its rows) may still have its row and a sent
+capture on the phone. Since F4b a phone-minted key "counts as S5's, sent or not". Can he remove such a project?
+
+Run in the harness on made-up names (a client, a site, one project made on the phone, its capture sent, S5 listing
+it, then S5 not listing it, then one read of S5's list with no live pair):
+
+- **What the tree shows.** The project is still listed — as the phone's OWN row again, with its Offline pill, under
+  the client and site it was typed under. The masters entry S5's list had added is gone with the read; the phone's
+  row was only hidden behind it.
+- **Its name is shut and its delete is refused**, with F4b's sentences ("… is on S5, or on its way there …"):
+  its capture carries the phone-minted key.
+- **After he deletes that capture** (the capture screen's Delete removes the row and its files at once), **the
+  delete is still refused, and so is its site's.** Why, exactly: `Catalogue.onS5`'s second half asks whether S5's
+  list has named the key the phone's row WOULD have on S5 (`S5Auth.localKey` of its client, site and title — the
+  very key it was uploaded under), and "named" is `S5Sites` holding an entry for it. **`S5Sites` never removes an
+  entry**: its own header says "Nothing is removed: … S5 has no project delete". So a project S5 once listed reads
+  as listed for ever.
+- **Its Site row** sends the one write to the key S5 no longer holds, and S5's own 404 is said under the row
+  ("This project has never been uploaded").
+
+So he cannot remove it from the phone. He can leave it; nothing uploads from it once its capture is gone.
+
+**Not fixed here, because it is not one small rule.** The obvious rule — "a read of S5's whole list forgets the
+names of projects it no longer lists" — is wrong as written in two ways that the store's own header already warns
+of: reads overlap (a list read sent before a project's first upload can land after the answer that named it, and
+would un-list a project S5 holds — which opens, for that window, exactly the local rename F4b shut), and the list
+is the list of whoever is signed in (a second login's shorter list would forget the first's projects). **The rule
+proposed, for whoever takes it:** the DELETE asks S5 at the moment it matters, as a site's rename does (`listRead`):
+where a row's only tie to S5 is a key `S5Sites` once heard — no capture of it on the phone carries a key — the
+dialog reads S5's list first, and a key that fresh list does not name is not on S5: the row is then the phone's
+own and is removed here. A capture still on the phone keeps the refusal, and the sentence should then say to
+delete the capture first. `Deletes.route` gains `listRead` and the fresh list's answer; nothing else reads it.

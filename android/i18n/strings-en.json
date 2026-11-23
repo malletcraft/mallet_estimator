@@ -2599,6 +2599,16 @@
    "phone-text"
   ]
  },
+ "app.project_exists_use_site": {
+  "en": "This client already has this project. To move it to the site you typed, tap Use this site.",
+  "where": [
+   "S2 APK phone text · TreeShell.kt RenameDialog at d9d32ab+F4d · Shell · a project's dialog, its Site row (port 63 slice F4d, 23 Nov 2026; DESIGN-tree §8): under the Site row, when the dialog was opened by New site / New project for a client and a project title the tree already lists, with another site typed: the project is opened as itself and the move is offered, the site typed standing in the field · \"Use this site\" is the button's own words, app.use_site: the Marathi must quote that key's Marathi · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.project_has_no_skus": {
   "en": "This project has no SKUs yet. The office adds them from the estimate, and they arrive on the next sync.",
   "where": "v53build/app.js:249 · h",

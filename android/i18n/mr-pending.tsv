@@ -29,12 +29,15 @@
 # was given another site (app.msg.moved_to_x), why its site cannot be changed from this phone (app.project_site_not_changed_here), why a
 # move waits for a photo still on its way to S5 (app.project_capture_on_way_not_moved) and the refusal of a blank site, the bucket or the
 # site it is already at (app.not_moved_pick_another_site). 41 in all.
+# Port 63 slice F4d (23 Nov 2026) added one: the line under a project's Site row when New site was given a client and a title the tree
+# already lists, with another site typed (app.project_exists_use_site; android/docs/port63/DESIGN-tree.md §8). 42 in all.
 key	English
 app.client_office_record_renamed	This client is the office's record. It is renamed at the office, not from this phone.
 app.client_s5_not_renamed	This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.
 app.msg.moved_to_x	Moved to {site}
 app.not_moved_pick_another_site	Not moved: pick another site, or type a new site's name.
 app.project_capture_on_way_not_moved	A photo of this project has not reached S5 yet — move it once it has; not moved
+app.project_exists_use_site	This client already has this project. To move it to the site you typed, tap Use this site.
 app.project_office_record_renamed	This project is the office's record. It is renamed at the office, not from this phone.
 app.project_s5_not_removed	This project is on S5, or on its way there. This phone cannot delete it there, so nothing was removed.
 app.project_s5_not_renamed	This project cannot be renamed from this phone: it is on S5, or on its way there, and the new name would not reach it.
