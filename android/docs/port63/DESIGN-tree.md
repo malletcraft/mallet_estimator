@@ -336,7 +336,9 @@ In the order the verified plan gives them. V-numbers are the verifying pass's.
   next list read; the control he lacked is the project's Site row.
 - **Slice 3 — navigation, the "site switch"** (V9, V10, V11, and V8's twin): **built, F4d — §8.** Left as the plan
   leaves it: only the LAST crumb opens "Switch" (the site crumb goes up when a project is open), and rotation.
-- **Slice 5 — S5 keeps the client's name** (V4, V16; S5 QUOTE first, then S2 APK; needs Amit's yes). The client of a
+- **Slice 5 — S5 keeps the client's name**: **built, both halves — §11** (Amit, 24 Nov 2026: "Client rename"). What
+  follows is the plan as it stood on 23 Nov; the warning at its end holds only until every phone that made a client
+  has synced once with the build that carries §11 (its backfill sends the name). (V4, V16.) The client of a
   project made on the phone exists only on that phone: S5 holds customer "" for it, so a reinstall or a second phone
   files it under "(no client)". A `client_name` on the S5 project (first value from the upload while blank, a guarded
   `PUT …/client`), read by `S5Masters.fetch` before the capture row; the S5 key STORED instead of re-derived
@@ -1033,7 +1035,8 @@ if they read wrongly on the phone.
   goes to S5 under that docname (as the projects S5 already lists for an ERP customer are keyed), and is then "the
   office's record" for a rename or a delete. It used to get a freshly minted key, beside the ERP project.
 - **S5 still holds no client name.** The remembered keys are on this phone only: Clear storage or a reinstall still
-  loses them (Slice 5).
+  loses them (Slice 5). — **Closed for the name by §11**: S5 holds it and the tree reads it first. The remembered keys
+  are still this phone's alone, and matter only for a project no capture of which has reached S5.
 
 ### 10.13 What is not proven
 
@@ -1056,3 +1059,82 @@ if they read wrongly on the phone.
   `GET /api/asis` is S5's own rule, read in its notes and not probed here.
 - **How the chip row sits at 360 dp** with a long site name first, and how the 130-character sentences wrap in the
   dialog, are the phone's to show.
+
+## 11. Slice 5, the phone half, as built — the client's name is S5's, and a client rename works
+
+24 Nov 2026 (IST), branch `port63-client` over `26b3653` (build 0.3.356; `:pano` 117 classes, 1,701 tests → 118 and
+1,723). Amit: "Client rename". S5's half is `mcft-interior-estimate` `5772723`: staff are given `client_name`,
+`client_name_by`, `client_name_at` on the list, the project and the room; a record's `client_name` sets a FIRST name
+only; `PUT /api/asis/:project/client {client_name, base}` renames one project's client. The name is a LABEL: nothing
+here sends, reads or changes `customer`, the ERP Customer id.
+
+### 11.1 As built
+
+The rules are `pano/ClientNames.kt` (tested by `ClientNamesTest`, which also reads `:app` as source).
+
+- **One home for S5's answer: `app/S5Clients.kt`**, per S5 project id, the twin of `S5Sites` and fed wherever that is
+  (`S5Masters.fetch`, `QuoteStageSync.refresh`, `SiteRename.hear`, every answer to a `PUT …/client`), by S5's own
+  stamp (`Renames.takes`). No entry = S5 gave this login no key (not staff, or an older S5).
+- **The tree reads it first** (`Catalogue.erpProjects`, `ClientNames.nameOf`; `S5Auth.keyFor` the same way): a
+  reinstalled phone lists each S5 project under its client, not under "(no client)".
+- **The phone's rows FOLLOW the name where it is written** (`S5Clients.takeList` → `ClientNames.steps` / `follows`):
+  the project's capture rows, the row made on this phone, the remembered S5 key and the chosen rooms. They are FILED
+  under the client's name, so a name only shown would have hidden the photos. Asked for every named row of every
+  read, so a step that failed is made good by the next one.
+- **The upload's record carries `client_name`** (`AsIsPath.body`, `ClientNames.recordName`): the capture row's
+  client, never blank, the bucket, the demo client or the customer id.
+- **The backfill** (`ClientRename.seed`, in the sync's S5 leg after `SiteRename.seed`): a project S5 lists to staff
+  with NO name, for which the phone holds one, is sent it once with base `""`. A 409's name is taken — S5 wins. Quiet
+  on a refusal or no answer; one pass, no loop; it sends nothing once S5 has a name.
+- **The rename** (`MainActivity` `clientRoute` → `ClientNames.route`, asked first by `renameRoute`; `renameClient`;
+  `ClientRename.rename` / `finish`): the name is checked on the phone as S5 checks it (`ClientNames.typed`: one line,
+  1 to 140 UTF-16 units, no control character), S5's list is read FIRST, then ONE `PUT …/client` per project with
+  that project's own base. "Renamed" only when every project took it; only then does what the phone alone still
+  keeps under the old name move (Slice 4's re-key: rows never sent, their captures, keys, masters rows, wish lists).
+  Otherwise the dialog stays open: `Renamed on 1 of 2 projects` and one line per project left, saying why.
+- **A project's TITLE is still not renamed where S5 holds it** — refused before Save exactly as F4b left it
+  (`Renames.heldByS5`). S5 has no route for it, and photos are still joined by title (V15).
+
+### 11.2 Decided by Claude, not by Amit
+
+1. **`Renames.route` is untouched**; `ClientNames.route` answers first for a client and null means "the routes a
+   client had". With a LIVE ERP pair a client that carries a Customer id keeps the bench rename; with none it is
+   renamed through S5 when S5 lists its projects — the label is not the Customer.
+2. **A client's Save always reads S5's list first** (a fifth caller of `S5Masters.fetch`; `TreeKeepTest`'s pin moved
+   4 → 5 with the reason beside it): the bases must be S5's names NOW, and "offline" is said before any project is
+   touched.
+3. **After "1 of 2" the tree shows what S5 holds** — two clients, because S5 holds two names — and Save again
+   finishes it. No automatic retry after a 409, as for a site.
+4. **The label rule is applied to the client's name only.** A site's dialog still shows S5's own 400.
+5. **The "(no client)" row that holds S5 projects is shut with its own sentence**: it is not a client, and one Save
+   there would give unrelated projects one name.
+6. **A bootstrap `sites` row is listed under its linked project's client**, so an S5 name does not leave the old
+   client behind as an empty site.
+7. Eight texts, English first (`android/i18n/README.md`, "Port 63 slice 5"); three of the site rename's are reused.
+
+### 11.3 Checked, not changed: does the client's name reach the project TITLE or the S5 key?
+
+No, as text. The record's `project_title` is the title typed in New site (never composed from the client) and
+`project` is the project's id. A phone-minted key is `S5-` and ten hex digits of a SHA-256 over client, site and
+title: the client's name is an INPUT of that truncated hash and is in no key as readable text. `customer` is the ERP
+Customer id, or blank.
+
+### 11.4 Found and left
+
+- **The projects under "(no client)" cannot be named from the phone** unless some phone still holds their client's
+  name (its backfill sends it). A way to give such a project its client is not built.
+- **A bench client rename (live pair) does not tell S5**, and S5's name then wins on the tree. No phone holds a pair.
+- **A bootstrap `sites` row with NO linked project** keeps the bench's own customer name, so on a phone whose masters
+  are a bootstrap's it can stay behind as an empty site of the old client after another phone's rename.
+- **A wish list kept under `local:<client>|<title>`** follows a completed Save on this phone only; a name taken from
+  another phone's rename does not re-key it.
+- **`Catalogue.renameSiteRows` compares a masters row's own customer name with the tree's client**: where S5's name
+  differs from the bootstrap's it finds no row. Same class as the line above; live-pair masters only.
+- **Two S5 projects of one client with one title** are one row by name (V15's class, not new).
+
+### 11.5 What is not proven
+
+- **Nothing was seen on a phone and `:app` was not compiled**: CI is its only compiler, and this slice ran no scratch
+  harness. The least sure lines: `MainActivity`'s `onSave` (`if (…) renameClient(t, newName) else when (…)`) and
+  the `renameClient` coroutine; `Catalogue`'s `clients()` / `snapshot` / `ServerSites.owners`; `S5Clients.takeList`.
+- **S5 was not called.** The answers `ClientNamesTest` reads are written from S5's source at `5772723`, not captured.

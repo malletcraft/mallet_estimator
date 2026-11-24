@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
+import com.malletcrafts.interiorestimate.pano.ClientNames
 import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
@@ -774,7 +775,7 @@ fun RenameDialog(
                         // P0 (c): the reason stands in the grey line's place
                         RenameRoute.Line.SHUT -> shut
                         // P0 (b): a site S5 holds
-                        RenameRoute.Line.S5 -> tx.app_site_on_s5_so_new
+                        RenameRoute.Line.S5 -> ClientNames.s5Line(tx, what)
                         RenameRoute.Line.SERVER -> tx.app_x_server_so_new(kindWord)
                         RenameRoute.Line.PHONE -> tx.app_x_has_not_synced(kindWord)
                     },

@@ -133,8 +133,10 @@ app.characteristics_3ab10101_notify_read	app_characteristics_3ab10101_notify_rea
 app.checks_1_press_measure	app_checks_1_press_measure	static	-
 app.choose_rooms	app_choose_rooms	static	-
 app.cleared_work_face	app_cleared_work_face	static	-
+app.client_bucket_not_named	app_client_bucket_not_named	static	-
 app.client_office_record_renamed	app_client_office_record_renamed	static	-
 app.client_office_s_customer	app_client_office_s_customer	static	-
+app.client_on_s5_so_new	app_client_on_s5_so_new	static	-
 app.client_s5_not_renamed	app_client_s5_not_renamed	static	-
 app.client_site_project_room	app_client_site_project_room	static	-
 app.connect	app_connect	static	-
@@ -1153,6 +1155,12 @@ refuse.album.review_pm_only	refuse_album_review_pm_only	static	-
 refuse.album.review_same	refuse_album_review_same	static	-
 refuse.album.review_vendor_only	refuse_album_review_vendor_only	static	-
 refuse.album.same_state	refuse_album_same_state	static	-
+refuse.client.left_gone_x	refuse_client_left_gone_x	template	project: String
+refuse.client.left_not_sent_x	refuse_client_left_not_sent_x	template	project: String
+refuse.client.left_renamed_x	refuse_client_left_renamed_x	template	project: String · by: String · client: String
+refuse.client.left_said_x	refuse_client_left_said_x	template	project: String · why: String
+refuse.client.name_bad	refuse_client_name_bad	static	-
+refuse.client.part_x	refuse_client_part_x	template	done: Int · of: Int
 refuse.export.drawing_not_available	refuse_export_drawing_not_available	static	-
 refuse.export.nothing_export_no_marks	refuse_export_nothing_export_no_marks	static	-
 refuse.export.phone_saves_x_downloads	-	skipped	prototype-only

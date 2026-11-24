@@ -470,6 +470,10 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 capturedAt = AsIsPath.capturedAt(c.createdAt, ZoneId.systemDefault()),
                 appVersion = appVersion, l = l, w = w, h = h, prep = prepJson, surfaces = surfaces,
                 work = c.work, stage = c.stage,
+                // `client_name` (port 63 slice 5): the client's name as this phone holds it for the capture's project. S5
+                // takes it ONLY WHILE IT HOLDS NONE -- an upload never renames (that is PUT …/client) -- and never as
+                // `customer`, the ERP Customer id above (ClientNames.recordName leaves the key out where there is no name).
+                clientName = c.customerName,
             )
             val recordUrl = url(AsIsPath.record(c.project, c.room, c.deviceId))
             // PUT the record as `body` stands NOW: first of all, and once more after a refused photo, with the surfaces

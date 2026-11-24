@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.ClientNames
 import com.malletcrafts.interiorestimate.pano.KeyBook
 import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.Renames
@@ -422,6 +423,72 @@ class Catalogue(context: Context) {
         for (s in steps) if (s.leave) moveRoomScope(s.client, s.from, s.to)
     }
 
+    // ---- the client's name is S5's (port 63 slice 5, 24 Nov 2026; the rules are :pano's ClientNames) ----------
+
+    /** The rooms chosen for [from]'s [site] are [to]'s [site]'s as well, where that has no list of its own. [leave] false keeps the old client's list: a project of it may still be listed there. */
+    private fun copyScope(from: String, to: String, site: String, leave: Boolean) {
+        if (same(from, to) || site.isBlank()) return
+        val rooms = roomScope(from, site)
+        if (rooms.isNotEmpty() && roomScope(to, site).isEmpty()) setRoomScope(to, site, rooms)
+        if (leave) prefs.edit().remove(scopeKey(from, site)).apply()
+    }
+
+    /**
+     * ONE PROJECT'S ROWS FOLLOW THE CLIENT NAME S5 HOLDS FOR IT (ClientNames.steps; called by S5Clients, the one place
+     * S5's client names are written): the row made on this phone for [from]'s [title] is [to]'s, and the rooms chosen
+     * for its site -- and for [site], where the tree listed the project -- are [to]'s as well. The old client keeps
+     * its own lists: other projects may still be listed under it.
+     */
+    fun followClient(from: String, title: String, to: String, site: String) {
+        val n = to.trim()
+        if (n.isEmpty() || same(from, n)) return
+        val sites = LinkedHashSet<String>()
+        if (site.isNotBlank()) sites.add(site)
+        var touched = false
+        val next = locals().map { l ->
+            if (same(l.client, from) && same(l.project, title)) {
+                touched = true
+                sites.add(l.site)
+                l.copy(client = n)
+            } else l
+        }
+        if (touched) writeLocals(next)
+        for (s in sites) copyScope(from, n, s, leave = false)
+    }
+
+    /**
+     * EVERY PROJECT OF THE CLIENT TOOK THE NAME ON S5 (ClientRename.finish): what this phone still keeps under [from]
+     * -- the rows made here and never sent, and the rooms chosen for their sites and for [sites], the client's sites
+     * as the tree listed them -- is [to]'s. Nothing of the old name stays behind.
+     */
+    fun renameClientHere(from: String, to: String, sites: List<String>) {
+        val n = to.trim()
+        if (n.isEmpty()) return
+        val all = (sites + locals().filter { same(it.client, from) }.map { it.site }).distinct()
+        renameLocal("client", from, "", "", n)
+        for (s in all) copyScope(from, n, s, leave = true)
+    }
+
+    /**
+     * ...and every row of [masters] that names the client [from] names [to]: the bootstrap's `sites` rows and the
+     * project entries' `customer_name` -- the NAME only, never `customer`, the ERP Customer id. S5's own name still
+     * wins wherever S5 holds one. Returns whether anything changed; the caller saves the masters.
+     */
+    fun renameClientRows(masters: JSONObject, from: String, to: String): Boolean {
+        var touched = false
+        for (list in listOf("sites", "projects")) {
+            val arr = masters.optJSONArray(list) ?: continue
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val name = o.optString("customer_name")
+                if (name.isBlank() || !same(name, from) || name == to) continue
+                o.put("customer_name", to)
+                touched = true
+            }
+        }
+        return touched
+    }
+
     /** The rooms a site starts with: its type's preset at 2 BHK. */
     fun defaultScope(siteType: String): Set<String> {
         val type = com.malletcrafts.interiorestimate.pano.FlatPresets.TYPES
@@ -531,11 +598,17 @@ class Catalogue(context: Context) {
         // holds one that is the name shown -- read from S5Sites, which every list read and every answer to a rename
         // feeds, so a rename is on screen the moment S5 answers and no bootstrap can bring an older name back.
         val s5 = S5Sites.all(appContext)
+        // ONE SOURCE FOR A CLIENT'S NAME TOO (port 63 slice 5, 24 Nov 2026): S5 keeps each project's client name, and
+        // where it holds one that is the client the project is listed under, BEFORE the name the masters entry
+        // carries (a bootstrap's, this phone's own capture's, the bucket) -- so a phone with nothing of its own, after
+        // a reinstall, lists each S5 project under its client. A project S5 holds no name for is read as it was.
+        val s5Clients = S5Clients.all(appContext)
         val rows = locals()
         val out = mutableListOf<Project>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
-            val client = o.optString("customer_name").ifBlank { o.optString("customer") }
+            val client = ClientNames.nameOf(s5Clients[o.optString("project")]?.site,
+                o.optString("customer_name").ifBlank { o.optString("customer") })
             val title = o.optString("title").ifBlank { o.optString("project") }
             if (client.isBlank() || title.isBlank()) continue
             // A project only S5 lists has no site of its own in the masters (S5Masters.fetch no longer stamps one in):
@@ -595,10 +668,10 @@ class Catalogue(context: Context) {
         // Built from projects alone this list dropped a client the moment its
         // last project went, hiding every site underneath — the same hole as
         // sitesOf, one level up.
-        (projects(masters).map { it.client } + serverSites(masters, emptyList()).rows.values.map {
-            it.optString("customer_name").ifBlank { it.optString("customer") }
-        }.filter { it.isNotBlank() })
-            .distinctBy { it.lowercase() }.sorted()
+        projects(masters).let { all ->
+            (all.map { it.client } + serverSites(masters, all).owners.values.filter { it.isNotBlank() })
+                .distinctBy { it.lowercase() }.sorted()
+        }
 
     fun sitesOf(masters: JSONObject?, client: String): List<Site> {
         val all = projects(masters)
@@ -1022,8 +1095,9 @@ class Catalogue(context: Context) {
         // customer name is carried on each site row, so nothing needs
         // inventing; it simply was not read.
         val ownerOf = LinkedHashMap<String, String>()
-        for ((ek, o) in erp) {
-            val owner = o.optString("customer_name").ifBlank { o.optString("customer") }
+        for (ek in erp.keys) {
+            // the client the row is LISTED under (serverSites): its project's client as the tree names it, else its own
+            val owner = listed.owners[ek].orEmpty()
             if (owner.isNotBlank()) {
                 ownerOf[ek] = owner
                 byClient.getOrPut(key(owner)) { mutableListOf() }
@@ -1167,8 +1241,9 @@ class Catalogue(context: Context) {
         return erp + locals
     }
 
-    /** [rows]: ERP's site rows by client and the name each is LISTED under; [names]: that name, by the same key. */
-    private class ServerSites(val rows: Map<String, JSONObject>, val names: Map<String, String>)
+    /** [rows]: ERP's site rows by client and the name each is LISTED under; [names]: that name, and [owners]: that client, by the same key. */
+    private class ServerSites(val rows: Map<String, JSONObject>, val names: Map<String, String>,
+                              val owners: Map<String, String> = emptyMap())
 
     /** ERP's own site rows, keyed the same way site names are matched.
      *
@@ -1196,17 +1271,23 @@ class Catalogue(context: Context) {
         val arr = masters?.optJSONArray("sites") ?: return ServerSites(emptyMap(), emptyMap())
         val objs = ArrayList<JSONObject>()
         val rows = ArrayList<SiteRows.Row>()
+        // A ROW IS ITS PROJECT'S CLIENT'S (port 63 slice 5): the row carries the bench's own customer name, and a
+        // project that links to it may be listed under the name S5 holds for its client. Keyed under its own owner
+        // then, the row stood beside its projects as an empty site of a client that is no longer listed.
+        val linked = projects.filter { it.siteId.isNotBlank() }.associate { it.siteId to it.client }
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val n = o.optString("site_name").trim()
             if (n.isEmpty()) continue
-            val owner = o.optString("customer_name").ifBlank { o.optString("customer") }
+            val owner = ClientNames.nameOf(linked[o.optString("name")],
+                o.optString("customer_name").ifBlank { o.optString("customer") })
             objs.add(o)
             rows.add(SiteRows.Row(o.optString("name"), owner, n))
         }
         val under = SiteRows.listed(rows, projects.map { SiteRows.Proj(it.client, it.site, it.siteId) })
         val out = LinkedHashMap<String, JSONObject>()
         val names = LinkedHashMap<String, String>()
+        val owners = LinkedHashMap<String, String>()
         for (own in listOf(true, false)) {
             for (i in rows.indices) {
                 if ((key(under[i]) == key(rows[i].name)) != own) continue
@@ -1214,9 +1295,10 @@ class Catalogue(context: Context) {
                 if (!own && out.containsKey(k)) continue
                 out[k] = objs[i]
                 names[k] = under[i]
+                owners[k] = rows[i].client
             }
         }
-        return ServerSites(out, names)
+        return ServerSites(out, names, owners)
     }
 
     /** The one key shape for an ERP site: whose it is, then what it is called. */

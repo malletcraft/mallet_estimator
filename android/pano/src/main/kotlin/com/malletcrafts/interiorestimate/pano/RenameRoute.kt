@@ -440,9 +440,10 @@ object Renames {
 
     private fun str(v: Any?): String? = v as? String
 
-    private fun nowOf(r: AlbumWire.Read, o: Any?): Now? {
-        val site = str(r.field(o, "site")) ?: return null
-        return Now(site, str(r.field(o, "site_by")) ?: "", str(r.field(o, "site_at")) ?: "")
+    /** The label an answer carries under [key] (`site`, or the client's `client_name`), with `<key>_by` and `<key>_at` beside it. */
+    private fun nowOf(r: AlbumWire.Read, o: Any?, key: String): Now? {
+        val site = str(r.field(o, key)) ?: return null
+        return Now(site, str(r.field(o, key + "_by")) ?: "", str(r.field(o, key + "_at")) ?: "") // text:value the wire keys' suffixes
     }
 
     /**
@@ -450,11 +451,18 @@ object Renames {
      * An answer is S5's only when its body is an object carrying what S5 sends with that status: `ok` and a name
      * with a 200, `error` and the name as stored with a 409, `error` with a refusal. Anything else is [Verdict.Offline].
      */
-    fun siteVerdict(r: AlbumWire.Read, code: Int?, body: Any?): Verdict {
+    fun siteVerdict(r: AlbumWire.Read, code: Int?, body: Any?): Verdict = labelVerdict(r, code, body, "site") // text:value the wire key
+
+    /**
+     * The same reading for ANY label S5 keeps on a project by the site route's rule (port 63 slice 5, 24 Nov 2026:
+     * the client's name, `PUT …/client`, answers word for word as `PUT …/site` does, under `client_name`): [key] is
+     * the field the name is given in. [Now.site] and [Held.site] then carry that label.
+     */
+    fun labelVerdict(r: AlbumWire.Read, code: Int?, body: Any?, key: String): Verdict {
         if (code == null) return Verdict.Offline
         val o = body.takeIf { r.isObject(it) } ?: return Verdict.Offline
         val error = str(r.field(o, "error"))
-        val now = nowOf(r, o)
+        val now = nowOf(r, o, key)
         return when (code) {
             200 -> {
                 val written = r.field(o, "written") as? Boolean

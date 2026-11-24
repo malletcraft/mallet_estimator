@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.ClientNames
 import com.malletcrafts.interiorestimate.pano.Deletes
 import com.malletcrafts.interiorestimate.pano.KeyBook
 import com.malletcrafts.interiorestimate.pano.Renames
@@ -271,7 +272,9 @@ object S5Auth {
             val p = ps.optJSONObject(i) ?: continue
             val id = p.optString("project")
             if (id.isBlank()) continue
-            val c = p.optString("customer_name").ifBlank { p.optString("customer") }
+            // the client as the tree lists the project: S5's name for it first (port 63 slice 5; ClientNames.nameOf)
+            val c = ClientNames.nameOf(S5Clients.held(context, id)?.site,
+                p.optString("customer_name").ifBlank { p.optString("customer") })
             if (Catalogue.keyOf(c, "", p.optString("title")) == want) return id
         }
         KeyBook.keyFor(S5Keys.learn(context, store.all()), client, title)?.let { return it }
@@ -344,6 +347,10 @@ object S5Masters {
         // A 200 without the list is not "no projects": it would hide every one.
         val arr = o.getJSONArray("projects")
         S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
+        // S5's CLIENT NAME for each project rides the same list, for staff (port 63 slice 5): kept in S5Clients, which
+        // the tree reads first and where this phone's own rows of the project follow the name. Before the captures
+        // are read below, so the entries built here already carry it.
+        S5Clients.takeList(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) })
         val store = CaptureStore(context)
         val captures = store.all()
         // The keys this phone remembers, with every capture's own taken in first (S5Keys): the client and title of a

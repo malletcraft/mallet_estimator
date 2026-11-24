@@ -101,11 +101,17 @@ object AsIsPath {
      * first value; an upload never renames, PUT …/site does), so a new project reaches the web with its site named
      * and nothing a phone still holding an old name sends can write it back. Sent only when the phone has a name
      * ([Renames.recordSite]: never blank, never the "(no site)" bucket); S5 reads an absent key as "not named here".
+     *
+     * [clientName] (port 63 slice 5, 24 Nov 2026) is the client's name as the phone holds it for the capture's
+     * project. S5 keeps it on the project by the same rule -- a record's `client_name` is taken ONLY WHILE S5 HOLDS
+     * NONE, a rename is PUT …/client -- and gives it to staff alone. Sent only when the phone has a name
+     * ([ClientNames.recordName]: never blank, never the "(no client)" bucket, never the ERP Customer id standing in
+     * for a name). It is a LABEL: `customer`, the id S5 grants a client's own login by, is untouched by it.
      */
     fun body(
         project: String, projectTitle: String, customer: String, site: String?, room: String, capture: String, erpCapture: String?,
         capturedAt: String, appVersion: String, l: Double, w: Double, h: Double, prep: Any?, surfaces: Any?,
-        work: Int?, stage: String?,
+        work: Int?, stage: String?, clientName: String? = null,
     ): LinkedHashMap<String, Any?> {
         val b = LinkedHashMap<String, Any?>()
         b["v"] = 1
@@ -113,6 +119,7 @@ object AsIsPath {
         b["project_title"] = projectTitle
         b["customer"] = customer
         Renames.recordSite(site)?.let { b["site"] = it }
+        ClientNames.recordName(clientName, customer)?.let { b[ClientNames.KEY] = it }
         b["room"] = room
         b["capture"] = capture
         if (erpCapture != null) b["erp_capture"] = erpCapture

@@ -1057,6 +1057,16 @@
   "where": "v53build/app.js:581 · job",
   "kind": "static"
  },
+ "app.client_bucket_not_named": {
+  "en": "This is not a client: it holds the projects S5 has no client name for, so there is no name here to change.",
+  "where": [
+   "S2 APK phone text · ClientNames.kt route at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): in the grey line's place, the name shown and not edited, for the bucket a project with no client's name is filed under -- renaming it would name every unnamed project at once · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.client_office_record_renamed": {
   "en": "This client is the office's record. It is renamed at the office, not from this phone.",
   "where": [
@@ -1071,6 +1081,16 @@
   "en": "A client is the office's customer record, so it is not removed from a phone. Delete the sites under it here; the customer itself is a desk job.",
   "where": "v53build/app.js:267 · body",
   "kind": "static"
+ },
+ "app.client_on_s5_so_new": {
+  "en": "This client's projects are on S5, so the new name is saved there for each of them and reaches every other phone. Photos already filed keep their place — only the label changes.",
+  "where": [
+   "S2 APK phone text · TreeShell.kt RenameDialog at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): the grey line under the name field -- the client's twin of app.site_on_s5_so_new · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.client_s5_not_renamed": {
   "en": "This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.",
@@ -9616,6 +9636,85 @@
    "S2 APK phone text · Album.kt:276 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
   ],
   "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.left_gone_x": {
+  "en": "{project}: S5 does not list this project; not saved",
+  "where": [
+   "S2 APK phone text · ClientNames.kt text at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, one project that did not take the name: S5 answered that it has never been uploaded (404) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "project": "the project's title as the tree lists it (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.left_not_sent_x": {
+  "en": "{project}: not sent",
+  "where": [
+   "S2 APK phone text · ClientNames.kt text at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, one project the Save did not reach because an earlier answer stopped it (no signal, not signed in, not staff) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "project": "the project's title as the tree lists it (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.left_renamed_x": {
+  "en": "{project}: renamed by {by} meanwhile — now {client}; not saved",
+  "where": [
+   "S2 APK phone text · ClientNames.kt text at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, one project that did not take the name: S5's 409, built from the reply's fields · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "project": "the project's title as the tree lists it (data)",
+   "by": "the login that set the name S5 holds (data)",
+   "client": "the client's name S5 holds for that project (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.left_said_x": {
+  "en": "{project}: {why}",
+  "where": [
+   "S2 APK phone text · ClientNames.kt text at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, one project that did not take the name, with S5's own words or the offline / sign-in line · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "project": "the project's title as the tree lists it (data)",
+   "why": "S5's own words for the refusal, shown as data, or the line of refuse.site.offline / refuse.site.signed_out"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.name_bad": {
+  "en": "A client's name is 1 to 140 characters, on one line; not saved",
+  "where": [
+   "S2 APK phone text · ClientNames.kt ok at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, before anything is sent: a name S5 would refuse (empty, over 140 characters, or carrying a control character) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.part_x": {
+  "en": "Renamed on {done} of {of} projects",
+  "where": [
+   "S2 APK phone text · ClientNames.kt text at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, the first line when not every project of the client took the name; one line for each project left follows it (refuse.client.left_*) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "done": "done.length",
+   "of": "listed.length"
+  },
   "flags": [
    "phone-text"
   ]

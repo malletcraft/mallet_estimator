@@ -402,12 +402,20 @@
  "app.cleared_work_face": {
   "mr": "या बाजूचे काम काढले"
  },
+ "app.client_bucket_not_named": {
+  "mr": "This is not a client: it holds the projects S5 has no client name for, so there is no name here to change.",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "app.client_office_record_renamed": {
   "mr": "This client is the office's record. It is renamed at the office, not from this phone.",
   "note": "port 63 F4b: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "app.client_office_s_customer": {
   "mr": "ग्राहक हा ऑफिसचा कस्टमर रेकॉर्ड आहे, त्यामुळे तो फोनवरून काढता येत नाही. त्याखालच्या साइट्स इथे हटवा; ग्राहक हटवणे हे ऑफिसचे काम आहे."
+ },
+ "app.client_on_s5_so_new": {
+  "mr": "This client's projects are on S5, so the new name is saved there for each of them and reaches every other phone. Photos already filed keep their place — only the label changes.",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "app.client_s5_not_renamed": {
   "mr": "This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.",
@@ -3792,6 +3800,30 @@
  },
  "refuse.album.same_state": {
   "mr": "आधीपासूनच त्या स्थितीत आहे"
+ },
+ "refuse.client.left_gone_x": {
+  "mr": "{project}: S5 does not list this project; not saved",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.left_not_sent_x": {
+  "mr": "{project}: not sent",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.left_renamed_x": {
+  "mr": "{project}: renamed by {by} meanwhile — now {client}; not saved",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.left_said_x": {
+  "mr": "{project}: {why}",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.name_bad": {
+  "mr": "A client's name is 1 to 140 characters, on one line; not saved",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.part_x": {
+  "mr": "Renamed on {done} of {of} projects",
+  "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "refuse.export.drawing_not_available": {
   "mr": "ड्रॉइंग उपलब्ध नाही"

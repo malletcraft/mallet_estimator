@@ -38,8 +38,14 @@
 # project that is no longer listed or whose row did not change (app.project_not_listed_nothing_moved / app.nothing_moved_try_again), why the dialog
 # opened where the move is shut (app.project_exists_opened) and S5's own answer that it no longer holds the project (app.project_s5_gone_site_shut).
 # 53 in all.
+# Port 63 slice 5 (24 Nov 2026) added eight: a client renamed on S5 (android/docs/port63/DESIGN-tree.md §11) -- the grey line for a client whose
+# projects S5 lists (app.client_on_s5_so_new), the bucket that has no name to change (app.client_bucket_not_named), a name S5 would refuse
+# (refuse.client.name_bad) and the honest result when not every project took the name (refuse.client.part_x and its four lines for a project
+# left: refuse.client.left_renamed_x / left_said_x / left_gone_x / left_not_sent_x). 61 in all.
 key	English
+app.client_bucket_not_named	This is not a client: it holds the projects S5 has no client name for, so there is no name here to change.
 app.client_office_record_renamed	This client is the office's record. It is renamed at the office, not from this phone.
+app.client_on_s5_so_new	This client's projects are on S5, so the new name is saved there for each of them and reaches every other phone. Photos already filed keep their place — only the label changes.
 app.client_s5_not_renamed	This client cannot be renamed from this phone: a project of it is on S5, or on its way there, and the new name would not reach it.
 app.msg.moved_to_x	Moved to {site}
 app.msg.removed_phone_x_s5_gone	Removed from this phone — S5 no longer lists {name}.
@@ -70,6 +76,12 @@ measure.side_left	left side
 measure.side_right	right side
 measure.side_top	top side
 measure.to_nearest_corner	, to its nearest corner
+refuse.client.left_gone_x	{project}: S5 does not list this project; not saved
+refuse.client.left_not_sent_x	{project}: not sent
+refuse.client.left_renamed_x	{project}: renamed by {by} meanwhile — now {client}; not saved
+refuse.client.left_said_x	{project}: {why}
+refuse.client.name_bad	A client's name is 1 to 140 characters, on one line; not saved
+refuse.client.part_x	Renamed on {done} of {of} projects
 sp.file.x_mark_x_shape_unreadable	{surface}: mark {code}'s four corners were unreadable, kept as its box
 sp.fine.aria.done	Finish fine move
 sp.fine.aria.step_x	Step {mm} mm · tap to change

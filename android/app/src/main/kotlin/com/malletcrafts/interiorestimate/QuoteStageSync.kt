@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.ClientNames
 import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
@@ -236,6 +237,8 @@ object QuoteStageSync {
             // S5Sites by S5's own stamp. Fed here as well as by S5Masters.fetch because THIS read runs in both legs,
             // so a phone whose masters are an ERP bootstrap's hears S5's names too.
             S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
+            // ...and so does S5's CLIENT NAME, for staff (port 63 slice 5): `client_name` and `client_name_at`, kept in S5Clients.
+            S5Clients.takeList(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) })
             // Each row read by :pano's own reader (QuoteStage.listedOf): the stage, who and when, S5's null
             // as '', and S5-L's work_states -- absent (an S5 before S5-L) as not read, never "none started".
             val listed = (0 until arr.length()).mapNotNull { i -> QuoteStage.listedOf(JsonRead, arr.opt(i)) }

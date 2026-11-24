@@ -74,6 +74,7 @@ import com.malletcrafts.interiorestimate.pano.AlbumWrite
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.CameraNote
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
+import com.malletcrafts.interiorestimate.pano.ClientNames
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
 import com.malletcrafts.interiorestimate.pano.FaceNote
@@ -840,6 +841,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val known = cs.projects.map { it.serverId } + id
         // S5's name for each project's site, as held just before this read: the read below hears them too (S5Sites)
         val was = withContext(Dispatchers.IO) { S5Sites.all(context) }
+        // ...and S5's name for each project's client (port 63 slice 5; S5Clients), heard by the same read
+        val wasClients = withContext(Dispatchers.IO) { S5Clients.all(context) }
         val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
         if (read) quoteTick += 1
         // THE TREE IS RE-READ WHEN THIS READ TOOK A NEW SITE NAME (port 63 slice F4d; V10). The tree is drawn from
@@ -847,6 +850,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // reload, whenever that came, and the open project kept its old crumb until then. reload() redraws the tree,
         // and the place then follows the project to its site (TreeNav.settle, above).
         if (read && Renames.namesChanged(was, withContext(Dispatchers.IO) { S5Sites.all(context) })) reload()
+        // ...and when it took a new CLIENT name (port 63 slice 5): the project is then listed under that client, and
+        // this phone's rows of it have followed (S5Clients).
+        if (read && Renames.namesChanged(wasClients, withContext(Dispatchers.IO) { S5Clients.all(context) })) reload()
         // THE ALBUM MIRROR (port 61c slice QV), beside the read of the list: at Client approved the quote view's
         // role, scope and stamp, and each work's state at its base, into the one store; at Revisions (QM2) S5's
         // role for this person, which decides the panel's Approve the estimate ▸, and the scope as stored -- the
@@ -1339,6 +1345,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             S5Masters.forgetKeys(context, gone)
             for (k in gone) {
                 S5Sites.forget(context, k)
+                S5Clients.forget(context, k)
                 S5Keys.forget(context, k)
             }
         }
@@ -1474,10 +1481,30 @@ private fun AppScreenBody(onLang: () -> Unit) {
             is RenameRoute.Legacy -> moveFailed { tx -> tx.app_nothing_moved_try_again }
         }
     }
+    // WHERE A CLIENT'S RENAME GOES WHEN S5 LISTS ITS PROJECTS (port 63 slice 5, 24 Nov 2026; Amit: "Client rename").
+    // S5 keeps the client's name on each project, so such a client is renamed THROUGH S5 -- one PUT …/client per
+    // project, each with that project's own base -- where slice F4b could only shut the dialog. Decided in :pano
+    // (ClientNames.route) and asked FIRST by renameRoute; null is "not S5's": the phone's own row, the bench with a
+    // live pair, or shut with the reasons a client had. The projects are the client's keys that S5 lists
+    // (Catalogue.s5Ties) and gives a client-name key for (S5Clients: staff, and an S5 that keeps the name) -- the
+    // ones a Save in flight is sending, while it is (renameIds), so "1 of 2" is finished against the same two.
+    fun clientRoute(t: RenameTarget, listRead: Boolean): RenameRoute? {
+        if (t.kind != "client") return null // text:value the wire kind, compared
+        val ids: List<String> = renameIds ?: cat.s5Ties(masters, queue, t.kind, t.client, "", "").keys
+        return ClientNames.route(
+            tx, t.client, t.serverId,
+            erpLive = S5Masters.erpLive(context),
+            // each with S5's own name for THAT project as its base ('' while S5 holds none)
+            writes = ids.mapNotNull { id -> S5Clients.held(context, id)?.let { RenameRoute.Write(id, it.site) } },
+            signedIn = S5Session.signedIn(context) || FrappeClient.authorization(context) != null,
+            listRead = listRead)
+    }
     // WHERE A RENAME GOES IS DECIDED IN ONE PLACE, and it is tested (Renames.route in :pano, beside Deletes.route).
     // This used to be `if (t.serverId.isBlank())` inline: a blank id renamed "locally" without checking a row was
     // there, and any id went to the bench -- with a key that died on 23 Oct, for a site S5 now keeps the name of.
     fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {
+        // a client whose projects S5 lists is S5's to rename (port 63 slice 5); null: the routes a client had, below
+        clientRoute(t, listRead)?.let { return it }
         val isSite = t.kind == "site"
         val ids: List<String> = if (!isSite) emptyList() else (renameIds ?: cat.s5ProjectsOf(masters, t.client, t.site))
         // Until S5's list has been read on this phone, "S5Sites names no project of the site" is not S5's answer
@@ -1557,6 +1584,68 @@ private fun AppScreenBody(onLang: () -> Unit) {
         closeRename()
     }
 
+    // A CLIENT'S SAVE WHEN S5 LISTS ITS PROJECTS (port 63 slice 5, 24 Nov 2026; Amit: "Client rename"). A name S5
+    // would refuse is refused here, before anything is sent. Then S5's list is read FIRST, always: each project's
+    // base must be the name S5 holds now, a project another phone gave this client is renamed with the rest, and
+    // "offline" is said before any project is touched. Then ONE PUT …/client per project (ClientRename.rename), and
+    // success is S5's answers ALONE: "Renamed" only when every project took the name -- and only then does what
+    // this phone still files under the old name move (ClientRename.finish; the projects S5 holds have followed one
+    // by one as S5 answered, S5Clients). Otherwise the dialog stays open and says how many took it and, for each
+    // project left, why; the tree is redrawn from what S5 now holds, and Save again sends against it.
+    fun renameClient(t: RenameTarget, newName: String) {
+        val name = ClientNames.typed(newName)
+        if (name == null) {
+            renameFailed { tx -> tx.refuse_client_name_bad }
+            return
+        }
+        renameBusy = true
+        renameWhy = null
+        scope.launch {
+            val fresh = withContext(Dispatchers.IO) {
+                S5Masters.fetch(context, erpLive = S5Masters.erpLive(context))?.also { store.saveMasters(it) }
+            }
+            if (fresh == null) {
+                renameFailed { tx -> tx.refuse_site_offline }
+                return@launch
+            }
+            reload()
+            val go = renameRoute(t, listRead = true)
+            if (go == RenameRoute.Local) {
+                // S5's list, read for this Save, names no project of the client any more, and a row made here
+                // carries it: the phone's own row, renamed as the Local route renames one.
+                renameHere(t, name)
+                return@launch
+            }
+            val s5 = go as? RenameRoute.S5
+            if (s5 == null) {
+                val said = (go as? RenameRoute.Blocked)?.reason
+                renameFailed { tx -> said ?: tx.refuse_site_offline }
+                return@launch
+            }
+            renameIds = s5.writes.map { it.project }
+            // read before the Save: a project's title for its line, and the client's sites for their chosen rooms
+            val now = store.masters()
+            val titles = cat.projects(now).filter { it.serverId.isNotBlank() }.associate { it.serverId to it.title }
+            val titleOf: (String) -> String = { id -> titles[id].orEmpty() }
+            val sites = cat.sitesOf(now, t.client).map { it.name }
+            val outcome = withContext(Dispatchers.IO) { ClientRename.rename(context, s5.writes, name) }
+            if (outcome is ClientNames.Outcome.Done) {
+                val stored = outcome.name
+                withContext(Dispatchers.IO) { ClientRename.finish(context, t.client, stored, sites) }
+                reload()
+                navClient = stored
+                navSite = null
+                navProject = null
+                lastResult = { tx -> tx.app_msg_renamed_x(stored) }
+                renameBusy = false
+                closeRename()
+            } else {
+                reload()
+                renameFailed { tx -> ClientNames.text(tx, outcome, titleOf).orEmpty() }
+            }
+        }
+    }
+
     renaming?.let { t ->
         BackHandler { if (!renameBusy) closeRename() }
         // The form the dialog opens in: which grey line, and whether the name can be edited at all (P0 b, c).
@@ -1593,7 +1682,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
             busy = renameBusy,
             onDismiss = { closeRename() },
             onSave = { newName ->
-                when (val route = renameRoute(t)) {
+                // a client whose projects S5 lists has its own Save (renameClient, port 63 slice 5)
+                if (t.kind == "client" && renameRoute(t) is RenameRoute.S5) renameClient(t, newName) // text:value the wire kind, compared
+                else when (val route = renameRoute(t)) {
                     // The phone's own row: renamed here and now, and checked (renameHere).
                     RenameRoute.Local -> renameHere(t, newName)
                     // A CLIENT or a PROJECT the bench holds, with a stored pair: the

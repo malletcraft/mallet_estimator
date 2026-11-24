@@ -153,6 +153,9 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // (Renames.seed). Not a failure of the sync, whatever S5 answers. From here on a NEW project is named by its
         // first upload's record (AsIsPath.body's `site`), and a name changes only through the rename dialog.
         SiteRename.seed(ctx)
+        // ...and the client's name, by the same rule (port 63 slice 5): a project S5 lists to staff with no client name,
+        // for which this phone holds one, is given it once -- base "", the first write wins, a 409's name is taken.
+        ClientRename.seed(ctx)
 
         // (b) A capture from a NEW site has no project id, and with no bench there is nobody
         // to mint one: it takes the project the masters hold for that client and title, else
