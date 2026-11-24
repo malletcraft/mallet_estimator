@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.ClientNames.Left
+import com.malletcrafts.interiorestimate.pano.ClientNames.Next
 import com.malletcrafts.interiorestimate.pano.ClientNames.Outcome
 import com.malletcrafts.interiorestimate.pano.ClientNames.Step
 import com.malletcrafts.interiorestimate.pano.RenameRoute.Line
@@ -14,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -23,6 +25,11 @@ import kotlin.test.assertTrue
  * the record's first value and the backfill, where a client's rename goes, how the phone's rows follow the name S5
  * holds, what a Save over several projects comes to and the lines it draws -- and, read as source because only CI
  * compiles :app, that the phone feeds, sends and follows by these rules and no other.
+ *
+ * THE REVIEW OF SLICE 5 (24 Nov 2026; DESIGN-tree.md §11.6) is tested here by CASES, not by the text of :app: S5 and
+ * the bench are both written where both hold the client, a rename onto another client's project of the same title is
+ * refused, the names are one staff login's and nobody else's, every Save works its projects out again, and after the
+ * list read each route says its own sentence. The source pins below only hold :app to calling those rules.
  *
  * The answers below are written from S5's source (mcft-interior-estimate functions/_lib/asis.js, its slice 5): the
  * client route answers as the site route does, under `client_name`. They are not captured from a run. Every name
@@ -170,9 +177,9 @@ class ClientNamesTest {
     // ---- where a client's rename goes ----------------------------------------------------------------------
 
     private fun route(
-        name: String = "Client T1", customer: String = "", live: Boolean = false, writes: List<Write> = listOf(Write(P1, "Client T1")),
+        name: String = "Client T1", writes: List<Write> = listOf(Write(P1, "Client T1")),
         signedIn: Boolean = true, listRead: Boolean = false,
-    ) = ClientNames.route(en, name, customer, live, writes, signedIn, listRead)
+    ) = ClientNames.route(en, name, writes, signedIn, listRead)
 
     @Test fun `a client whose projects S5 lists renames through S5 - one write per project with its own base, the list read first`() {
         val two = listOf(Write(P1, "Client T1"), Write(P2, ""))
@@ -181,25 +188,192 @@ class ClientNamesTest {
         assertEquals(Line.S5, Renames.line(route()!!)); assertFalse(Renames.shut(route()!!))
         // doubled and blank ids are not writes
         assertEquals(RenameRoute.S5(listOf(Write(P1, "Client T1")), readFirst = true), route(writes = listOf(Write(P1, "Client T1"), Write(P1, "x"), Write("", ""))))
-        // the ERP Customer id is not the name: with no live pair such a client is renamed through S5 all the same
-        assertIs<RenameRoute.S5>(route(customer = "CUST-T1"))
-        // a phone-minted key is no bench docname
-        assertIs<RenameRoute.S5>(route(customer = "S5-0123456789", live = true))
         assertEquals("This client's projects are on S5, so the new name is saved there for each of them and reaches every other phone. Photos already filed keep their place — only the label changes.",
             ClientNames.s5Line(en, "client"))
         assertEquals(en.app_site_on_s5_so_new, ClientNames.s5Line(en, "site"))
     }
 
-    @Test fun `it is not S5's - and the routes a client had stand - with no project S5 lists, for the demo, and for a bench customer with a live pair`() {
+    @Test fun `it is not S5's - and the routes a client had stand - with no project S5 lists, and for the demo`() {
         assertNull(route(writes = emptyList()))
         assertNull(route(writes = listOf(Write("", ""))))
         assertNull(route(name = TourDemo.CLIENT))
         assertNull(route(name = " "))
-        assertNull(route(customer = "CUST-T1", live = true), "the bench rename it had")
         // ...and what those routes then answer for a client is unchanged (Renames.route)
         assertEquals(RenameRoute.Local, Renames.route(en, "client", "Client T1", "", true, emptyList(), true, false, false))
         assertEquals(RenameRoute.Legacy("CUST-T1"), Renames.route(en, "client", "Client T1", "CUST-T1", false, emptyList(), true, true, false))
         assertIs<RenameRoute.Blocked>(Renames.route(en, "client", "Client T1", "", true, emptyList(), true, false, false, onS5 = true))
+    }
+
+    // ---- the review of slice 5, fault 1: S5 and the bench are written together ------------------------------
+
+    @Test fun `a bench customer with a live pair is no way round S5 - where S5 holds a name key the rename goes to S5, and the bench is told by the same Save`() {
+        // THE CASE THAT WENT WRONG: PROJ-T1 is on S5 under "Client T1", the client is the bench's CUST-T1 and the pair
+        // is live. The route used to answer null here -- the bench alone was renamed and the screen said "Renamed",
+        // while the tree went on reading S5's "Client T1". The route has no bench question left to ask:
+        val s5 = assertIs<RenameRoute.S5>(route(writes = listOf(Write(P1, "Client T1"))))
+        assertEquals(Next.Send(listOf(Write(P1, "Client T1"))), ClientNames.next(en, s5.copy(readFirst = false), "Client T1"))
+        // ...and the same Save tells the bench: a live pair, and a docname that is the bench's own
+        assertEquals("CUST-T1", ClientNames.bench(" CUST-T1 ", erpLive = true))
+        assertNull(ClientNames.bench("CUST-T1", erpLive = false), "no live pair: the call cannot be made, S5 alone holds the name")
+        assertNull(ClientNames.bench("", erpLive = true), "no Customer: S5 alone")
+        assertNull(ClientNames.bench("S5-0123456789", erpLive = true), "a phone-minted key is no bench docname")
+        // S5 holds a name for one project and none for the other: S5 is written for both
+        assertEquals(RenameRoute.S5(listOf(Write(P1, "Client T1"), Write(P2, "")), readFirst = true), route(writes = listOf(Write(P1, "Client T1"), Write(P2, ""))))
+        // S5 gives no key for any project of the client: only then is it the bench's alone, as it was
+        assertNull(route(writes = emptyList()))
+        assertEquals(RenameRoute.Legacy("CUST-T1"), Renames.route(en, "client", "Client T1", "CUST-T1", false, emptyList(), true, true, false))
+    }
+
+    @Test fun `the bench took the name and S5 left a project behind - it is said, with the bench's state first, and never as Renamed`() {
+        // both took it: renamed, nothing to say
+        assertNull(ClientNames.text(en, Outcome.Done("Client T2"), titleOf, office = "Client T2"))
+        // the bench took it, S5 took it for one of two
+        val part = ClientNames.outcome(listOf(w1, w2), listOf(renamed, verdict(409, STALE)))
+        assertEquals(
+            "The office's record is now Client T2, but S5 has not taken the name for every project — Save again. S5's answer:\n" +
+                "Renamed on 1 of 2 projects\n" +
+                "Flat T2: renamed by lead@mcft.test meanwhile — now Client T3; not saved",
+            ClientNames.text(en, part, titleOf, office = "Client T2"))
+        // the bench took it and S5 did not answer at all: "not saved" alone would be untrue of the bench
+        assertEquals(
+            "The office's record is now Client T2, but S5 has not taken the name for every project — Save again. S5's answer:\n" + en.refuse_site_offline,
+            ClientNames.text(en, ClientNames.outcome(listOf(w1, w2), listOf(Verdict.Offline)), titleOf, office = "Client T2"))
+        // the bench was not told (S5 alone holds the client): S5's lines as they were
+        assertEquals(ClientNames.text(en, part, titleOf), ClientNames.text(en, part, titleOf, office = null))
+        // a bench refusal comes BEFORE anything is sent to S5, and is the bench's own sentence
+        assertEquals("Could not rename: Customer already has a customer name called \"Client T2\".",
+            Renames.benchRefused(en, "Customer already has a customer name called \"Client T2\"."))
+    }
+
+    // ---- fault 5: every Save works its projects out again ----------------------------------------------------
+
+    @Test fun `every Save works the client's projects out again from the list just read - the second Save heals a partial`() {
+        // S5's names as the phone holds them (S5Clients), and the tree's grouping by them
+        val held = HashMap<String, Held>()
+        held[P1] = Held("Client T1", AT1); held[P2] = Held("Client T1", AT1)
+        fun under(client: String) = held.filter { Renames.key(it.value.site) == Renames.key(client) }.keys.sorted()
+        // SAVE 1: both projects, each with its own base; the second gets no answer
+        val first = ClientNames.writes(under("Client T1")) { held[it] }
+        assertEquals(listOf(Write(P1, "Client T1"), Write(P2, "Client T1")), first)
+        assertEquals(Outcome.Part(1, 2, listOf(Left(P2, "Client T1", Verdict.Offline))), ClientNames.outcome(first, listOf(renamed, Verdict.Offline)))
+        held[P1] = Renames.heldOf(Renames.nowIn(renamed)!!) // each answer is kept at once, and the tree regroups
+        // ...and before the second Save another phone gives the old client a project
+        held["PROJ-T3"] = Held("Client T1", AT2)
+        // SAVE 2, from the list read for it: the project that took the name is not sent again, the new one is --
+        // the first Save's list (PROJ-T1, PROJ-T2) would have missed it and reported the client renamed
+        val second = ClientNames.writes(under("Client T1")) { held[it] }
+        assertEquals(listOf(Write(P2, "Client T1"), Write("PROJ-T3", "Client T1")), second)
+        assertEquals(Outcome.Done("Client T2"), ClientNames.outcome(second, listOf(renamed, renamed)))
+        // a project S5 gives this login no key for is not a write; a blank or doubled id is not one either
+        assertEquals(listOf(Write(P1, "")), ClientNames.writes(listOf(P1, " PROJ-T1 ", "", "PROJ-T9")) { if (it == P1) Held("", "") else null })
+        assertEquals(emptyList<Write>(), ClientNames.writes(emptyList()) { Held("Client T1", AT1) })
+    }
+
+    // ---- fault 2: never onto another client's project of the same title --------------------------------------
+
+    private val listing = listOf(
+        "Client T1" to "Flat T1", "Client T1" to "Flat T2", "Client T2" to "flat  t2", "Client T3" to "Flat T9", TreeNav.NO_CLIENT to "Flat T5")
+
+    @Test fun `a client is not renamed onto another client that already has a project of the same title - refused before anything is sent`() {
+        assertEquals("Not renamed: Client T2 already has a project called flat  t2.", ClientNames.refusal(en, "Client T1", "Client T2", listing))
+        assertEquals(ClientNames.refusal(en, "Client T1", "Client T2", listing), ClientNames.refusal(en, " client_t1", " CLIENT  t2 ", listing), "names as the catalogue compares them")
+        // the other way round is the same clash
+        assertEquals("Not renamed: Client T1 already has a project called Flat T2.", ClientNames.refusal(en, "Client T2", "Client T1", listing))
+        // A MERGE with no title in common is allowed: every project keeps its own key and title
+        assertNull(ClientNames.refusal(en, "Client T1", "Client T3", listing))
+        assertNull(ClientNames.refusal(en, "Client T3", "Client T2", listing))
+        // a name nobody has, and the client's own name in another case, are no clash
+        assertNull(ClientNames.refusal(en, "Client T1", "Client T8", listing))
+        assertNull(ClientNames.refusal(en, "Client T1", "client  t1", listing))
+        assertNull(ClientNames.refusal(en, "Client T1", "  ", listing), "a blank name is the name check's to refuse")
+    }
+
+    @Test fun `a client is not given the bucket's name or the demo's`() {
+        val said = "Not renamed: that name cannot be a client's — type another."
+        assertEquals(said, ClientNames.refusal(en, "Client T1", TreeNav.NO_CLIENT, listing))
+        assertEquals(said, ClientNames.refusal(en, "Client T1", " (No  Client) ", listing), "the bucket cannot be renamed, so the client could never be given another name")
+        assertEquals(said, ClientNames.refusal(en, "Client T1", TourDemo.CLIENT, emptyList()))
+    }
+
+    @Test fun `the Save that finishes this dialog's own partial rename is not refused for the projects that already moved`() {
+        // one client, two sites, a project called Wardrobe at each; Save 1 moved the first to "Client T2" and stopped
+        val after = listOf("Client T2" to "Wardrobe", "Client T1" to "Wardrobe")
+        assertEquals("Not renamed: Client T2 already has a project called Wardrobe.", ClientNames.refusal(en, "Client T1", "Client T2", after))
+        assertNull(ClientNames.refusal(en, "Client T1", "Client T2", after, begun = "Client T2"), "the project under the new name is this client's own")
+        assertNull(ClientNames.refusal(en, "Client T1", " client t2", after, begun = "Client T2"))
+        // another name than the one begun is judged as any rename is
+        assertEquals("Not renamed: Client T2 already has a project called Wardrobe.", ClientNames.refusal(en, "Client T1", "Client T2", after, begun = "Client T9"))
+        assertEquals(en.refuse_client_name_reserved, ClientNames.refusal(en, "Client T1", TreeNav.NO_CLIENT, after, begun = TreeNav.NO_CLIENT))
+    }
+
+    // ---- fault 3: the names are staff's, and one login's ------------------------------------------------------
+
+    @Test fun `S5's client names are kept for the login that read them - a signed-out phone, the next person and a login that is not staff are shown none and send no backfill`() {
+        val staff = ClientNames.owner("Staff@MCFT.test ", null)
+        val other = ClientNames.owner("lead@mcft.test", null)
+        val keyOnly = ClientNames.owner(null, "KEY-T1")
+        assertEquals(24, staff.length); assertTrue(staff.all { it in "0123456789abcdef" }, "a digest: the mark names nobody")
+        assertEquals(staff, ClientNames.owner("staff@mcft.test", "KEY-T1"), "the S5 session wins over the legacy key, as S5Auth picks")
+        assertEquals(keyOnly, ClientNames.owner("  ", " KEY-T1 "))
+        assertEquals(3, setOf(staff, other, keyOnly).size)
+        assertNotEquals(ClientNames.owner("KEY-T1", null), keyOnly, "a login and a key of the same text are not one owner")
+        assertEquals("", ClientNames.owner(null, null)); assertEquals("", ClientNames.owner(" ", ""))
+
+        val held = Held("Client T1", AT1)
+        // SHOWN only to the login that read them
+        assertEquals(held, ClientNames.shown(staff, staff, held))
+        assertNull(ClientNames.shown(staff, "", held), "signed out")
+        assertNull(ClientNames.shown(staff, other, held), "the next person")
+        assertNull(ClientNames.shown(staff, keyOnly, held), "the legacy key's owner, once the session is gone")
+        assertNull(ClientNames.shown(null, staff, held), "names with no mark are nobody's")
+        assertNull(ClientNames.shown("", "", held)); assertNull(ClientNames.shown(staff, staff, null))
+
+        // CLEARED: at the first answer taken for another login, and by a list read that carries the key on no project
+        assertFalse(ClientNames.forgets(staff, staff, listed = 12, keyed = 12))
+        assertFalse(ClientNames.forgets(staff, staff, listed = 12, keyed = 5), "some projects keyed: staff")
+        assertTrue(ClientNames.forgets(staff, staff, listed = 12, keyed = 0), "S5 named twelve projects and gave no client name: not staff any more")
+        assertFalse(ClientNames.forgets(staff, staff, listed = 0, keyed = 0), "an empty list says nothing")
+        assertTrue(ClientNames.forgets(staff, other, listed = 12, keyed = 12)); assertTrue(ClientNames.forgets(staff, "", listed = 1, keyed = 1))
+        assertTrue(ClientNames.forgets(null, staff, listed = 1, keyed = 1))
+        // a vendor's or a client's list: S5 gives none of the three keys, so no row is read from it at all
+        val vendorList = listOf(tree("""{"project":"PROJ-T1","title":"Flat T1","site":"Demo Site","site_at":"$AT1"}"""), tree("""{"project":"PROJ-T2","title":"Flat T2"}"""))
+        val rows = vendorList.mapNotNull { ClientNames.listedOf(MiniRead, it) }
+        assertEquals(0, rows.size); assertTrue(ClientNames.forgets(keyOnly, keyOnly, listed = vendorList.size, keyed = rows.size))
+
+        // SENT: the backfill goes only for a project S5 gave THIS login a key for -- so never for anybody else
+        assertEquals(ClientNames.Seed(P1, "Client T1"), ClientNames.seed(P1, "Client T1", "Flat T1", ClientNames.shown(staff, staff, Held("", "")), ""))
+        for (now in listOf("", other, keyOnly))
+            assertNull(ClientNames.seed(P1, "Client T1", "Flat T1", ClientNames.shown(staff, now, Held("", "")), ""), "nothing is sent for another login")
+        // ...and a rename has nothing to write for it either
+        assertNull(route(writes = ClientNames.writes(listOf(P1, P2)) { ClientNames.shown(staff, keyOnly, Held("Client T1", AT1)) }))
+    }
+
+    // ---- fault 6: after the list read, each route says its own sentence ---------------------------------------
+
+    @Test fun `after the list read every route has its own answer - and offline is said only when the read failed`() {
+        val two = listOf(Write(P1, "Client T1"), Write(P2, ""))
+        assertEquals(Next.Send(two), ClientNames.next(en, RenameRoute.S5(two, readFirst = false), "Client T1"))
+        assertEquals(Next.Here, ClientNames.next(en, RenameRoute.Local, "Client T1"))
+        // THE CASE THAT WENT WRONG: S5 lists no project of the client any more and the bench holds it -- "Offline"
+        // was said, with the list read a second before. The real route, asked as the Save asks it:
+        val legacy = Renames.route(en, "client", "Client T1", "CUST-T1", false, emptyList(), true, true, false, listRead = true)
+        assertEquals(Next.Bench("CUST-T1"), ClientNames.next(en, legacy, "Client T1"))
+        // shut routes say their own reason: the office's record with no live pair, a project on its way to S5, signed out
+        val office = Renames.route(en, "client", "Client T1", "CUST-T1", false, emptyList(), true, false, false, listRead = true)
+        assertEquals(Next.Say("This client is the office's record. It is renamed at the office, not from this phone."), ClientNames.next(en, office, "Client T1"))
+        val onWay = Renames.route(en, "client", "Client T1", "", true, emptyList(), true, false, false, listRead = true, onS5 = true)
+        assertEquals(Next.Say(Renames.heldByS5(en, "client")), ClientNames.next(en, onWay, "Client T1"))
+        assertEquals(Next.Say(en.refuse_site_signed_out), ClientNames.next(en, route(signedIn = false, listRead = true)!!, "Client T1"))
+        // nothing of the client left anywhere, or an S5 route with nothing to write: no rename, and it is said
+        val gone = Renames.route(en, "client", "Client T1", "", false, emptyList(), true, false, false, listRead = true)
+        assertEquals(Next.Say("Could not rename: Client T1"), ClientNames.next(en, gone, "Client T1"))
+        assertEquals(Next.Say("Could not rename: Client T1"), ClientNames.next(en, RenameRoute.S5(emptyList(), readFirst = false), "Client T1"))
+        // not one of them is the offline line
+        for (r in listOf(RenameRoute.S5(two, false), RenameRoute.Local, legacy, office, onWay, gone, RenameRoute.S5(emptyList(), false)))
+            assertNotEquals<Next>(Next.Say(en.refuse_site_offline), ClientNames.next(en, r, "Client T1"))
+        // the read itself failed: no signal -- or nothing to call S5 with, which is said as that
+        assertEquals("Offline — the name changes only when S5 answers; not saved", ClientNames.notRead(en, signedIn = true))
+        assertEquals(en.refuse_site_signed_out, ClientNames.notRead(en, signedIn = false))
     }
 
     @Test fun `signed out it says so at once - and the bucket has no name to change`() {
@@ -324,7 +498,8 @@ class ClientNamesTest {
 
     private fun count(src: String, what: String) = Regex(Regex.escape(what)).findAll(src).count()
 
-    private val feed = "S5Clients.takeList(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) })"
+    // every row of the read that carries the key, and how many projects the read named in all (the review, fault 3)
+    private val feed = "S5Clients.takeRead(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) }, listed = arr.length())"
 
     @Test fun `every read of S5's list feeds S5's client names, beside its site names`() {
         val fetch = between(app("S5Session.kt"), "fun fetch(context: Context, erpLive: Boolean)", "val store = CaptureStore(context)")
@@ -389,18 +564,97 @@ class ClientNamesTest {
         val route = between(main, "fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {", "val isSite = t.kind == \"site\"")
         assertTrue(route.contains("clientRoute(t, listRead)?.let { return it }"), "asked first")
         val client = between(main, "fun clientRoute(t: RenameTarget, listRead: Boolean): RenameRoute? {", "fun renameRoute(")
-        assertTrue(client.contains("return ClientNames.route(") && client.contains("S5Clients.held(context, id)?.let { RenameRoute.Write(id, it.site) }"))
+        assertTrue(client.contains("return ClientNames.route("))
+        assertTrue(client.contains("writes = ClientNames.writes(cat.s5Ties(masters, queue, t.kind, t.client, \"\", \"\").keys) { id -> S5Clients.held(context, id) },"),
+            "the client's projects are worked out at EVERY asking, from the tree as it is then")
+        assertFalse(client.contains("renameIds") || client.contains("erpLive"), "no list kept from an earlier Save, and no bench question: a live pair is no way round S5")
         val save = between(main, "onSave = { newName ->", "blocker = deleteBlocker")
         assertTrue(save.contains("if (t.kind == \"client\" && renameRoute(t) is RenameRoute.S5) renameClient(t, newName)"))
         val go = between(main, "fun renameClient(t: RenameTarget, newName: String) {", "renaming?.let { t ->")
-        val check = go.indexOf("ClientNames.typed(newName)"); val read = go.indexOf("S5Masters.fetch("); val send = go.indexOf("ClientRename.rename(context, s5.writes, name)")
+        val check = go.indexOf("ClientNames.typed(newName)"); val read = go.indexOf("S5Masters.fetch("); val send = go.indexOf("ClientRename.rename(context, writes, name)")
         assertTrue(check in 0 until read && read < send, "the name is checked before anything is sent, and S5's list is read first")
-        assertTrue(go.contains("renameFailed { tx -> tx.refuse_client_name_bad }") && go.contains("renameFailed { tx -> tx.refuse_site_offline }"))
+        assertTrue(go.contains("renameFailed { tx -> tx.refuse_client_name_bad }") && go.contains("renameFailed { tx -> ClientNames.notRead(tx, signedIn) }"))
+        assertFalse(go.contains("tx.refuse_site_offline"), "offline is said by the rule, for a read that failed, and by no other branch")
+        assertEquals(1, count(go, "} else {"), "one else in the Save: the Done branch's")
         val done = between(go, "if (outcome is ClientNames.Outcome.Done) {", "} else {")
         assertTrue(done.contains("ClientRename.finish(context, t.client, stored, sites)") && done.contains("lastResult = { tx -> tx.app_msg_renamed_x(stored) }") && done.contains("closeRename()"))
         val part = go.substringAfter("} else {")
-        assertTrue(part.contains("renameFailed { tx -> ClientNames.text(tx, outcome, titleOf).orEmpty() }"), "said in the dialog, which stays open")
+        assertTrue(part.contains("renameFailed { tx -> ClientNames.text(tx, outcome, titleOf, office).orEmpty() }"), "said in the dialog, which stays open -- with the bench's state first where the bench was told")
         assertFalse(part.contains("ClientRename.finish(") || part.contains("closeRename()") || part.contains("lastResult ="), "not every project took it: nothing is reported as renamed")
         assertTrue(app("TreeShell.kt").contains("RenameRoute.Line.S5 -> ClientNames.s5Line(tx, what)"), "the grey line is the client's own")
+    }
+
+    // ---- the review of slice 5: :app is held to the rules above -----------------------------------------------
+
+    @Test fun `review - the Save follows the rules in their order - the clash, the route's own sentence, the bench first, then S5`() {
+        val main = app("MainActivity.kt")
+        val go = between(main, "fun renameClient(t: RenameTarget, newName: String) {", "renaming?.let { t ->")
+        val read = go.indexOf("S5Masters.fetch(")
+        val clash = go.indexOf("val clash = clientClash(t, name, listed.map { it.client to it.title })")
+        val next = go.indexOf("val next = ClientNames.next(tx, renameRoute(t, listRead = true), t.client)")
+        val asked = go.indexOf("val docname = ClientNames.bench(t.serverId, S5Masters.erpLive(context))")
+        val bench = go.indexOf("ClientRename.bench(context, docname, name, noServer)", asked)
+        val send = go.indexOf("ClientRename.rename(context, writes, name)")
+        assertTrue(read in 0 until clash, "the clash is judged on the list just read")
+        assertTrue(clash < next && next < asked && asked < bench && bench < send, "the bench is told before S5, and both after the refusals")
+        assertTrue(go.contains("val listed = cat.projects(now)") && go.contains("val writes = (next as ClientNames.Next.Send).writes"), "the projects written are the route's, asked after the read")
+        // every route has its branch, and each says the rule's sentence
+        for (branch in listOf("if (next is ClientNames.Next.Here) {", "if (next is ClientNames.Next.Say) {", "if (next is ClientNames.Next.Bench) {"))
+            assertTrue(go.contains(branch), branch)
+        assertEquals(2, count(go, "renameFailed { tx -> Renames.benchRefused(tx, refused) }"), "a bench refusal is the bench's own sentence, on either route to it")
+        assertTrue(between(go, asked.let { "val docname = ClientNames.bench(" }, "val outcome =").contains("return@launch"), "a bench refusal sends nothing to S5")
+        assertFalse(go.contains("renameIds"), "no list is kept from one Save to the next")
+        // the dialog's Save asks the clash first, on the tree as it stands, for every route a client has
+        val save = between(main, "onSave = { newName ->", "blocker = deleteBlocker")
+        val first = save.indexOf("val clash = clientClash(t, newName, cat.projects(masters).map { it.client to it.title })")
+        assertTrue(first in 0 until save.indexOf("renameRoute(t)"), "before any route is followed")
+        val rule = between(main, "fun clientClash(t: RenameTarget, typed: String, rows: List<Pair<String, String>>): Msg? {", "fun renameRoute(")
+        assertEquals(2, count(rule, "ClientNames.refusal(tx, t.client, to, rows, begun)"), "the rule is :pano's, in the live language")
+    }
+
+    @Test fun `review - a client's Save and an upload's record take one gate, and the record's name is read inside it`() {
+        val rename = app("ClientRename.kt")
+        assertTrue(rename.contains("val GATE = Mutex()"))
+        val go = between(app("MainActivity.kt"), "fun renameClient(t: RenameTarget, newName: String) {", "renaming?.let { t ->")
+        val gate = go.indexOf("ClientRename.GATE.withLock {")
+        assertTrue(gate in 0 until go.indexOf("S5Masters.fetch("), "from the read of S5's list")
+        assertTrue(go.indexOf("ClientRename.finish(") > gate, "until the phone's rows have moved")
+        val up = app("AsIsUpload.kt")
+        assertEquals(1, count(up, "ClientRename.GATE.withLock { putRecord() }"), "the upload's first record PUT")
+        val put = between(up, "fun putRecord() {", "ClientRename.GATE.withLock { putRecord() }")
+        assertTrue(put.contains("val named = CaptureStore(ctx).all().firstOrNull { it.deviceId == id }?.customerName ?: c.customerName"), "the capture's row as it is NOW, not as the upload began")
+        assertTrue(put.contains("val sent = ClientNames.recordName(named, customer)"))
+        assertTrue(put.contains("if (sent == null) body.remove(ClientNames.KEY) else body[ClientNames.KEY] = sent"))
+        assertTrue(between(up, "} catch (e: kotlinx.coroutines.CancellationException) {", "} catch (e: Exception) {").contains("throw e"), "a cancelled wait for the gate is not an upload that failed")
+    }
+
+    @Test fun `review - S5's client names go at sign-out, are marked with the login that read them, and are taken only through the claim`() {
+        val home = app("S5Clients.kt")
+        val out = between(app("S5Session.kt"), "fun signOut(context: Context", "\n    }\n")
+        assertTrue(out.contains("S5Clients.forgetAll(context)"), "sign-out empties them")
+        assertTrue(between(app("FrappeClient.kt"), "fun forget(context: Context", "\n        }\n").contains("if (!S5Session.signedIn(context)) S5Clients.forgetAll(context)"),
+            "and so does forgetting the legacy key, where that key was the login")
+        assertTrue(between(home, "fun held(context: Context, project: String)", "fun all(").contains("ClientNames.shown(ownerHeld(context), ownerNow(context), decode("))
+        assertTrue(between(home, "fun all(context: Context)", "fun forget(").contains("if (!ClientNames.kept(ownerHeld(context), ownerNow(context))) return out"))
+        val claim = between(home, "private fun claim(context: Context, listed: Int, keyed: Int): Boolean {", "fun take(")
+        assertTrue(claim.contains("if (ClientNames.forgets(ownerHeld(context), now, listed, keyed)) {") && claim.contains("if (now.isEmpty() || keyed == 0) return false"))
+        assertTrue(home.contains("claim(context, listed = 1, keyed = 1) && takeList(context, listOf(project to copy)) > 0"))
+        assertTrue(home.contains("if (claim(context, listed, rows.size)) takeList(context, rows) else 0"))
+        assertTrue(home.contains("private fun takeList("), "nothing is written but through take and takeRead")
+        assertEquals(2, count(home, "takeList(context, ") - count(home, "fun takeList(context, "), "its two callers")
+        // the mark is the login S5 is called with: the session's, else the legacy key's -- the key alone, never its secret
+        val now = between(home, "private fun ownerNow(context: Context): String = ClientNames.owner(", "private fun ownerHeld(")
+        assertTrue(now.contains("if (S5Session.signedIn(context)) S5Session.loginKey(context) else null,"))
+        assertTrue(now.contains("FrappeClient.authorization(context)?.substringAfter(' ')?.substringBefore(':'))"))
+    }
+
+    @Test fun `review - the bench is told by one call judged on the rename alone, and its masters come back in a call of their own`() {
+        val rename = app("ClientRename.kt")
+        val bench = between(rename, "fun bench(context: Context, docname: String, name: String, noServer: String): String? = try {", "fun refresh(context: Context) {")
+        assertTrue(bench.contains("client.renameNode(\"client\", docname, name)") && !bench.contains("bootstrap()"), "what decided the rename is the rename")
+        assertTrue(bench.contains("e.message.orEmpty()"), "a refusal in the bench's own words")
+        val refresh = between(rename, "fun refresh(context: Context) {", "fun seed(context: Context) {")
+        assertTrue(refresh.contains("bootstrap()") && refresh.contains("S5Masters.fetch(context, erpLive = S5Masters.erpLive(context))"), "S5's list is folded back in")
+        assertEquals(2, count(refresh, "runCatching {"), "never throws")
     }
 }

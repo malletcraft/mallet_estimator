@@ -1155,11 +1155,14 @@ refuse.album.review_pm_only	refuse_album_review_pm_only	static	-
 refuse.album.review_same	refuse_album_review_same	static	-
 refuse.album.review_vendor_only	refuse_album_review_vendor_only	static	-
 refuse.album.same_state	refuse_album_same_state	static	-
+refuse.client.has_project_x	refuse_client_has_project_x	template	client: String · project: String
 refuse.client.left_gone_x	refuse_client_left_gone_x	template	project: String
 refuse.client.left_not_sent_x	refuse_client_left_not_sent_x	template	project: String
 refuse.client.left_renamed_x	refuse_client_left_renamed_x	template	project: String · by: String · client: String
 refuse.client.left_said_x	refuse_client_left_said_x	template	project: String · why: String
 refuse.client.name_bad	refuse_client_name_bad	static	-
+refuse.client.name_reserved	refuse_client_name_reserved	static	-
+refuse.client.office_only_x	refuse_client_office_only_x	template	client: String
 refuse.client.part_x	refuse_client_part_x	template	done: Int · of: Int
 refuse.export.drawing_not_available	refuse_export_drawing_not_available	static	-
 refuse.export.nothing_export_no_marks	refuse_export_nothing_export_no_marks	static	-

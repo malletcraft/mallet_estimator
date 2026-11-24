@@ -437,6 +437,10 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         fun forget(context: Context) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .remove("key").remove("secret").remove("refused").apply()
+            // S5 also takes this key, and the client names it read there are its owner's (the review of port 63
+            // slice 5): they go with the key (S5Clients.forgetAll). Not on a phone signed in to S5 -- there the names
+            // were read by the S5 session, which wins over the key (S5Auth.current), and they are still that login's.
+            if (!S5Session.signedIn(context)) S5Clients.forgetAll(context)
         }
 
         /** THE STORED ERP KEY WAS REFUSED (401/403), set by SyncWorker's ERP

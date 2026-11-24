@@ -42,6 +42,9 @@
 # projects S5 lists (app.client_on_s5_so_new), the bucket that has no name to change (app.client_bucket_not_named), a name S5 would refuse
 # (refuse.client.name_bad) and the honest result when not every project took the name (refuse.client.part_x and its four lines for a project
 # left: refuse.client.left_renamed_x / left_said_x / left_gone_x / left_not_sent_x). 61 in all.
+# The review of port 63 slice 5 (24 Nov 2026) added three (android/docs/port63/DESIGN-tree.md §11.6): a client is not renamed onto another client's project
+# of the same title (refuse.client.has_project_x) nor to the bucket's or the demo's name (refuse.client.name_reserved), and what is said when the bench took
+# the name and S5 left a project behind (refuse.client.office_only_x). 64 in all.
 key	English
 app.client_bucket_not_named	This is not a client: it holds the projects S5 has no client name for, so there is no name here to change.
 app.client_office_record_renamed	This client is the office's record. It is renamed at the office, not from this phone.
@@ -76,11 +79,14 @@ measure.side_left	left side
 measure.side_right	right side
 measure.side_top	top side
 measure.to_nearest_corner	, to its nearest corner
+refuse.client.has_project_x	Not renamed: {client} already has a project called {project}.
 refuse.client.left_gone_x	{project}: S5 does not list this project; not saved
 refuse.client.left_not_sent_x	{project}: not sent
 refuse.client.left_renamed_x	{project}: renamed by {by} meanwhile — now {client}; not saved
 refuse.client.left_said_x	{project}: {why}
 refuse.client.name_bad	A client's name is 1 to 140 characters, on one line; not saved
+refuse.client.name_reserved	Not renamed: that name cannot be a client's — type another.
+refuse.client.office_only_x	The office's record is now {client}, but S5 has not taken the name for every project — Save again. S5's answer:
 refuse.client.part_x	Renamed on {done} of {of} projects
 sp.file.x_mark_x_shape_unreadable	{surface}: mark {code}'s four corners were unreadable, kept as its box
 sp.fine.aria.done	Finish fine move

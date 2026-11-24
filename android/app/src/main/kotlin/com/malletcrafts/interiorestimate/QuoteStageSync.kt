@@ -238,7 +238,7 @@ object QuoteStageSync {
             // so a phone whose masters are an ERP bootstrap's hears S5's names too.
             S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
             // ...and so does S5's CLIENT NAME, for staff (port 63 slice 5): `client_name` and `client_name_at`, kept in S5Clients.
-            S5Clients.takeList(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) })
+            S5Clients.takeRead(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) }, listed = arr.length())
             // Each row read by :pano's own reader (QuoteStage.listedOf): the stage, who and when, S5's null
             // as '', and S5-L's work_states -- absent (an S5 before S5-L) as not read, never "none started".
             val listed = (0 until arr.length()).mapNotNull { i -> QuoteStage.listedOf(JsonRead, arr.opt(i)) }

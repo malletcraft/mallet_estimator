@@ -1098,8 +1098,10 @@ The rules are `pano/ClientNames.kt` (tested by `ClientNamesTest`, which also rea
 ### 11.2 Decided by Claude, not by Amit
 
 1. **`Renames.route` is untouched**; `ClientNames.route` answers first for a client and null means "the routes a
-   client had". With a LIVE ERP pair a client that carries a Customer id keeps the bench rename; with none it is
-   renamed through S5 when S5 lists its projects — the label is not the Customer.
+   client had". ~~With a LIVE ERP pair a client that carries a Customer id keeps the bench rename~~ — superseded by
+   the review (§11.6, fault 1): where S5 holds a name key for a project of the client the rename goes through S5
+   whatever the pair, and the same Save tells the bench. With no pair it is renamed through S5 alone — the label is
+   not the Customer.
 2. **A client's Save always reads S5's list first** (a fifth caller of `S5Masters.fetch`; `TreeKeepTest`'s pin moved
    4 → 5 with the reason beside it): the bases must be S5's names NOW, and "offline" is said before any project is
    touched.
@@ -1123,7 +1125,8 @@ Customer id, or blank.
 
 - **The projects under "(no client)" cannot be named from the phone** unless some phone still holds their client's
   name (its backfill sends it). A way to give such a project its client is not built.
-- **A bench client rename (live pair) does not tell S5**, and S5's name then wins on the tree. No phone holds a pair.
+- ~~**A bench client rename (live pair) does not tell S5**, and S5's name then wins on the tree. No phone holds a
+  pair.~~ Closed by the review (§11.6, fault 1): it was a fault, not a note — the screen said "Renamed".
 - **A bootstrap `sites` row with NO linked project** keeps the bench's own customer name, so on a phone whose masters
   are a bootstrap's it can stay behind as an empty site of the old client after another phone's rename.
 - **A wish list kept under `local:<client>|<title>`** follows a completed Save on this phone only; a name taken from
@@ -1138,3 +1141,91 @@ Customer id, or blank.
   harness. The least sure lines: `MainActivity`'s `onSave` (`if (…) renameClient(t, newName) else when (…)`) and
   the `renameClient` coroutine; `Catalogue`'s `clients()` / `snapshot` / `ServerSites.owners`; `S5Clients.takeList`.
 - **S5 was not called.** The answers `ClientNamesTest` reads are written from S5's source at `5772723`, not captured.
+
+### 11.6 Review and fixes
+
+24 Nov 2026 (IST), one commit over `f01a2ac` (`:pano` 118 classes, 1,723 tests → 118 and 1,735). A behaviour review
+of slice 5 found seven faults; each was checked against the code first and all seven were real. Every decision
+touched is now a pure function in `pano/ClientNames.kt`, tested in `ClientNamesTest` by cases; the source pins there
+only hold `:app` to calling it.
+
+**Found, and what was done**
+
+1. **A bench rename was overridden by S5's old name while the screen said "Renamed".** `ClientNames.route` answered
+   null for a bench Customer with a live pair, so the bench alone was renamed and the tree, which reads S5's name
+   first, went on showing the old one. Now the route has no bench question: wherever S5 gives a name key for a
+   project of the client the rename goes to S5, and the same Save tells the bench (`ClientNames.bench`,
+   `ClientRename.bench`). **The bench is told FIRST**: `rename_node` refuses a name another Customer holds, and a
+   refusal there leaves S5 untouched and is said in the bench's own words. Told the name it already has it answers
+   the same, so a repeated Save harms nothing. When the bench took the name and S5 then left a project behind, the
+   dialog stays open and its first line says so (`refuse.client.office_only_x`), with S5's own lines under it —
+   never "Renamed".
+2. **A client could be renamed onto an existing client's name.** `ClientNames.refusal` is asked at Save before any
+   route (S5's, the bench's, the phone's own row) and again on the list the Save reads: refused, before anything is
+   sent, when the target client already lists a project with the title of one of this client's
+   (`refuse.client.has_project_x` — the site move's `twin` rule and wording pattern). **A rename onto an existing
+   client with NO title in common is a merge, and it is allowed** (decided by Claude): every project keeps its own
+   S5 key and title, the rows are filed by client and title, so each is still found; S5 holds a name per project and
+   has no client entity to collide. The bucket's name and the demo client's are refused as a target
+   (`refuse.client.name_reserved`): a client given the bucket's name could never be renamed again.
+3. **Staff-only names survived a sign-out.** `S5Clients` now carries a mark of the login that read the names
+   (`ClientNames.owner`: a digest of the S5 login, else of the legacy key — the key alone, never its secret). `held`
+   and `all` give nothing to any other login or to a signed-out phone (`ClientNames.shown`, `kept`), so the tree
+   shows none and the backfill, which sends only for a project S5 gave THIS login a key for, sends nothing. The file
+   is emptied at sign-out (`S5Session.signOut`; `FrappeClient.forget` where the key was the login), at the first
+   answer taken for another login, and by a read of S5's list that names projects and carries the key on none of
+   them — a login that is not staff (`ClientNames.forgets`; `S5Clients.takeRead` replaces the feeders' `takeList`).
+4. **An upload already running could bring the old name back.** Two changes, neither a loop: the record's
+   `client_name` is read WHEN THE RECORD IS SENT, from the capture's own row as it stands then
+   (`AsIsUploadWorker.putRecord`), and a client's Save and an upload's first record PUT take one gate
+   (`ClientRename.GATE`, a `Mutex`). So a record lands either before the Save reads S5's list — its project is then
+   renamed with the rest — or after the phone's rows moved, carrying the new name.
+5. **The second Save reused the first Save's project list.** `clientRoute` no longer reads `renameIds`: the client's
+   projects are worked out at every asking from the tree as it is then (`ClientNames.writes`), so after "1 of 2" the
+   project that took the name is not sent again, one another phone gave the old client meanwhile is, and one S5 no
+   longer lists is not sent to be refused.
+6. **"Offline" was said for every route that was neither S5 nor shut**, with the list read a second before.
+   `ClientNames.next` turns the route asked after the read into what the Save does — send, rename the phone's own
+   row, the bench alone (judged on the bench's answer), or say the route's own sentence — and `ClientNames.notRead`
+   says offline only for a read that failed (the sign-in line where the phone holds nothing to call S5 with).
+7. **Tests**: twelve new, by cases — the route with a bench Customer and a live pair, the bench-took-S5-left line,
+   the second Save healing a partial with a project added between Saves, the clash / merge / reserved-name /
+   own-partial cases, what a signed-out phone, the next person and a non-staff list are shown and send, and every
+   route's answer after the read.
+
+Three texts, English first (`android/i18n/README.md`, "Port 63 slice 5, its review"; `mr-pending.tsv` 61 → 64).
+
+**Left**
+
+- **A partial rename of a client that has TWO projects of one title, whose dialog was then closed**: the project that
+  moved now sits under the new name, so finishing the rename from a new dialog is refused as a clash. While the
+  dialog stays open the Save that finishes it is let through (`refusal`'s `begun`). Closed, there is no way to
+  finish it from the phone — renaming back is the same clash — and the project left behind is named by S5's own
+  route (the data steward). It needs all three: two projects of one title under one client (V15's one-row-by-name
+  case already), a Save that S5 took in part, and the dialog closed on it. A partial with no such twin is finished
+  from a new dialog, as a merge.
+- **Only one bench Customer is told**: the client's row carries the first project's Customer id. A client name that
+  groups projects of two Customers renames one at the bench.
+- **A bench refusal stops the S5 rename** also where the Customer id on the row is another record's than the label
+  suggests. It is said as the bench's; nothing is sent.
+- **The bench took the name and S5 took none** (no signal after the first call): said, with the offline line; healed
+  by Save again. Closed without it, the office's record carries the new name and S5 the old until somebody renames
+  again — the tree shows S5's.
+- **The gate is this phone's.** Another phone's upload is S5's to order: S5 takes a record's name only while it
+  holds none, so the worst case is a project S5 had not listed arriving under the old name from another phone —
+  heard at the next list read as a second client, never reported here as renamed and then reverted.
+- **The backfill is not under the gate.** It writes with base `""` only, so beside a Save it either loses with a 409
+  and takes S5's name, or makes that project's write stale — a partial that is said and healed by Save again.
+- **Names already filed stay filed after sign-out**: a capture row, a row made on the phone and a remembered key
+  that FOLLOWED S5's name keep it. Sign-out clears what S5 told (`S5Clients`, the masters); it does not rewrite the
+  phone's own rows.
+- **A list read in flight across a sign-out and a sign-in as someone else** would be marked as the new login's. The
+  window is one request.
+
+**Not proven**
+
+- `:app` was not compiled here. The least sure lines: `renameClient`'s `return@launch` inside
+  `ClientRename.GATE.withLock { … }`; `clientClash` returning a lambda as `Msg?`; `putRecord()` writing into `body`
+  and reading the `var c`; `S5Clients.take`'s `claim(…) && takeList(…) > 0`; the `CancellationException` catch
+  in `AsIsUploadWorker.doWork`.
+- Nothing was seen on a phone, and neither S5 nor the bench was called.

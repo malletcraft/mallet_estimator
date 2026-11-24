@@ -9640,6 +9640,20 @@
    "phone-text"
   ]
  },
+ "refuse.client.has_project_x": {
+  "en": "Not renamed: {client} already has a project called {project}.",
+  "where": [
+   "S2 APK phone text · ClientNames.kt refusal at f01a2ac+S5fix · Shell · the rename dialog of a CLIENT after the review of slice 5 (port 63, 24 Nov 2026; DESIGN-tree §11.6): under the name field, in red, before anything is sent: the name typed is another client's, and that client already lists a project with the title of one of this client's -- two projects of one client and one title could not be told apart again · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "client": "the other client's name as the tree lists it (data)",
+   "project": "the project's title as the tree lists it (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "refuse.client.left_gone_x": {
   "en": "{project}: S5 does not list this project; not saved",
   "where": [
@@ -9701,6 +9715,29 @@
    "S2 APK phone text · ClientNames.kt ok at 26b3653+S5c · Shell · the rename dialog of a CLIENT whose projects S5 lists (port 63 slice 5, 24 Nov 2026; DESIGN-tree §11): under the name field, before anything is sent: a name S5 would refuse (empty, over 140 characters, or carrying a control character) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
   ],
   "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.name_reserved": {
+  "en": "Not renamed: that name cannot be a client's — type another.",
+  "where": [
+   "S2 APK phone text · ClientNames.kt refusal at f01a2ac+S5fix · Shell · the rename dialog of a CLIENT after the review of slice 5 (port 63, 24 Nov 2026; DESIGN-tree §11.6): under the name field, in red, before anything is sent: the name typed is the (no client) bucket's or the demo client's · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.client.office_only_x": {
+  "en": "The office's record is now {client}, but S5 has not taken the name for every project — Save again. S5's answer:",
+  "where": [
+   "S2 APK phone text · ClientNames.kt text at f01a2ac+S5fix · Shell · the rename dialog of a CLIENT after the review of slice 5 (port 63, 24 Nov 2026; DESIGN-tree §11.6): under the name field, the first line when the client is also a bench Customer with a live ERP pair: the bench took the name and S5 then left a project behind; S5's own lines follow it (refuse.client.part_x and its lines, or the one sentence of refuse.site.*) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "client": "the name the bench took, as typed (data)"
+  },
   "flags": [
    "phone-text"
   ]

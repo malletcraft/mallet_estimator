@@ -3801,6 +3801,10 @@
  "refuse.album.same_state": {
   "mr": "आधीपासूनच त्या स्थितीत आहे"
  },
+ "refuse.client.has_project_x": {
+  "mr": "Not renamed: {client} already has a project called {project}.",
+  "note": "port 63 slice 5, its review: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "refuse.client.left_gone_x": {
   "mr": "{project}: S5 does not list this project; not saved",
   "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
@@ -3820,6 +3824,14 @@
  "refuse.client.name_bad": {
   "mr": "A client's name is 1 to 140 characters, on one line; not saved",
   "note": "port 63 slice 5: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.name_reserved": {
+  "mr": "Not renamed: that name cannot be a client's — type another.",
+  "note": "port 63 slice 5, its review: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "refuse.client.office_only_x": {
+  "mr": "The office's record is now {client}, but S5 has not taken the name for every project — Save again. S5's answer:",
+  "note": "port 63 slice 5, its review: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "refuse.client.part_x": {
   "mr": "Renamed on {done} of {of} projects",

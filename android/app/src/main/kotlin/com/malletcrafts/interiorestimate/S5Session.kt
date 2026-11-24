@@ -217,6 +217,9 @@ object S5Session {
         }
         S5Masters.forget(context)
         AlbumSync.forgetAll(context)
+        // S5's client names are staff's, read by this login (the review of port 63 slice 5): they go with it, so the
+        // next person on this phone -- or nobody -- is shown none of them and backfills none (S5Clients.forgetAll).
+        S5Clients.forgetAll(context)
         if (cookie != null) Thread {
             runCatching { AsIsUpload.exchange("POST", url("/api/auth/logout"), cookie, null, null) }
         }.start()
@@ -350,7 +353,7 @@ object S5Masters {
         // S5's CLIENT NAME for each project rides the same list, for staff (port 63 slice 5): kept in S5Clients, which
         // the tree reads first and where this phone's own rows of the project follow the name. Before the captures
         // are read below, so the entries built here already carry it.
-        S5Clients.takeList(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) })
+        S5Clients.takeRead(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) }, listed = arr.length())
         val store = CaptureStore(context)
         val captures = store.all()
         // The keys this phone remembers, with every capture's own taken in first (S5Keys): the client and title of a

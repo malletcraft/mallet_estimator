@@ -7,6 +7,7 @@ import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.TreeKeep
 import com.malletcrafts.interiorestimate.pano.WishList
+import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 
 /**
@@ -18,11 +19,27 @@ import org.json.JSONObject
  *
  * `client_name` is a LABEL: nothing here sends, reads or changes `customer`, the ERP Customer id.
  *
+ * Where the client is ALSO a bench Customer and this phone holds a live ERP pair, the same Save tells the bench
+ * ([bench], asked by ClientNames.bench; the review of slice 5): the two stores are written together or the dialog
+ * says which one was not.
+ *
  * Blocking; call off the main thread. Never throws.
  */
 object ClientRename {
 
     private const val TAG = "ClientRename"
+
+    /**
+     * ONE AT A TIME: a client's Save, and an upload's record (the review of slice 5, fault 4). A record carries the
+     * client's name as its project's FIRST name on S5, and an upload already running used to read that name before
+     * a rename finished and send it after: a project S5 had never listed then arrived under the OLD name, and the
+     * client just reported as renamed was back beside the new one. The Save holds this from its read of S5's list
+     * until the phone's rows have moved ([finish]); the upload holds it for its record PUT, and reads the name it
+     * sends inside it (AsIsUploadWorker's putRecord). So either the record lands first and the list read finds its
+     * project -- renamed with the rest -- or the name it carries is read after the rows moved, and is the new one.
+     * This phone only: another phone's upload is S5's to order, and S5 gives a first name only while it holds none.
+     */
+    val GATE = Mutex()
 
     /** One `PUT …/client`. With a signed-in S5 session a 401 is answered by one fresh login and one retry, as every S5 write does. */
     private fun put(context: Context, auth: String, project: String, name: String, base: String): Renames.Verdict = try {
@@ -89,6 +106,31 @@ object ClientRename {
         } catch (e: Exception) {
             Log.w(TAG, "rows under the old client name not moved: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
         }
+    }
+
+    /**
+     * THE BENCH IS TOLD THE NAME of a client that is also its Customer [docname] (ClientNames.bench: a live ERP pair,
+     * a bench docname). Judged on the rename alone: null when the bench took [name], else why it did not, in the
+     * bench's own words ('' when it gave none) -- [noServer] where no pair is stored after all. The bench refuses a
+     * name another Customer holds; told the name it already has, it answers as for a rename (rename_node keeps the
+     * docname and sets the name).
+     */
+    fun bench(context: Context, docname: String, name: String, noServer: String): String? = try {
+        val client = FrappeClient.load(context) ?: throw IllegalStateException(noServer)
+        client.renameNode("client", docname, name) // text:value the wire kind
+        null
+    } catch (e: Exception) {
+        e.message.orEmpty()
+    }
+
+    /**
+     * AFTER THE BENCH TOOK A NAME: its masters are pulled back so the change shows without a sync -- in a call of
+     * their own, never part of what decided the rename (audit R6) -- and S5's list is folded back into them, since a
+     * bootstrap replaces the projects only S5 lists. Never throws; a refresh that fails leaves the next sync to do it.
+     */
+    fun refresh(context: Context) {
+        runCatching { FrappeClient.load(context)?.bootstrap()?.let { CaptureStore(context).saveMasters(it) } }
+        runCatching { S5Masters.fetch(context, erpLive = S5Masters.erpLive(context))?.let { CaptureStore(context).saveMasters(it) } }
     }
 
     /**

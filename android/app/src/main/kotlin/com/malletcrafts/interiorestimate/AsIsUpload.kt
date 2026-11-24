@@ -12,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.AsIsPath
+import com.malletcrafts.interiorestimate.pano.ClientNames
 import com.malletcrafts.interiorestimate.pano.Features
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.TourDemo
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.withLock
 
 /**
  * AS-IS CAPTURE, END TO END (contract of 2026-10-11, slice 1): a saved survey
@@ -489,13 +491,25 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             // one (the web's value wins, as always). What stays open, and is not patched over here: a record PUT that
             // lands but whose answer is lost (a timeout) is `created: false` on the retry too; telling that case apart
             // needs a signal of its own (a GET by both names before the first PUT) -- a design choice for Amit.
+            // THE CLIENT'S NAME IS READ WHEN THE RECORD IS SENT (the review of port 63 slice 5, fault 4): from the
+            // capture's own row as it stands NOW, not from the copy this job took when it started. A client rename
+            // moves that row (ClientRename.finish, S5Clients), and a job already running used to send the old name
+            // after it -- as the first name of a project S5 had not listed, so the client came back under it.
             fun putRecord() {
+                val named = CaptureStore(ctx).all().firstOrNull { it.deviceId == id }?.customerName ?: c.customerName
+                val sent = ClientNames.recordName(named, customer)
+                if (sent == null) body.remove(ClientNames.KEY) else body[ClientNames.KEY] = sent
                 val record = JSONObject(body as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
                 val answer = JSONObject(AsIsUpload.send("PUT", recordUrl, auth, record, "application/json; charset=utf-8"))
                 val created = answer.optBoolean("created", false)
                 if (created) ReadingsSync.forget(ctx, id)
             }
-            putRecord()
+            // ...and the first PUT, the one that can CREATE the project on S5, waits for a client's Save in flight and
+            // holds off the next (ClientRename.GATE): either this record lands before that Save reads S5's list -- and
+            // its project is renamed with the rest -- or its name is read after the phone's rows moved. The PUT after
+            // a refused photo needs no gate: the project is on S5 by then, and S5 takes a record's name only while it
+            // holds none.
+            ClientRename.GATE.withLock { putRecord() }
 
             // THEN THE PHOTOS, each under the capture. S5 keeps no photo that no record owns, so a 404 here means the
             // record is not on the web (deleted there since the PUT above): not done, not refused -- the job runs
@@ -578,6 +592,10 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
         } catch (e: OutOfMemoryError) {
             AsIsUpload.setState(ctx, id, "error", UploadNote.NO_MEMORY)
             Result.retry()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // The job was stopped while it waited its turn at ClientRename.GATE -- the one place in here that
+            // suspends: that is not an upload's failure, and no note is written for it. WorkManager runs it again.
+            throw e
         } catch (e: Exception) {
             AsIsUpload.setState(ctx, id, "error", (e.message ?: e.javaClass.simpleName).take(200))
             Result.retry()

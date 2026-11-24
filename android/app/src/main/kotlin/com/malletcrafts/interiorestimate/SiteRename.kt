@@ -88,7 +88,7 @@ object SiteRename {
         val arr = o.getJSONArray("projects")
         S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
         // the same rows carry S5's client name for each project, for staff (port 63 slice 5): kept in S5Clients
-        S5Clients.takeList(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) })
+        S5Clients.takeRead(context, (0 until arr.length()).mapNotNull { i -> ClientNames.listedOf(JsonRead, arr.opt(i)) }, listed = arr.length())
         true
     } catch (e: Exception) {
         Log.w(TAG, "site names not read from S5: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line

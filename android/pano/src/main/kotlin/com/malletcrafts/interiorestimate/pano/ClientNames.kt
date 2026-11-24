@@ -39,6 +39,19 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * A PROJECT'S OWN TITLE is still not renamed where S5 holds the project: S5 has no route for a title, and the
  * dialog stays shut with slice F4b's reason ([Renames.heldByS5]). Only the client's name moved.
  *
+ * THE REVIEW OF SLICE 5 (24 Nov 2026; DESIGN-tree.md §11.6) added what a Save decides beyond the route:
+ *
+ *  - S5 AND THE BENCH ARE BOTH WRITTEN where both hold the client ([bench]): the bench first -- it refuses a name
+ *    another Customer holds, and then nothing has been sent anywhere -- then S5; what S5 then leaves is said with
+ *    the bench's state in front ([text] with `office`), and never as "Renamed".
+ *  - A CLIENT IS NEVER RENAMED ONTO ANOTHER CLIENT'S PROJECT OF THE SAME TITLE ([refusal]): the phone finds an S5
+ *    project by client and title, so two projects under one such pair cannot be told apart again.
+ *  - THE NAMES ARE STAFF'S, AND ONE LOGIN'S ([owner], [kept], [forgets], [shown]): kept for the login that read
+ *    them and for nobody else -- not for a signed-out phone, the next person, or a login S5 gives no name to.
+ *  - EVERY SAVE STARTS FROM THE LIST JUST READ ([writes]): the client's projects are worked out again each time.
+ *  - AFTER THE LIST READ ONLY WHAT IS TRUE IS SAID ([next], [notRead]): "offline" when the read failed, and
+ *    otherwise the route's own answer.
+ *
  * Pure JVM: every rule here is tested in ClientNamesTest; :app only stores, sends and draws.
  */
 object ClientNames {
@@ -154,36 +167,169 @@ object ClientNames {
      * WHERE A CLIENT'S RENAME GOES, asked BEFORE [Renames.route]; null means "not S5's -- the routes a client had"
      * (the phone's own row, the bench with a live pair, or shut with slice F4b's reasons).
      *
-     * @param name       the client as the tree lists it
-     * @param customerId the ERP Customer id its projects carry, '' for none
-     * @param erpLive    whether this phone holds a LIVE ERP pair ([TreeKeep.erpLive])
-     * @param writes     the client's projects that S5 lists AND gives a client-name key for, each with S5's own name
-     *                   for it as the base ('' while S5 holds none)
-     * @param signedIn   whether this phone holds anything to call S5 with
-     * @param listRead   S5's list has just been read for this Save, so [writes] and their bases are S5's own answer
+     * @param name     the client as the tree lists it
+     * @param writes   the client's projects that S5 lists AND gives a client-name key for, each with S5's own name
+     *                 for it as the base ('' while S5 holds none) ([writes])
+     * @param signedIn whether this phone holds anything to call S5 with
+     * @param listRead S5's list has just been read for this Save, so [writes] and their bases are S5's own answer
      *
      *  - No such project: null. A client whose projects are only on this phone, only on their way to S5, or listed
      *    by an S5 that keeps no client name is not renamed through S5.
      *  - The demo client: null. The "(no client)" bucket: shut -- a bucket has no name to change, and a rename would
      *    name every unnamed project at once.
-     *  - A bench Customer with a live pair: null -- the bench rename a client had ([RenameRoute.Legacy]).
      *  - Signed out: said at once, nothing sent.
      *  - Else [RenameRoute.S5], one write per project. It ALWAYS reads S5's list first ([RenameRoute.S5.readFirst]
      *    until [listRead]): each base must be the name S5 holds NOW, a project another phone gave this client since
      *    the last read is renamed with the rest, and "offline" is said before anything is sent.
+     *
+     * A BENCH CUSTOMER WITH A LIVE PAIR IS NO WAY ROUND S5 (the review of slice 5, fault 1). It used to answer null
+     * here -- "the bench rename it had" -- so the bench alone was renamed, the screen said "Renamed", and the tree,
+     * which reads S5's name first, went on listing the client under the name S5 still held; the next read of S5's
+     * list moved the phone's rows back to it. Wherever S5 holds a name key for a project of the client the rename
+     * goes to S5, and the bench is told beside it ([bench]).
      */
     fun route(
-        tx: Tx, name: String, customerId: String, erpLive: Boolean, writes: List<RenameRoute.Write>,
-        signedIn: Boolean, listRead: Boolean = false,
+        tx: Tx, name: String, writes: List<RenameRoute.Write>, signedIn: Boolean, listRead: Boolean = false,
     ): RenameRoute? {
         val ws = writes.filter { it.project.isNotBlank() }.distinctBy { it.project }
         if (ws.isEmpty() || name.isBlank() || key(name) == key(TourDemo.CLIENT)) return null
         if (!named(name)) return RenameRoute.Blocked(tx.app_client_bucket_not_named, RenameRoute.Line.SHUT)
-        val id = customerId.trim()
-        if (erpLive && id.isNotEmpty() && !Renames.minted(id)) return null
         if (!signedIn) return RenameRoute.Blocked(tx.refuse_site_signed_out, RenameRoute.Line.S5)
         return RenameRoute.S5(ws, readFirst = !listRead)
     }
+
+    /**
+     * THE CLIENT'S PROJECTS A SAVE WRITES, worked out again AT EVERY SAVE (the review of slice 5, fault 5): [keys]
+     * are the S5 projects the tree lists under the client NOW -- after the read of S5's list that Save made -- and
+     * [held] gives S5's own name for each (null where S5 gave this login no client-name key: not a write). One
+     * write per project, each with that project's own base.
+     *
+     * The first Save's list used to be kept for the dialog's later Saves. After "1 of 2" the project that took the
+     * name is the new client's and is not sent again; a project another phone gave the old client meanwhile IS
+     * sent; and one S5 no longer lists is not sent to be refused.
+     */
+    fun writes(keys: Collection<String>, held: (String) -> Renames.Held?): List<RenameRoute.Write> =
+        keys.map { it.trim() }.filter { it.isNotEmpty() }.distinct().mapNotNull { id -> held(id)?.let { RenameRoute.Write(id, it.site) } }
+
+    /**
+     * THE BENCH CUSTOMER THE SAME SAVE MUST ALSO RENAME (the review of slice 5, fault 1): [customerId] when this
+     * phone holds a LIVE ERP pair ([erpLive], [TreeKeep.erpLive]) and the id is a bench docname -- not blank, not a
+     * phone-minted `S5-…` key; null otherwise, and then S5 alone holds the client's name.
+     *
+     * The bench is told FIRST. It refuses a name another Customer already holds, and a refusal there leaves S5
+     * untouched: nothing was renamed anywhere, and it is said in the bench's own words ([Renames.benchRefused]).
+     * Told the same name twice it answers the same (rename_node sets the Customer's name and keeps its docname), so
+     * a Save repeated after S5 left a project behind tells it again and harms nothing.
+     */
+    fun bench(customerId: String, erpLive: Boolean): String? {
+        val id = customerId.trim()
+        return id.takeIf { erpLive && it.isNotEmpty() && !Renames.minted(it) }
+    }
+
+    // ---- what a Save does once S5's list has been read ----------------------------------------------------------
+
+    /** What a client's Save does next, S5's list having been read for it ([next]). */
+    sealed interface Next {
+        /** One `PUT …/client` for each of [writes] -- after the bench, where the client is also a bench Customer ([bench]). */
+        data class Send(val writes: List<RenameRoute.Write>) : Next
+
+        /** S5 lists no project of the client any more and a row made here carries it: renamed on the phone. */
+        data object Here : Next
+
+        /** S5 lists no project of the client any more and it is a bench Customer with a live pair: the bench alone, judged on the bench's answer. */
+        data class Bench(val docname: String) : Next
+
+        /** Nothing is sent, and [reason] is why -- the route's own sentence. */
+        data class Say(val reason: String) : Next
+    }
+
+    /**
+     * THE ROUTE ASKED AGAIN AFTER THE LIST READ, as what the Save then does (the review of slice 5, fault 6). Every
+     * route has its own answer: the dialog used to say "Offline" for any route that was neither S5 nor shut -- with
+     * the list read a second before -- and the bench route was one of them.
+     *
+     * @param route the answer of [route], else of [Renames.route] for a client, with the list read
+     * @param name  the client as the tree lists it
+     */
+    fun next(tx: Tx, route: RenameRoute, name: String): Next = when (route) {
+        // an S5 route with nothing to write is no rename (neither rule gives one for a client; said, never sent)
+        is RenameRoute.S5 -> if (route.writes.isEmpty()) Next.Say(Renames.nothingRenamed(tx, "client", name)) else Next.Send(route.writes) // text:value the wire kind
+        RenameRoute.Local -> Next.Here
+        is RenameRoute.Legacy -> Next.Bench(route.docname)
+        is RenameRoute.Blocked -> Next.Say(route.reason)
+    }
+
+    /** S5's list could not be read for a Save: the sign-in line where this phone holds nothing to call S5 with, else the offline line. Nothing was sent. */
+    fun notRead(tx: Tx, signedIn: Boolean): String = if (signedIn) tx.refuse_site_offline else tx.refuse_site_signed_out
+
+    // ---- a client is never renamed onto another client's project of the same title ------------------------------
+
+    /**
+     * WHY [from] CANNOT BE RENAMED TO [to], asked before anything is sent and again on the list a Save read (the
+     * review of slice 5, fault 2); null when it can.
+     *
+     *  - [to] is the "(no client)" bucket or the demo client: refused. Neither is a client's name -- the bucket
+     *    cannot be renamed at all, so a client given its name could never be given another.
+     *  - [to] ALREADY LISTS A PROJECT WITH THE TITLE OF ONE OF [from]'s: refused, naming it. The phone finds a
+     *    project by its client and title (S5Auth.keyFor, the remembered keys, the capture rows), so two projects
+     *    under one client with one title cannot be told apart again: the next capture of either goes to whichever
+     *    is found first. The site move refuses its like ([Renames.moveRoute]'s `twin`).
+     *  - A rename onto an existing client with NO title in common is a MERGE, and it is allowed: every project
+     *    keeps its own key and title, so each row, capture and wish list is still found under the one name.
+     *  - A change of case or spacing alone is the same client, never a clash with itself.
+     *
+     * @param rows  every project the tree lists, as client to title
+     * @param begun the name THIS dialog has already begun giving the client (a Save that S5 took for some projects,
+     *              or the bench took): the projects that moved are the client's own, so the Save that finishes the
+     *              rename is not refused for them. Null when the dialog has sent nothing.
+     */
+    fun refusal(tx: Tx, from: String, to: String, rows: List<Pair<String, String>>, begun: String? = null): String? {
+        val target = to.trim()
+        if (target.isEmpty() || key(target) == key(from)) return null
+        if (!named(target) || key(target) == key(TourDemo.CLIENT)) return tx.refuse_client_name_reserved
+        if (begun != null && key(begun) == key(target)) return null
+        val mine = rows.filter { key(it.first) == key(from) }.map { key(it.second) }.toSet()
+        val twin = rows.firstOrNull { key(it.first) == key(target) && key(it.second) in mine } ?: return null
+        return tx.refuse_client_has_project_x(client = twin.first.trim(), project = twin.second.trim())
+    }
+
+    // ---- whose the names are: staff's, and one login's ----------------------------------------------------------
+
+    /**
+     * THE LOGIN S5 IS CALLED WITH, AS A MARK kept beside the names (the review of slice 5, fault 3): the S5 session's
+     * login while this phone is signed in to S5 ([s5Login], null or blank when it is not), else the legacy ERP key
+     * S5 also takes ([erpKey], the key alone, never its secret); '' when the phone holds neither. A digest, so the
+     * mark names nobody: it is only ever compared.
+     */
+    fun owner(s5Login: String?, erpKey: String?): String {
+        val s = s5Login?.trim()?.lowercase().orEmpty()
+        val k = erpKey?.trim().orEmpty()
+        val who = if (s.isNotEmpty()) "s5:$s" else if (k.isNotEmpty()) "erp:$k" else return "" // text:value the two kinds of login, hashed
+        val d = java.security.MessageDigest.getInstance("SHA-256").digest(who.toByteArray(Charsets.UTF_8)) // text:value the digest's name
+        return d.joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }.take(24)
+    }
+
+    /**
+     * Whether names read by [heldBy] (the mark kept with them; null when none is) may be SHOWN TO, AND SENT FOR,
+     * the login [now]: only to the login that read them. S5 gives a client's name to MCFT staff alone, so what one
+     * login read is not the next person's to see -- nor a signed-out phone's ([now] '').
+     */
+    fun kept(heldBy: String?, now: String): Boolean = now.isNotEmpty() && heldBy == now
+
+    /**
+     * Whether everything held is FORGOTTEN before an answer of S5's is taken: the names are another login's
+     * ([kept]), or this read of S5's list named [listed] projects and gave a client-name key on NONE of them
+     * ([keyed] 0) -- the login is not staff, and S5 tells it no client's name. An empty list says nothing.
+     */
+    fun forgets(heldBy: String?, now: String, listed: Int, keyed: Int): Boolean =
+        !kept(heldBy, now) || (listed > 0 && keyed == 0)
+
+    /**
+     * S5's name for one project as the login [now] is given it: [held] only where the names are that login's
+     * ([kept]). So the tree shows none of them to anybody else, and the backfill ([seed], which sends only for a
+     * project S5 gave a key for) sends nothing for a login S5 gave none.
+     */
+    fun shown(heldBy: String?, now: String, held: Renames.Held?): Renames.Held? = held.takeIf { kept(heldBy, now) }
 
     /** The grey line of a rename that goes to S5, per kind: the client's own sentence, else the site's. */
     fun s5Line(tx: Tx, kind: String): String =
@@ -307,5 +453,15 @@ object ClientNames {
                 }
             }).joinToString("\n")
         }
+    }
+
+    /**
+     * [text] for a client that is ALSO a bench Customer (the review of slice 5, fault 1): [office] is the name the
+     * bench took just before S5 was written, null when the bench was not told. S5 left a project behind, so the two
+     * do not agree yet -- said first, in one line, then S5's own lines. Null when S5 took the name for every project.
+     */
+    fun text(tx: Tx, o: Outcome, titleOf: (String) -> String, office: String?): String? {
+        val s5 = text(tx, o, titleOf) ?: return null
+        return if (office == null) s5 else tx.refuse_client_office_only_x(office) + "\n" + s5
     }
 }
